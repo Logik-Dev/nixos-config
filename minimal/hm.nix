@@ -31,13 +31,17 @@
     nix.registry = {
       "my".flake = flake;
     };
-	programs.git = {
-		enable = true;
-		userName = "Logik-Dev";
-		signing = {
-		  key = "F5A34D392D22853E7EB1FA85AC259B4007CB7CE9";
-			signByDefault = true;
-		};
-	};
+    programs.git = {
+      enable = true;
+      userName = "Logik-Dev";
+      userEmail = "logikdevfr@gmail.com";
+      signing = {
+        key = "F5A34D392D22853E7EB1FA85AC259B4007CB7CE9";
+        signByDefault = true;
+      };
+      aliases = {
+        gcam = "git commit -m";
+      };
+    };
   };
 }
