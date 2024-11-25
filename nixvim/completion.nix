@@ -31,7 +31,6 @@
       };
       completion.enabled_providers = [
         "lsp"
-        "luasnip"
         "buffer"
         "path"
         "git"

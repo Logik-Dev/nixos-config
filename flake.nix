@@ -9,9 +9,9 @@
     flake-root.url = "github:srid/flake-root";
 
     git-hooks-nix = {
-    	url = "github:cachix/git-hooks.nix";
-			inputs.nixpkgs.follows = "nixpkgs";
-		};
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -44,14 +44,12 @@
           ./nixvim/pkg.nix
           inputs.treefmt-nix.flakeModule
           inputs.flake-root.flakeModule
-					inputs.git-hooks-nix.flakeModule
+          inputs.git-hooks-nix.flakeModule
         ];
 
         perSystem =
           {
             config,
-            self',
-            inputs',
             pkgs,
             system,
             ...
@@ -70,20 +68,20 @@
                 statix.enable = true;
               };
             };
-						
-						pre-commit.settings.hooks.nixfmt-rfc-style.enable = true;
 
-						devShells.default = pkgs.mkShell {
-							            shellHook = ''
-              ${config.pre-commit.installationScript}
-              echo 1>&2 "Welcome to the development shell!"
-            '';
-						};
+            pre-commit.settings.hooks.nixfmt-rfc-style.enable = true;
+
+            devShells.default = pkgs.mkShell {
+              shellHook = ''
+                ${config.pre-commit.installationScript}
+              '';
+            };
           };
 
         flake = {
           nixosModules = {
             minimal = import ./minimal/nixos.nix { };
+            desktop = import ./desktop/nixos.nix;
           };
 
           hmModules = {

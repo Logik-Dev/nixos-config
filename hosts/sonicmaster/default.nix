@@ -15,6 +15,7 @@
         ./hardware-configuration.nix
         ./nixos.nix
         minimal
+        desktop
       ];
       hmModules = with self.hmModules; [
         ./hm.nix

@@ -19,6 +19,7 @@
       enableZshIntegration = true;
       nix-direnv.enable = true;
     };
+
     home.sessionVariables.FLAKE = "/home/logikdev/Parts";
 
     programs.starship = {

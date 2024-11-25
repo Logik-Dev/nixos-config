@@ -1,7 +1,6 @@
 {
   lib,
   pkgs,
-  helpers,
   flake,
   ...
 }:
@@ -26,7 +25,6 @@
         buffer = "[buffer]";
         neorg = "[neorg]";
         nixpkgs_maintainers = "[nixpkgs]";
-
       };
 
     };
@@ -63,8 +61,7 @@
           };
           options =
             let
-              #getFlake = ''(builtins.getFlake "${flake}")'';
-              getFlake = ''(builtins.getFlake "/home/logikdev/Parts")'';
+              getFlake = ''(builtins.getFlake "${flake}")'';
             in
             {
               nixos.expr = "${getFlake}.nixosConfigurations.sonicmaster.options";
