@@ -5,6 +5,9 @@ let
   json = fromJSON (readFile ./homelab.json);
   hostType = types.submodule {
     options = {
+      aliases = mkOption {
+        type = types.listOf types.str;
+      };
       ipv4 = mkOption {
         type = types.nullOr types.str;
       };
@@ -49,6 +52,7 @@ in
     hosts = lib.mapAttrs (
       hostname:
       {
+        aliases,
         modules,
         platform,
         os,
@@ -56,6 +60,7 @@ in
       }:
       {
         inherit
+          aliases
           hostname
           ipv4
           modules
