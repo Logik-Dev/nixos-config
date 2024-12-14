@@ -1,0 +1,68 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list-all
+
+  gen-host-key-*:
+    internal: true
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+      TMP: /tmp/{{.HOST}}/keys
+      ED25519: ssh_host_ed25519_key
+      RSA: ssh_host_rsa_key
+    cmds:
+      - defer: rm -rf {{.TMP}}
+      - mkdir -p {{.TMP}}
+      - mkdir -p ./hosts/{{.HOST}}
+      - ssh-keygen -q -N "" -t rsa -b 4096 -f {{.TMP}}/{{.RSA}}
+      - ssh-keygen -q -N "" -t ed25519 -f {{.TMP}}/{{.ED25519}}
+      - pass insert -m homelab/hosts/{{.HOST}}/{{.RSA}} < {{.TMP}}/{{.RSA}}
+      - pass insert -m homelab/hosts/{{.HOST}}/{{.ED25519}} < {{.TMP}}/{{.ED25519}}
+      - mv {{.TMP}}/{{.ED25519}}.pub ./hosts/{{.HOST}}/{{.ED25519}}.pub
+      - ssh-to-age -i ./hosts/{{.HOST}}/{{.ED25519}}.pub -o ./hosts/{{.HOST}}/age.pub
+    preconditions:
+      - sh: test ! -f ./hosts/{{.HOST}}/{{.ED25519}}.pub
+        msg: "{{.HOST}} already has {{.ED25519}}.pub"
+
+  add-host-*:
+    desc: Init ssh keys, folders and secrets for a new given host
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - mkdir -p ./hosts/{{.HOST}}
+      - task: gen-host-key-{{.HOST}}
+      - |
+        cat > ./hosts/{{.HOST}}/.sops.yaml <<EOF
+        creation_rules:
+          - path_regex: ./secrets.yaml
+            pgp: F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
+            age: $(cat ./hosts/{{.HOST}}/age.pub)
+        EOF
+      - touch hosts/{{.HOST}}/nixos.nix
+      - |
+        echo 'password: test' > secrets.yaml
+      - sops --config ./hosts/{{.HOST}}/.sops.yaml -e -i secrets.yaml
+      - mv secrets.yaml ./hosts/{{.HOST}}
+      - key=$(cat ./hosts/{{.HOST}}/age.pub) && echo "          - ${key}" >> ./hosts/common/.sops.yaml
+      - sops --config ./hosts/common/.sops.yaml updatekeys ./hosts/common/secrets.yaml
+    preconditions:
+      - sh: test ! -d ./hosts/{{.HOST}}
+        msg: "{{.HOST}} folder already exists, skipping..."
+
+  rebuild-target-*:
+    desc: Rebuild and switch configuration for targeted host
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - nixos-rebuild switch --target-host {{.HOST}} --flake .#{{.HOST}} --use-remote-sudo
+
+  incus-register-*:
+    desc: Register sonicmaster as client for incus
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - incus remote add {{.HOST}} $(ssh {{.HOST}} 'incus config trust add sonicmaster' | tail -1)

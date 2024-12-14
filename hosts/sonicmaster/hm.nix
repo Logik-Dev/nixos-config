@@ -1,9 +1,5 @@
-{ config, pkgs, ... }:
+{ pkgs, config, ... }:
 {
-
-  home.username = "logikdev";
-  home.stateVersion = "24.05";
-  home.homeDirectory = "/home/logikdev";
 
   services.gpg-agent = {
     enable = true;

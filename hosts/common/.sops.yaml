@@ -1,0 +1,9 @@
+creation_rules:
+  - path_regex: secrets.yaml
+    key_groups:
+      - pgp:
+          - F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
+        age:
+          - age1fcm0jwfrmx8myz4xm5l74jts5pngmmtve0wh5wc038fl9tzzcydskx5w8k
+          - age10hukjnxlessdxm6weznke7g4hwv4wteu6n6qygz8v5ywuyz7lajquxjlu7
+          - age1jthnsu68cv2cpmd6m90vvw5338stm3e2f8nr60cth8pp7q7v43msuk7kqt
