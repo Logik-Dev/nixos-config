@@ -24,6 +24,13 @@ let
       sshPublicKey = mkOption {
         type = types.str;
       };
+      platform = mkOption {
+        type = types.enum [
+          "bare-metal"
+          "vm"
+          "lxc"
+        ];
+      };
     };
   };
 in
@@ -43,12 +50,18 @@ in
       hostname:
       {
         modules,
+        platform,
         os,
         ipv4 ? null,
       }:
       {
-        inherit hostname;
-        inherit ipv4 modules os;
+        inherit
+          hostname
+          ipv4
+          modules
+          os
+          platform
+          ;
         sshPublicKey = builtins.readFile ../../hosts/${hostname}/ssh_host_ed25519_key.pub;
       }
     ) json.hosts;

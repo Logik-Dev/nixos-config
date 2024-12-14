@@ -1,19 +1,28 @@
 {
   "username": "logikdev",
   "hosts": {
-    "sonicmaster": {
-      "ipv4": "192.168.10.20",
-      "modules": ["cli", "neovim", "yubikey", "desktop"],
-      "os": "Nixos"
+    "dns": {
+      "ipv4": "192.168.11.53",
+      "modules": ["adguard"],
+      "os": "Nixos",
+      "platform": "lxc"
     },
     "hyper": {
       "ipv4": "192.168.10.100",
       "modules": ["cli", "neovim", "virtualisation"],
-      "os": "Nixos"
+      "os": "Nixos",
+      "platform": "bare-metal"
     },
     "monitoring": {
       "modules": ["cli"],
-      "os": "Nixos"
+      "os": "Nixos",
+      "platform": "lxc"
+    },
+    "sonicmaster": {
+      "ipv4": "192.168.10.28",
+      "modules": ["cli", "neovim", "yubikey", "desktop"],
+      "os": "Nixos",
+      "platform": "bare-metal"
     }
   }
 }
