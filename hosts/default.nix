@@ -13,13 +13,26 @@ let
       (lib.filter (path: builtins.pathExists path))
     ];
 
+  incusModules =
+    host:
+    (
+      if host.platform == "lxc" then
+        [ "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix" ]
+      else if host.platform == "vm" then
+
+        [ "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix" ]
+      else
+        [ ]
+    );
+
   nixosModules =
     host:
     (getModules host "nixos")
     ++ [
       ./common/nixos.nix
       ./${host.hostname}/nixos.nix
-    ];
+    ]
+    ++ (incusModules host);
 
   hmModules =
     host:
@@ -37,8 +50,8 @@ let
         inherit homelab host inputs;
       };
       modules = (nixosModules host) ++ [
-        inputs.home-manager.nixosModules.home-manager
         inputs.sops-nix.nixosModules.sops
+        inputs.home-manager.nixosModules.home-manager
         {
           home-manager = {
             sharedModules = [

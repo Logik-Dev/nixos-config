@@ -1,4 +1,8 @@
 version: "3"
+vars:
+  TMP: /tmp/homelab/keys
+  ED25519: ssh_host_ed25519_key
+  RSA: ssh_host_rsa_key
 
 tasks:
   default:
@@ -7,13 +11,55 @@ tasks:
     cmds:
       - task --list-all
 
+  launch-dns:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.05 dns -p vlan11 -p ultra-30GiB -d eth0,hwaddr="BC:24:11:45:11:53" -c limits.cpu=1 -c limits.memory=2GiB -c security.nesting=true -c boot.autostart=true
+
+  incus-launch-vm-*:
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - |
+        tar=$(nix build .\#nixosConfigurations.{{.HOST}}.config.system.build.qemuImage --print-out-paths) && \
+        meta=$(nix build .\#nixosConfigurations.{{.HOST}}.config.system.build.metadata --print-out-paths) && \
+        incus image import --alias nixos/custom/{{.HOST}} "${meta}/tarball/nixos-system-x86_64-linux.tar.xz" \
+        "${tar}/nixos.qcow2"
+      - incus launch nixos/custom/{{.HOST}} --profile vlan11 --profile ultra-30GiB {{.HOST}}
+      - task: incus-copy-ssh-{{.HOST}}
+
+  create-container-*:
+    desc: Create a nixos container, copy ssh keys (host and authorized_keys) and rebuild configuration
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - task: launch-{{.HOST}}
+      - task: incus-copy-ssh-{{.HOST}}
+      - ssh root@{{.HOST}} "nixos-rebuild switch"
+      - incus restart {{.HOST}}
+      - task: rebuild-target-{{.HOST}}
+
+  incus-copy-ssh-*:
+    internal: true
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - defer: rm -rf {{.TMP}}
+      - mkdir -p {{.TMP}}
+      - cp ./hosts/{{.HOST}}/{{.ED25519}}.pub {{.TMP}}
+      - cp ./hosts/{{.HOST}}/{{.RSA}}.pub {{.TMP}}
+      - pass homelab/hosts/{{.HOST}}/{{.ED25519}} > {{.TMP}}/{{.ED25519}}
+      - pass homelab/hosts/{{.HOST}}/{{.RSA}} > {{.TMP}}/{{.RSA}}
+      - incus file push {{.TMP}}/{{.RSA}} {{.HOST}}/etc/ssh/{{.RSA}} --uid=0 --gid=0 --mode=600
+      - incus file push {{.TMP}}/{{.RSA}}.pub {{.HOST}}/etc/ssh/{{.RSA}}.pub --uid=0 --gid=0 --mode=660
+      - incus file push {{.TMP}}/{{.ED25519}} {{.HOST}}/etc/ssh/{{.ED25519}} --uid=0 --gid=0 --mode=600
+      - incus file push {{.TMP}}/{{.ED25519}}.pub {{.HOST}}/etc/ssh/{{.ED25519}}.pub --uid=0 --gid=0 --mode=660
+      - incus file push ./hosts/sonicmaster/id_ed25519.pub {{.HOST}}/root/.ssh/authorized_keys -p --uid=0 --gid=0 --mode=600
+
   gen-host-key-*:
     internal: true
     vars:
       HOST: "{{ index .MATCH 0 }}"
-      TMP: /tmp/{{.HOST}}/keys
-      ED25519: ssh_host_ed25519_key
-      RSA: ssh_host_rsa_key
     cmds:
       - defer: rm -rf {{.TMP}}
       - mkdir -p {{.TMP}}
@@ -23,6 +69,7 @@ tasks:
       - pass insert -m homelab/hosts/{{.HOST}}/{{.RSA}} < {{.TMP}}/{{.RSA}}
       - pass insert -m homelab/hosts/{{.HOST}}/{{.ED25519}} < {{.TMP}}/{{.ED25519}}
       - mv {{.TMP}}/{{.ED25519}}.pub ./hosts/{{.HOST}}/{{.ED25519}}.pub
+      - mv {{.TMP}}/{{.RSA}}.pub ./hosts/{{.HOST}}/{{.RSA}}.pub
       - ssh-to-age -i ./hosts/{{.HOST}}/{{.ED25519}}.pub -o ./hosts/{{.HOST}}/age.pub
     preconditions:
       - sh: test ! -f ./hosts/{{.HOST}}/{{.ED25519}}.pub
@@ -58,7 +105,7 @@ tasks:
     vars:
       HOST: "{{ index .MATCH 0 }}"
     cmds:
-      - nixos-rebuild switch --target-host {{.HOST}} --flake .#{{.HOST}} --use-remote-sudo
+      - nixos-rebuild switch --target-host root@{{.HOST}} --flake .#{{.HOST}}
 
   incus-register-*:
     desc: Register sonicmaster as client for incus

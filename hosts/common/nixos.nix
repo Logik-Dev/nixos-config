@@ -11,6 +11,8 @@
     ./locals.nix
   ];
 
+  sops.defaultSopsFile = ./secrets.yaml;
+
   networking = {
     hostName = host.hostname;
     networkmanager.enable = true;
@@ -20,13 +22,6 @@
       (builtins.concatStringsSep "\n")
     ];
   };
-
-  boot.loader.systemd-boot = {
-    enable = true;
-    configurationLimit = 10;
-  };
-
-  boot.loader.efi.canTouchEfiVariables = true;
 
   programs.nix-ld = {
     enable = true;
@@ -60,6 +55,7 @@
   environment.systemPackages = with pkgs; [
     curl
     git
+    htop
     vim
     wget
   ];
@@ -83,13 +79,6 @@
   };
 
   services.printing.enable = true;
-
-  virtualisation.vmVariant = {
-    virtualisation = {
-      memorySize = 4096;
-      cores = 3;
-    };
-  };
 
   system.stateVersion = "24.05";
 }

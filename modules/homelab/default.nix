@@ -42,6 +42,11 @@ in
     username = mkOption {
       type = types.str;
     };
+
+    domain = mkOption {
+      type = types.str;
+    };
+
     hosts = mkOption {
       type = types.attrsOf hostType;
     };
@@ -49,10 +54,11 @@ in
 
   config.homelab = {
     username = json.username;
+    domain = json.domain;
     hosts = lib.mapAttrs (
       hostname:
       {
-        aliases,
+        aliases ? [ ],
         modules,
         platform,
         os,

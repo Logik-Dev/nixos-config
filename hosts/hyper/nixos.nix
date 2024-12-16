@@ -6,5 +6,6 @@
     inputs.nixos-facter-modules.nixosModules.facter
     { config.facter.reportPath = ./facter.json; }
     ./disko.nix
+    ../common/bare-metal.nix
   ];
 }

@@ -4,7 +4,6 @@
 
   home.packages = with pkgs; [
     bat
-    just
     fd
     nh
     nixd
@@ -15,6 +14,8 @@
     go-task
     wl-clipboard
   ];
+
+  programs.zsh.enable = true;
 
   programs.direnv = {
     enable = true;

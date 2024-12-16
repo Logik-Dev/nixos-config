@@ -1,7 +1,6 @@
 { homelab, pkgs, ... }:
 let
   knownHosts = pkgs.lib.pipe (builtins.attrNames homelab.hosts) [
-    (builtins.filter (host: homelab.hosts.${host}.ipv4 != null))
     (map (host: host + "," + homelab.hosts.${host}.ipv4 + " " + homelab.hosts.${host}.sshPublicKey))
     (builtins.concatStringsSep "\n")
   ];
@@ -21,6 +20,9 @@ in
     enable = true;
     userKnownHostsFile = "~/.ssh/known_hosts.d/known_hosts";
   };
+
+  programs.zsh.enable = true;
+
   home.file = {
     ".ssh/known_hosts.d/known_hosts".text = knownHosts;
   };
