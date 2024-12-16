@@ -25,6 +25,10 @@
         }
       ];
       dns = {
+        upstream_dns = [
+          "9.9.9.9"
+          "149.112.112.112"
+        ];
         bootstrap_dns = [ "9.9.9.9" ];
         enable_dnssec = true;
       };
