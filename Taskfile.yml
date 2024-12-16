@@ -16,16 +16,18 @@ tasks:
     cmds:
       - incus launch images:nixos/24.05 dns -p vlan11 -p ultra-30GiB -d eth0,hwaddr="BC:24:11:45:11:53" -c limits.cpu=1 -c limits.memory=2GiB -c security.nesting=true -c boot.autostart=true
 
-  incus-launch-vm-*:
+  launch-security:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.05 security --vm -p vlan11 -p ultra-30GiB -d eth0,hwaddr="BC:24:11:45:11:58" -c limits.cpu=1 -c limits.memory=4GiB -c boot.autostart=true -c security.secureboot=false
+
+  create-vm-*:
+    desc: Create a nixos vm, copy ssh keys (host and authorized_keys) and rebuild
     vars:
       HOST: "{{ index .MATCH 0 }}"
     cmds:
-      - |
-        tar=$(nix build .\#nixosConfigurations.{{.HOST}}.config.system.build.qemuImage --print-out-paths) && \
-        meta=$(nix build .\#nixosConfigurations.{{.HOST}}.config.system.build.metadata --print-out-paths) && \
-        incus image import --alias nixos/custom/{{.HOST}} "${meta}/tarball/nixos-system-x86_64-linux.tar.xz" \
-        "${tar}/nixos.qcow2"
-      - incus launch nixos/custom/{{.HOST}} --profile vlan11 --profile ultra-30GiB {{.HOST}}
+      - task: launch-{{.HOST}}
+      - sleep 10
       - task: incus-copy-ssh-{{.HOST}}
 
   create-container-*:

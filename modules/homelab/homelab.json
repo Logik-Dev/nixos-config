@@ -15,6 +15,13 @@
       "os": "Nixos",
       "platform": "bare-metal"
     },
+    "security": {
+      "ipv4": "192.168.11.58",
+      "modules": ["cli", "nginx"],
+      "os": "Nixos",
+      "platform": "vm",
+      "aliases": ["vaultwarden"]
+    },
     "sonicmaster": {
       "ipv4": "192.168.10.28",
       "modules": ["cli", "neovim", "yubikey", "desktop"],
