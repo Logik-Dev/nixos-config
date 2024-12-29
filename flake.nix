@@ -20,6 +20,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    cf-ddns = {
+      url = "github:Logik-Dev/cf-ddns";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
   };
 
@@ -27,9 +32,12 @@
     inputs@{ nixpkgs, ... }:
     let
       lib = nixpkgs.lib;
+
       homelab =
         (lib.evalModules {
-          modules = [ ./modules/homelab ];
+          modules = [
+            ./modules/homelab
+          ];
         }).config.homelab;
     in
     {

@@ -37,7 +37,7 @@ return {
 				"pyright",
 				"nil_ls",
 				"jdtls",
-        "rust_analyzer",
+				"rust_analyzer",
 			},
 		})
 

@@ -1,9 +1,9 @@
 { ... }:
 {
 
-  programs = {
-    zsh.enable = true;
-    zsh.loginExtra = "gpgconf --launch gpg-agent";
-  };
+  imports = [
+    #    ./borgmatic.nix
+  ];
 
+  programs.zsh.enable = true;
 }

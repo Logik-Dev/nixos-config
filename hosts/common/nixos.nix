@@ -3,6 +3,7 @@
   pkgs,
   homelab,
   host,
+  lib,
   ...
 }:
 {
@@ -29,6 +30,16 @@
   };
 
   services.openssh.enable = true;
+  services.openssh.knownHosts = lib.mapAttrs' (
+    hostname: val:
+    lib.nameValuePair hostname {
+      hostNames = [
+        hostname
+        val.ipv4
+      ];
+      publicKeyFile = ../${hostname}/ssh_host_rsa_key.pub;
+    }
+  ) homelab.hosts;
   security.pam.sshAgentAuth.enable = true;
   security.sudo.wheelNeedsPassword = false;
 
@@ -53,6 +64,7 @@
   nixpkgs.config.allowUnfree = true;
 
   environment.systemPackages = with pkgs; [
+    borgbackup
     curl
     git
     htop

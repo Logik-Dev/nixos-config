@@ -2,6 +2,12 @@
   "username": "logikdev",
   "domain": "logikdev.fr",
   "hosts": {
+    "borg": {
+      "ipv4": "192.168.11.29",
+      "modules": ["cli"],
+      "os": "Nixos",
+      "platform": "lxc"
+    },
     "dns": {
       "ipv4": "192.168.11.53",
       "modules": ["adguard", "nginx", "cli"],
@@ -9,11 +15,25 @@
       "platform": "lxc",
       "aliases": ["dns"]
     },
+    "docker": {
+      "ipv4": "192.168.11.31",
+      "modules": ["cli", "nginx"],
+      "os": "Nixos",
+      "platform": "vm",
+      "aliases": ["torrent", "flaresolverr"]
+    },
     "hyper": {
       "ipv4": "192.168.10.100",
-      "modules": ["cli", "neovim", "virtualisation"],
+      "modules": ["cli", "neovim"],
       "os": "Nixos",
       "platform": "bare-metal"
+    },
+    "medias": {
+      "ipv4": "192.168.11.185",
+      "modules": ["nginx", "cli"],
+      "os": "Nixos",
+      "platform": "lxc",
+      "aliases": ["jellyfin", "radarr", "sonarr", "prowlarr"]
     },
     "security": {
       "ipv4": "192.168.11.58",

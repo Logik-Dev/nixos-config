@@ -4,6 +4,7 @@
 
   home.packages = with pkgs; [
     bat
+    compose2nix
     fd
     nh
     nixd
@@ -16,6 +17,8 @@
   ];
 
   programs.zsh.enable = true;
+
+  programs.lf.enable = true;
 
   programs.direnv = {
     enable = true;

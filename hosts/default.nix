@@ -19,7 +19,6 @@ let
       if host.platform == "lxc" then
         [ "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix" ]
       else if host.platform == "vm" then
-
         [ "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix" ]
       else
         [ ]

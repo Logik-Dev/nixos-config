@@ -21,6 +21,21 @@ tasks:
     cmds:
       - incus launch images:nixos/24.05 security --vm -p vlan11 -p ultra-30GiB -d eth0,hwaddr="BC:24:11:45:11:58" -c limits.cpu=1 -c limits.memory=4GiB -c boot.autostart=true -c security.secureboot=false
 
+  launch-borg:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.05 borg -p vlan11 -p ultra-30GiB -p backups-folders -d eth0,hwaddr="BC:24:11:45:11:29" -c limits.cpu=1 -c limits.memory=4GiB -c security.nesting=true -c boot.autostart=true
+
+  launch-medias:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.05 medias -p vlan11 -p ultra-100GiB -p intel-gpu -p medias-shares -d eth0,hwaddr="BC:24:11:45:11:85" -c limits.cpu=2 -c limits.memory=8GiB -c security.nesting=true -c boot.autostart=true
+
+  launch-docker:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.05 docker --vm -p vlan11 -p ultra-30GiB  -p medias-shares -d eth0,hwaddr="BC:24:11:45:11:31" -c limits.cpu=2 -c limits.memory=8GiB -c security.secureboot=false -c boot.autostart=true
+
   create-vm-*:
     desc: Create a nixos vm, copy ssh keys (host and authorized_keys) and rebuild
     vars:
@@ -29,6 +44,7 @@ tasks:
       - task: launch-{{.HOST}}
       - sleep 10
       - task: incus-copy-ssh-{{.HOST}}
+      - task: rebuild-root-{{.HOST}}
 
   create-container-*:
     desc: Create a nixos container, copy ssh keys (host and authorized_keys) and rebuild configuration
@@ -39,7 +55,8 @@ tasks:
       - task: incus-copy-ssh-{{.HOST}}
       - ssh root@{{.HOST}} "nixos-rebuild switch"
       - incus restart {{.HOST}}
-      - task: rebuild-target-{{.HOST}}
+      - task: rebuild-root-{{.HOST}}
+      - incus restart {{.HOST}}
 
   incus-copy-ssh-*:
     internal: true
@@ -91,7 +108,9 @@ tasks:
             pgp: F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
             age: $(cat ./hosts/{{.HOST}}/age.pub)
         EOF
-      - touch hosts/{{.HOST}}/nixos.nix
+      - |
+        echo '{...}: {}' > hosts/{{.HOST}}/nixos.nix
+        echo '{...}: {}' > hosts/{{.HOST}}/hm.nix
       - |
         echo 'password: test' > secrets.yaml
       - sops --config ./hosts/{{.HOST}}/.sops.yaml -e -i secrets.yaml
@@ -102,12 +121,19 @@ tasks:
       - sh: test ! -d ./hosts/{{.HOST}}
         msg: "{{.HOST}} folder already exists, skipping..."
 
-  rebuild-target-*:
-    desc: Rebuild and switch configuration for targeted host
+  rebuild-root-*:
+    desc: Rebuild and switch configuration for targeted host as root
     vars:
       HOST: "{{ index .MATCH 0 }}"
     cmds:
       - nixos-rebuild switch --target-host root@{{.HOST}} --flake .#{{.HOST}}
+
+  rebuild-user-*:
+    desc: Rebuild and switch configuration for targeted host as user
+    vars:
+      HOST: "{{ index .MATCH 0 }}"
+    cmds:
+      - nixos-rebuild switch --target-host {{.HOST}} --flake .#{{.HOST}} --use-remote-sudo
 
   incus-register-*:
     desc: Register sonicmaster as client for incus

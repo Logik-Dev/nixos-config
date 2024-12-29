@@ -19,6 +19,7 @@ let
     "100GiB"
     "500GiB"
   ];
+
   mkStorageProfile =
     pool: size:
     mkProfile "${pool}-${size}" "" {
@@ -30,6 +31,73 @@ let
     };
 
   mkStorageProfiles = pool: map (size: mkStorageProfile pool size) sizes;
+
+  intelGpuProfile = {
+    name = "intel-gpu";
+    description = "Intel UHD Graphics";
+    devices = {
+      intel-gpu = {
+        type = "gpu";
+        gid = 44;
+        pci = "0000:00:02.0";
+      };
+    };
+  };
+
+  mediasProfileContainer = {
+    name = "medias-shares";
+    description = "Medias Shares";
+    devices = {
+      medias = {
+        type = "disk";
+        shift = true;
+        source = "/mnt/raid/medias";
+        path = "/medias";
+      };
+    };
+  };
+  mediasProfileVM = {
+    name = "medias-shares-vm";
+    description = "Medias Shares with IO Cache";
+    devices = {
+      medias = {
+        type = "disk";
+        shift = true;
+        source = "/mnt/raid/medias";
+        path = "/medias";
+        "io.cache" = "metadata";
+      };
+    };
+  };
+  backupProfile = {
+    name = "backups-folders";
+    description = "Backups folders";
+    devices =
+      let
+        type = "disk";
+        shift = true;
+      in
+      {
+        backups = {
+          inherit type shift;
+          path = "/home/logikdev/backups";
+          source = "/mnt/backups/borg";
+        };
+
+        raid = {
+          inherit type shift;
+          path = "/home/logikdev/raid";
+          source = "/mnt/raid/borg";
+        };
+
+        archive = {
+          inherit type shift;
+          path = "/home/logikdev/archives";
+          source = "/mnt/archives/borg";
+        };
+
+      };
+  };
 
   mountOptions = builtins.concatStringsSep "," [
     "noatime"
@@ -56,7 +124,7 @@ in
   environment.systemPackages = with pkgs; [ btrfs-progs ];
   virtualisation.incus = {
     enable = true;
-    ui.enable = true;
+    #ui.enable = true;
     preseed = {
       config = {
         "core.https_address" = ":8443";
@@ -65,6 +133,10 @@ in
       profiles = [
         (mkVlanProfile 11 "Containers network")
         (mkVlanProfile 21 "IoT network")
+        backupProfile
+        intelGpuProfile
+        mediasProfileContainer
+        mediasProfileVM
       ] ++ mkStorageProfiles "local" ++ mkStorageProfiles "ultra";
 
       storage_pools = [
@@ -85,7 +157,7 @@ in
     67
   ];
 
-  programs.virt-manager.enable = true;
+  #  programs.virt-manager.enable = true;
   users.users.logikdev.extraGroups = [
     "libvirtd"
     "incus-admin"
