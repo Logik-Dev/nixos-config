@@ -4,7 +4,7 @@
   services.gpg-agent = {
     enable = true;
     enableSshSupport = true;
-    sshKeys = [ (builtins.readFile ./gpg.pub) ];
+    sshKeys = [ (builtins.readFile ./keys/gpg.pub) ];
     pinentryPackage = if config.gtk.enable then pkgs.pinentry-qt else pkgs.pinentry-curses;
     enableExtraSocket = true;
   };
@@ -18,7 +18,7 @@
       settings = {
         trust-model = "tofu+pgp";
       };
-      publicKeys = [ { source = ./gpg.pub; } ];
+      publicKeys = [ { source = ./keys/gpg.pub; } ];
     };
   };
 

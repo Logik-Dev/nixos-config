@@ -65,15 +65,15 @@ tasks:
     cmds:
       - defer: rm -rf {{.TMP}}
       - mkdir -p {{.TMP}}
-      - cp ./hosts/{{.HOST}}/{{.ED25519}}.pub {{.TMP}}
-      - cp ./hosts/{{.HOST}}/{{.RSA}}.pub {{.TMP}}
+      - cp ./hosts/{{.HOST}}/keys/{{.ED25519}}.pub {{.TMP}}
+      - cp ./hosts/{{.HOST}}/keys/{{.RSA}}.pub {{.TMP}}
       - pass homelab/hosts/{{.HOST}}/{{.ED25519}} > {{.TMP}}/{{.ED25519}}
       - pass homelab/hosts/{{.HOST}}/{{.RSA}} > {{.TMP}}/{{.RSA}}
       - incus file push {{.TMP}}/{{.RSA}} {{.HOST}}/etc/ssh/{{.RSA}} --uid=0 --gid=0 --mode=600
       - incus file push {{.TMP}}/{{.RSA}}.pub {{.HOST}}/etc/ssh/{{.RSA}}.pub --uid=0 --gid=0 --mode=660
       - incus file push {{.TMP}}/{{.ED25519}} {{.HOST}}/etc/ssh/{{.ED25519}} --uid=0 --gid=0 --mode=600
       - incus file push {{.TMP}}/{{.ED25519}}.pub {{.HOST}}/etc/ssh/{{.ED25519}}.pub --uid=0 --gid=0 --mode=660
-      - incus file push ./hosts/sonicmaster/id_ed25519.pub {{.HOST}}/root/.ssh/authorized_keys -p --uid=0 --gid=0 --mode=600
+      - incus file push ./hosts/sonicmaster/keys/id_ed25519.pub {{.HOST}}/root/.ssh/authorized_keys -p --uid=0 --gid=0 --mode=600
 
   gen-host-key-*:
     internal: true
@@ -82,16 +82,16 @@ tasks:
     cmds:
       - defer: rm -rf {{.TMP}}
       - mkdir -p {{.TMP}}
-      - mkdir -p ./hosts/{{.HOST}}
+      - mkdir -p ./hosts/{{.HOST}}/keys
       - ssh-keygen -q -N "" -t rsa -b 4096 -f {{.TMP}}/{{.RSA}}
       - ssh-keygen -q -N "" -t ed25519 -f {{.TMP}}/{{.ED25519}}
       - pass insert -m homelab/hosts/{{.HOST}}/{{.RSA}} < {{.TMP}}/{{.RSA}}
       - pass insert -m homelab/hosts/{{.HOST}}/{{.ED25519}} < {{.TMP}}/{{.ED25519}}
-      - mv {{.TMP}}/{{.ED25519}}.pub ./hosts/{{.HOST}}/{{.ED25519}}.pub
-      - mv {{.TMP}}/{{.RSA}}.pub ./hosts/{{.HOST}}/{{.RSA}}.pub
-      - ssh-to-age -i ./hosts/{{.HOST}}/{{.ED25519}}.pub -o ./hosts/{{.HOST}}/age.pub
+      - mv {{.TMP}}/{{.ED25519}}.pub ./hosts/{{.HOST}}/keys/{{.ED25519}}.pub
+      - mv {{.TMP}}/{{.RSA}}.pub ./hosts/{{.HOST}}/keys/{{.RSA}}.pub
+      - ssh-to-age -i ./hosts/{{.HOST}}/keys/{{.ED25519}}.pub -o ./hosts/{{.HOST}}/keys/age.pub
     preconditions:
-      - sh: test ! -f ./hosts/{{.HOST}}/{{.ED25519}}.pub
+      - sh: test ! -f ./hosts/{{.HOST}}/keys/{{.ED25519}}.pub
         msg: "{{.HOST}} already has {{.ED25519}}.pub"
 
   add-host-*:
@@ -106,7 +106,7 @@ tasks:
         creation_rules:
           - path_regex: ./secrets.yaml
             pgp: F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
-            age: $(cat ./hosts/{{.HOST}}/age.pub)
+            age: $(cat ./hosts/{{.HOST}}/keys/age.pub)
         EOF
       - |
         echo '{...}: {}' > hosts/{{.HOST}}/nixos.nix
@@ -115,7 +115,7 @@ tasks:
         echo 'password: test' > secrets.yaml
       - sops --config ./hosts/{{.HOST}}/.sops.yaml -e -i secrets.yaml
       - mv secrets.yaml ./hosts/{{.HOST}}
-      - key=$(cat ./hosts/{{.HOST}}/age.pub) && echo "          - ${key}" >> ./hosts/common/.sops.yaml
+      - key=$(cat ./hosts/{{.HOST}}/keys/age.pub) && echo "          - ${key}" >> ./hosts/common/.sops.yaml
       - sops --config ./hosts/common/.sops.yaml updatekeys ./hosts/common/secrets.yaml
     preconditions:
       - sh: test ! -d ./hosts/{{.HOST}}

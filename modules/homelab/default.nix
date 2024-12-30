@@ -55,7 +55,7 @@ in
   config.homelab = {
     username = json.username;
     domain = json.domain;
-    hosts = lib.mapAttrs (
+    hosts = mapAttrs (
       hostname:
       {
         aliases ? [ ],
@@ -73,7 +73,7 @@ in
           os
           platform
           ;
-        sshPublicKey = builtins.readFile ../../hosts/${hostname}/ssh_host_ed25519_key.pub;
+        sshPublicKey = readFile ../../hosts/${hostname}/keys/ssh_host_ed25519_key.pub;
       }
     ) json.hosts;
   };

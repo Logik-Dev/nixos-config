@@ -1,17 +1,17 @@
-{ homelab, pkgs, ... }:
+{
+  lib,
+  homelab,
+  ...
+}:
 let
-  knownHosts = pkgs.lib.pipe (builtins.attrNames homelab.hosts) [
-    (map (host: host + "," + homelab.hosts.${host}.ipv4 + " " + homelab.hosts.${host}.sshPublicKey))
-    (builtins.concatStringsSep "\n")
-  ];
+  inherit (lib) mapAttrsToList;
+  inherit (builtins) concatStringsSep;
+
+  mapHostLine = k: v: k + "," + v.ipv4 + " " + v.sshPublicKey;
+
+  knownHosts = concatStringsSep "\n" (mapAttrsToList mapHostLine homelab.hosts);
 in
-/*
-   knownHosts = builtins.concatStringsSep "\n" (
-    map (name: name + "," + homelab.hosts.${name}.ipv4 + " " + homelab.hosts.${name}.sshPublicKey) (
-      builtins.attrNames homelab.hosts
-    )
-  );
-*/
+
 {
   home.username = homelab.username;
   home.homeDirectory = "/home/${homelab.username}";

@@ -6,6 +6,10 @@
   lib,
   ...
 }:
+let
+  inherit (lib) mapAttrs' mapAttrsToList nameValuePair;
+  inherit (builtins) concatStringsSep;
+in
 {
 
   imports = [
@@ -17,11 +21,7 @@
   networking = {
     hostName = host.hostname;
     networkmanager.enable = true;
-    extraHosts = pkgs.lib.pipe (builtins.attrNames homelab.hosts) [
-      (builtins.filter (name: homelab.hosts.${name}.ipv4 != null))
-      (map (name: homelab.hosts.${name}.ipv4 + " " + name))
-      (builtins.concatStringsSep "\n")
-    ];
+    extraHosts = concatStringsSep "\n" (mapAttrsToList (k: v: v.ipv4 + " " + k) homelab.hosts);
   };
 
   programs.nix-ld = {
@@ -30,16 +30,17 @@
   };
 
   services.openssh.enable = true;
-  services.openssh.knownHosts = lib.mapAttrs' (
+  services.openssh.knownHosts = mapAttrs' (
     hostname: val:
-    lib.nameValuePair hostname {
+    nameValuePair hostname {
       hostNames = [
         hostname
         val.ipv4
       ];
-      publicKeyFile = ../${hostname}/ssh_host_rsa_key.pub;
+      publicKeyFile = ../${hostname}/keys/ssh_host_rsa_key.pub;
     }
   ) homelab.hosts;
+
   security.pam.sshAgentAuth.enable = true;
   security.sudo.wheelNeedsPassword = false;
 
@@ -51,7 +52,7 @@
   users.users.${homelab.username} = {
     isNormalUser = true;
     hashedPasswordFile = config.sops.secrets.password.path;
-    openssh.authorizedKeys.keyFiles = [ ../sonicmaster/id_ed25519.pub ];
+    openssh.authorizedKeys.keyFiles = [ ../sonicmaster/keys/id_ed25519.pub ];
     extraGroups = [
       "networkmanager"
       "wheel"
