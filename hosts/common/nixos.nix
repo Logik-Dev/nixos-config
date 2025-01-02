@@ -4,6 +4,7 @@
   homelab,
   host,
   lib,
+  inputs,
   ...
 }:
 let
@@ -14,6 +15,12 @@ in
 
   imports = [
     ./locals.nix
+  ];
+
+  nixpkgs.overlays = [
+    (final: prev: {
+      pushr = inputs.pushr.defaultPackage.${pkgs.system};
+    })
   ];
 
   sops.defaultSopsFile = ./secrets.yaml;
@@ -69,6 +76,7 @@ in
     curl
     git
     htop
+    pushr
     vim
     wget
   ];

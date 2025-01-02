@@ -179,11 +179,11 @@
         "utils": "utils_2"
       },
       "locked": {
-        "lastModified": 1735850577,
-        "narHash": "sha256-jIU0xg0p4oN54NFnVhQh7/PH3ZERtwwJSo261LowoEk=",
+        "lastModified": 1735851831,
+        "narHash": "sha256-jzigTdN4YXS9e9AHXQOWjcOajQXnnX44ViS/ph81DBw=",
         "owner": "Logik-Dev",
         "repo": "pushr",
-        "rev": "99ae102b2d15cf9efbb0d2ae1eb25c1a7f8ef065",
+        "rev": "e6db9641ce0fb8458db4defdfe3af8da6790a19f",
         "type": "github"
       },
       "original": {
