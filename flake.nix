@@ -25,6 +25,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    pushr = {
+      url = "github:Logik-Dev/pushr";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
   };
 
