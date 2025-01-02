@@ -1,5 +1,8 @@
 { homelab, pkgs, ... }:
 let
+  notify =
+    msg:
+    "${pkgs.pushr}/bin/pushr -t Borgmatic -K /run/secrets/borg-pushover-token -U /run/secrets/pushover-user -c '${msg}'";
   user = homelab.username;
   borg-restore = pkgs.writeShellApplication {
     name = "borg-restore";
@@ -42,10 +45,22 @@ in
       keep_weekly = 4;
       keep_monthly = 6;
       before_backup = [
+        (notify "Vaultwarden backup starting...")
         "borgmatic init --encryption repokey"
         "systemctl stop vaultwarden.service"
       ];
-      after_backup = [ "systemctl start vaultwarden.service" ];
+      after_backup = [
+        "systemctl start vaultwarden.service"
+        (notify "Vaultwarden backup complete.")
+      ];
+
+      on_error =
+        let
+          cmd = notify "An error occured, can't complete vaultwarden backup.";
+        in
+        [
+          (cmd + " -p emergency")
+        ];
     };
   };
 }

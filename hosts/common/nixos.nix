@@ -25,6 +25,9 @@ in
 
   sops.defaultSopsFile = ./secrets.yaml;
 
+  sops.secrets."borg-pushover-token" = { };
+  sops.secrets."pushover-user" = { };
+
   networking = {
     hostName = host.hostname;
     networkmanager.enable = true;
