@@ -3,7 +3,9 @@ let
   notify =
     msg:
     "${pkgs.pushr}/bin/pushr -t Borgmatic -K /run/secrets/borg-pushover-token -U /run/secrets/pushover-user -c '${msg}'";
+
   user = homelab.username;
+
   borg-restore = pkgs.writeShellApplication {
     name = "borg-restore";
 
