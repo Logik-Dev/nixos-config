@@ -9,34 +9,18 @@ let
 
   user = homelab.username;
 
-  borg-restore = pkgs.writeShellApplication {
-    name = "borg-restore";
-
-    runtimeInputs = [ pkgs.borgmatic ];
-
-    text = ''
-      sudo systemctl stop vaultwarden
-      sudo borgmatic extract --archive latest --repository raid # Restore latest backup from RAID repo
-      sudo rm -rf /var/lib/bitwarden_rs
-      sudo mv ./var/lib/bitwarden_rs /var/lib
-      sudo systemctl start vaultwarden
-    '';
-  };
 in
 {
-
-  environment.systemPackages = [ borg-restore ];
-
   services.borgmatic.enable = true;
   services.borgmatic.configurations = {
-    vaultwarden = {
+    containers = {
       source_directories = [
-        "/var/lib/bitwarden_rs"
+        "/var/lib/containers"
       ];
       repositories =
         map
           (repo: {
-            path = "ssh://${user}@borg/home/${user}/${repo}/security";
+            path = "ssh://${user}@borg/home/${user}/${repo}/containers";
             label = repo;
           })
           [
@@ -50,18 +34,18 @@ in
       keep_weekly = 4;
       keep_monthly = 6;
       before_backup = [
-        (notify { msg = "Vaultwarden backup starting on {repository} ..."; })
+        (notify { msg = "Containers backup starting on {repository} ..."; })
         "borgmatic init --encryption repokey"
-        "systemctl stop vaultwarden.service"
+        "systemctl stop podman-qbittorrent.service"
       ];
       after_backup = [
-        "systemctl start vaultwarden.service"
-        (notify { msg = "Vaultwarden backup complete on {repository}."; })
+        "systemctl start podman-qbittorrent.service"
+        (notify { msg = "Containers backup complete on {repository}."; })
       ];
 
       on_error = [
         (notify {
-          msg = "An error occured, can't complete vaultwarden backup on {repository}.";
+          msg = "An error occured, can't complete containers backup on {repository}.";
           priority = "emergency";
         })
       ];

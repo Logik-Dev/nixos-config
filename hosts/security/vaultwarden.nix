@@ -1,12 +1,8 @@
 {
   config,
   homelab,
-  pkgs,
   ...
 }:
-let
-  user = homelab.username;
-in
 {
 
   sops.secrets."vaultwarden.env" = {
@@ -15,10 +11,6 @@ in
     key = "";
     sopsFile = ./vaultwarden.env;
     restartUnits = [ "vaultwarden.service" ];
-  };
-
-  sops.secrets.borg = {
-    sopsFile = ../common/secrets.yaml;
   };
 
   services.vaultwarden = {

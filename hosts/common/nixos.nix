@@ -25,6 +25,7 @@ in
 
   sops.defaultSopsFile = ./secrets.yaml;
 
+  sops.secrets.borg = { };
   sops.secrets."borg-pushover-token" = { };
   sops.secrets."pushover-user" = { };
 
