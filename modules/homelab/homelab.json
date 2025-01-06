@@ -35,6 +35,13 @@
       "platform": "lxc",
       "aliases": ["jellyfin", "radarr", "sonarr", "prowlarr"]
     },
+    "monitoring": {
+      "ipv4": "192.168.11.80",
+      "modules": ["nginx", "cli"],
+      "platform": "lxc",
+      "os": "Nixos",
+      "aliases": ["grafana", "victoriametrics"]
+    },
     "security": {
       "ipv4": "192.168.11.58",
       "modules": ["cli", "nginx"],

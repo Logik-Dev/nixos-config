@@ -36,6 +36,11 @@ tasks:
     cmds:
       - incus launch images:nixos/24.05 docker --vm -p vlan11 -p ultra-30GiB  -p medias-shares -d eth0,hwaddr="BC:24:11:45:11:31" -c limits.cpu=2 -c limits.memory=8GiB -c security.secureboot=false -c boot.autostart=true
 
+  launch-monitoring:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.05 monitoring -p vlan11 -p ultra-100GiB -d eth0,hwaddr="BC:24:11:45:11:80" -c limits.cpu=2 -c limits.memory=8GiB -c security.nesting=true -c boot.autostart=true
+
   create-vm-*:
     desc: Create a nixos vm, copy ssh keys (host and authorized_keys) and rebuild
     vars:
