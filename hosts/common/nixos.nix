@@ -30,6 +30,10 @@ in
   sops.secrets."pushover-user" = { };
 
   networking = {
+    nameservers = [
+      "192.168.11.53"
+      "9.9.9.9"
+    ];
     hostName = host.hostname;
     networkmanager.enable = true;
     extraHosts = concatStringsSep "\n" (mapAttrsToList (k: v: v.ipv4 + " " + k) homelab.hosts);

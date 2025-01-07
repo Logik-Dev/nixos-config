@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  homelab,
+  ...
+}:
 let
   mkProfile = name: description: devices: { inherit name devices description; };
 
@@ -128,6 +133,8 @@ in
     preseed = {
       config = {
         "core.https_address" = ":8443";
+        "core.metrics_address" = ":8444";
+        "core.metrics_authentication" = false;
       };
 
       profiles = [
@@ -162,5 +169,25 @@ in
     "libvirtd"
     "incus-admin"
   ];
+
+  services.vmagent = {
+    enable = true;
+    remoteWriteUrl = "https://victoriametrics.${homelab.domain}/api/v1/write";
+    prometheusConfig = {
+      scrape_configs = [
+        {
+          job_name = "incus";
+          metrics_path = "/1.0/metrics";
+          scheme = "https";
+          tls_config.insecure_skip_verify = true;
+          static_configs = [
+            {
+              targets = [ "hyper:8444" ];
+            }
+          ];
+        }
+      ];
+    };
+  };
 
 }
