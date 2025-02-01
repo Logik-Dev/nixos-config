@@ -8,4 +8,6 @@
     ./wireguard.nix
   ];
 
+  programs.steam.enable = true;
+
 }

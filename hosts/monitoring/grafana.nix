@@ -1,7 +1,6 @@
 {
   config,
   homelab,
-  pkgs,
   ...
 }:
 {
@@ -24,8 +23,10 @@
   services.grafana = {
     enable = true;
     settings = {
+      plugins = {
+        allow_loading_unsigned_plugins = "victoriametrics-datasource";
+      };
       security = {
-        disable_initial_admin_creation = true;
         admin_user = homelab.username;
         admin_password = "$__file{${config.sops.secrets.grafana-password.path}}";
         admin_email = "$__file{${config.sops.secrets.grafana-email.path}}";
@@ -41,9 +42,14 @@
       enable = true;
       datasources.settings.datasources = [
         {
-          name = "Prometheus";
+          name = "VictoriaMetrics";
           type = "prometheus";
           url = "https://victoriametrics.${homelab.domain}";
+        }
+        {
+          name = "Loki";
+          type = "loki";
+          url = "https://loki.${homelab.domain}";
         }
       ];
 

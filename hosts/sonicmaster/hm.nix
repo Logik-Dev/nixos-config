@@ -1,6 +1,8 @@
 { pkgs, config, ... }:
 {
 
+  home.packages = with pkgs; [ discord-ptb ];
+
   services.gpg-agent = {
     enable = true;
     enableSshSupport = true;
@@ -20,6 +22,7 @@
       };
       publicKeys = [ { source = ./keys/gpg.pub; } ];
     };
+
   };
 
 }

@@ -40,7 +40,7 @@
       "modules": ["nginx", "cli"],
       "platform": "lxc",
       "os": "Nixos",
-      "aliases": ["grafana", "victoriametrics"]
+      "aliases": ["grafana", "victoriametrics", "victorialogs"]
     },
     "security": {
       "ipv4": "192.168.11.58",
