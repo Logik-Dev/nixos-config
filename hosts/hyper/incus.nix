@@ -70,7 +70,7 @@ let
         shift = true;
         source = "/mnt/raid/medias";
         path = "/medias";
-        "io.cache" = "metadata";
+        "io.cache" = "metadata"; # fix io problems with qbittorrent
       };
     };
   };
@@ -129,6 +129,7 @@ in
   environment.systemPackages = with pkgs; [ btrfs-progs ];
   virtualisation.incus = {
     enable = true;
+    package = pkgs.incus;
     #ui.enable = true;
     preseed = {
       config = {
@@ -137,14 +138,17 @@ in
         "core.metrics_authentication" = false;
       };
 
-      profiles = [
-        (mkVlanProfile 11 "Containers network")
-        (mkVlanProfile 21 "IoT network")
-        backupProfile
-        intelGpuProfile
-        mediasProfileContainer
-        mediasProfileVM
-      ] ++ mkStorageProfiles "local" ++ mkStorageProfiles "ultra";
+      profiles =
+        [
+          (mkVlanProfile 11 "Containers network")
+          (mkVlanProfile 21 "IoT network")
+          backupProfile
+          intelGpuProfile
+          mediasProfileContainer
+          mediasProfileVM
+        ]
+        ++ mkStorageProfiles "local"
+        ++ mkStorageProfiles "ultra";
 
       storage_pools = [
         (mkBtrfsPool "local" "/pools/local")

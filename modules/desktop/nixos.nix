@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 {
 
   services.xserver.enable = true;
@@ -21,6 +21,7 @@
   networking.nftables.enable = true;
   virtualisation.incus = {
     enable = true;
+    package = pkgs.incus;
     agent.enable = true;
     ui.enable = true;
     #    preseed = { };

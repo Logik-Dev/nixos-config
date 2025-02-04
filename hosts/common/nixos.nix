@@ -23,6 +23,11 @@ in
     })
   ];
 
+  fonts.packages = with pkgs; [
+    nerd-fonts.fira-code
+    fira-code-symbols
+  ];
+
   sops.defaultSopsFile = ./secrets.yaml;
 
   sops.secrets.borg = { };

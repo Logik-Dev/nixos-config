@@ -11,7 +11,6 @@
     ripgrep
     sops
     ssh-to-age
-    (nerdfonts.override { fonts = [ "FiraCode" ]; })
     go-task
     wl-clipboard
   ];

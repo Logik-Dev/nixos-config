@@ -1,7 +1,10 @@
 { pkgs, config, ... }:
 {
 
-  home.packages = with pkgs; [ discord-ptb ];
+  home.packages = with pkgs; [
+    discord-ptb
+    ns-usbloader
+  ];
 
   services.gpg-agent = {
     enable = true;

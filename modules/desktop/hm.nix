@@ -26,15 +26,15 @@
       };
       font = {
         normal = {
-          family = "FiraCode Nerd Font";
+          family = "FiraCodeNerdFont";
           style = "Regular";
         };
         italic = {
-          family = "FiraCode Nerd Font";
+          family = "FiraCodeNerdFont";
           style = "Italic";
         };
         bold = {
-          family = "FiraCode Nerd Font";
+          family = "FiraCodeNerdFont";
           style = "Bold";
         };
 
