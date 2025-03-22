@@ -21,4 +21,13 @@
     enable = true;
     environmentFile = config.sops.secrets."ddns.env".path;
   };
+
+  systemd.timers."cf-ddns" = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "5m";
+      OnUnitActiveSec = "5m";
+      Unit = "cf-ddns.service";
+    };
+  };
 }
