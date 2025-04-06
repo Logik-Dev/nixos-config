@@ -8,7 +8,7 @@
         grpc_listen_port = 0;
       };
 
-      postions.filename = "/tmp/positions.yaml";
+      #      postions.filename = "/tmp/positions.yaml";
 
       clients = [
         {

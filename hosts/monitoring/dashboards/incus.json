@@ -1,67 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_INCUS",
-      "label": "Incus",
-      "description": "Prometheus instance for Incus",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    },
-    {
-      "name": "DS_LOKI",
-      "label": "Loki",
-      "description": "Loki instance for Incus",
-      "type": "datasource",
-      "pluginId": "loki",
-      "pluginName": "Loki"
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "9.3.2"
-    },
-    {
-      "type": "panel",
-      "id": "logs",
-      "name": "Logs",
-      "version": ""
-    },
-    {
-      "type": "datasource",
-      "id": "loki",
-      "name": "Loki",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "piechart",
-      "name": "Pie chart",
-      "version": ""
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "stat",
-      "name": "Stat",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -84,9 +21,8 @@
   "description": "Overview of Incus instances",
   "editable": false,
   "fiscalYearStartMonth": 0,
-  "gnetId": 19727,
   "graphTooltip": 0,
-  "id": null,
+  "id": 6,
   "links": [
     {
       "icon": "external link",
@@ -97,14 +33,9 @@
       "url": "https://linuxcontainers.org/incus/docs/main/"
     }
   ],
-  "liveNow": false,
   "panels": [
     {
       "collapsed": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_INCUS}"
-      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -119,7 +50,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -163,7 +94,6 @@
         "y": 1
       },
       "id": 350,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -189,12 +119,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "topk(${top}, sum by (name) (increase(incus_cpu_seconds_total{mode!=\"idle\",job=\"$job\",project=\"$project\"}[$__range])))",
@@ -206,7 +136,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -225,7 +155,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -269,7 +199,6 @@
         "y": 1
       },
       "id": 364,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -295,12 +224,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "topk(${top}, incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\"} - incus_memory_MemFree_bytes - incus_memory_Cached_bytes)",
@@ -312,7 +241,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\"} - incus_memory_MemFree_bytes - incus_memory_Cached_bytes) -\nsum(topk(${top}, incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\"} - incus_memory_MemFree_bytes - incus_memory_Cached_bytes))",
@@ -330,7 +259,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -374,7 +303,6 @@
         "y": 1
       },
       "id": 351,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -400,12 +328,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "topk(${top}, incus_filesystem_size_bytes{job=\"$job\",project=\"$project\",mountpoint=\"/\"} - incus_filesystem_avail_bytes)",
@@ -418,7 +346,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(incus_filesystem_size_bytes{job=\"$job\",project=\"$project\",mountpoint=\"/\"} - incus_filesystem_avail_bytes) - \nsum(topk(${top}, incus_filesystem_size_bytes{job=\"$job\",project=\"$project\",mountpoint=\"/\"} - incus_filesystem_avail_bytes))",
@@ -435,7 +363,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Total disk reads during the time interval",
       "fieldConfig": {
@@ -470,6 +398,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -477,15 +406,17 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "text": {},
-        "textMode": "auto"
+        "textMode": "auto",
+        "wideLayout": true
       },
-      "pluginVersion": "9.3.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(increase(incus_disk_read_bytes_total{job=\"$job\",project=\"$project\"}[$__range]))",
@@ -502,7 +433,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Total disk writes during the time interval",
       "fieldConfig": {
@@ -537,6 +468,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -544,15 +476,17 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "text": {},
-        "textMode": "auto"
+        "textMode": "auto",
+        "wideLayout": true
       },
-      "pluginVersion": "9.3.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(increase(incus_disk_written_bytes_total{job=\"$job\",project=\"$project\"}[$__range]))",
@@ -569,7 +503,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Total network RX traffic during the time interval",
       "fieldConfig": {
@@ -604,6 +538,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -611,15 +546,17 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "text": {},
-        "textMode": "auto"
+        "textMode": "auto",
+        "wideLayout": true
       },
-      "pluginVersion": "9.3.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(increase(incus_network_receive_bytes_total{job=\"$job\",project=\"$project\"}[$__range]))*8",
@@ -636,7 +573,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Total network TX traffic during the time interval",
       "fieldConfig": {
@@ -671,6 +608,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -678,15 +616,17 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "text": {},
-        "textMode": "auto"
+        "textMode": "auto",
+        "wideLayout": true
       },
-      "pluginVersion": "9.3.2",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(increase(incus_network_transmit_bytes_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__range]))*8",
@@ -703,7 +643,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -747,7 +687,6 @@
         "y": 9
       },
       "id": 417,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -773,12 +712,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -791,7 +730,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -810,7 +749,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -854,7 +793,6 @@
         "y": 9
       },
       "id": 468,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -880,12 +818,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -898,7 +836,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -917,7 +855,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -961,7 +899,6 @@
         "y": 9
       },
       "id": 469,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -987,12 +924,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1005,7 +942,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1024,7 +961,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "",
       "fieldConfig": {
@@ -1068,7 +1005,6 @@
         "y": 9
       },
       "id": 470,
-      "links": [],
       "options": {
         "displayLabels": [],
         "legend": {
@@ -1094,12 +1030,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "7.4.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1112,7 +1048,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1131,7 +1067,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "CPU usage overview for the whole project",
       "fieldConfig": {
@@ -1140,11 +1076,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "opacity",
@@ -1153,6 +1091,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "smooth",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1223,7 +1162,6 @@
         "y": 15
       },
       "id": 328,
-      "links": [],
       "options": {
         "legend": {
           "calcs": [],
@@ -1236,12 +1174,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "8.1.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(incus_cpu_seconds_total{mode!=\"idle\",job=\"$job\",project=\"$project\"}[$__rate_interval])) by (mode) * 100",
           "hide": false,
@@ -1257,7 +1195,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Memory usage overview for the whole project",
       "fieldConfig": {
@@ -1266,11 +1204,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
             "gradientMode": "none",
@@ -1279,6 +1219,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "smooth",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1394,7 +1335,6 @@
         "y": 15
       },
       "id": 354,
-      "links": [],
       "options": {
         "legend": {
           "calcs": [],
@@ -1407,12 +1347,12 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "8.1.1",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\"})",
           "format": "time_series",
@@ -1426,7 +1366,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\"} - incus_memory_MemFree_bytes - incus_memory_Cached_bytes)",
@@ -1441,7 +1381,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(incus_memory_Cached_bytes{job=\"$job\",project=\"$project\"})",
           "format": "time_series",
@@ -1455,7 +1395,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(incus_memory_MemFree_bytes{job=\"$job\",project=\"$project\"})",
           "format": "time_series",
@@ -1468,7 +1408,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(incus_memory_Swap_bytes{job=\"$job\",project=\"$project\"})",
           "format": "time_series",
@@ -1486,7 +1426,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Number of running processes for the whole project",
       "fieldConfig": {
@@ -1561,7 +1501,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(incus_procs_total{job=\"$job\",project=\"$project\"})",
@@ -1577,7 +1517,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Disk space used for the whole project",
       "fieldConfig": {
@@ -1657,7 +1597,6 @@
         "y": 25
       },
       "id": 326,
-      "links": [],
       "options": {
         "legend": {
           "calcs": [],
@@ -1675,7 +1614,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(incus_filesystem_size_bytes{mountpoint=\"/\",job=\"$job\",project=\"$project\"} - incus_filesystem_avail_bytes)",
@@ -1689,7 +1628,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(incus_filesystem_size_bytes{mountpoint=\"/\",job=\"$job\",project=\"$project\"})",
@@ -1709,7 +1648,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "The number of bytes read or written per second for the whole project",
       "fieldConfig": {
@@ -1791,7 +1730,6 @@
         "y": 34
       },
       "id": 338,
-      "links": [],
       "options": {
         "legend": {
           "calcs": [],
@@ -1809,7 +1747,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_disk_written_bytes_total{job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -1823,7 +1761,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_disk_read_bytes_total{job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -1842,7 +1780,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "The number (after merges) of I/O requests completed per second for the whole project",
       "fieldConfig": {
@@ -1921,7 +1859,6 @@
         "y": 34
       },
       "id": 336,
-      "links": [],
       "options": {
         "legend": {
           "calcs": [],
@@ -1939,7 +1876,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_disk_writes_completed_total{job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -1952,7 +1889,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_disk_reads_completed_total{job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -1970,7 +1907,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Network traffic overview for the whole project",
       "fieldConfig": {
@@ -2065,7 +2002,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_network_transmit_bytes_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__rate_interval]))*8",
@@ -2079,7 +2016,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_network_receive_bytes_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__rate_interval]))*8",
@@ -2097,7 +2034,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Network traffic overview for the whole project",
       "fieldConfig": {
@@ -2192,7 +2129,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2207,7 +2144,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2227,7 +2164,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_INCUS}"
+        "uid": "PBFA97CFB590B2093"
       },
       "description": "Network errors and drop overview for the whole project",
       "fieldConfig": {
@@ -2312,7 +2249,6 @@
         "y": 49
       },
       "id": 366,
-      "links": [],
       "options": {
         "legend": {
           "calcs": [
@@ -2332,7 +2268,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_network_receive_errs_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -2346,7 +2282,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_network_transmit_errs_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -2360,7 +2296,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_network_receive_drop_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -2375,7 +2311,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
           "expr": "sum(rate(incus_network_transmit_drop_total{device!=\"lo\",job=\"$job\",project=\"$project\"}[$__rate_interval]))",
@@ -2394,10 +2330,6 @@
     },
     {
       "collapsed": true,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_INCUS}"
-      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -2409,7 +2341,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "Basic CPU info",
           "fieldConfig": {
@@ -2498,7 +2430,6 @@
             "y": 55
           },
           "id": 353,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [],
@@ -2516,7 +2447,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "sum(rate(incus_cpu_seconds_total{mode!=\"idle\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])) by (mode) * 100",
@@ -2533,7 +2464,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "Basic memory usage",
           "fieldConfig": {
@@ -2667,7 +2598,6 @@
             "y": 55
           },
           "id": 324,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [],
@@ -2685,7 +2615,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "sum(incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\",name=\"$name\"})",
@@ -2700,7 +2630,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "sum(incus_memory_MemTotal_bytes{job=\"$job\",project=\"$project\",name=\"$name\"} - incus_memory_MemFree_bytes - incus_memory_Cached_bytes)",
@@ -2715,7 +2645,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "sum(incus_memory_Cached_bytes{job=\"$job\",project=\"$project\",name=\"$name\"})",
@@ -2730,7 +2660,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "sum(incus_memory_MemFree_bytes{job=\"$job\",project=\"$project\",name=\"$name\"})",
@@ -2744,7 +2674,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "sum(incus_memory_Swap_bytes{job=\"$job\",project=\"$project\",name=\"$name\"})",
@@ -2763,7 +2693,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "Number of running processes in the instance",
           "fieldConfig": {
@@ -2836,7 +2766,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "incus_procs_total{job=\"$job\",project=\"$project\",name=\"$name\"}",
@@ -2852,7 +2782,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "Disk space used of all filesystems mounted",
           "fieldConfig": {
@@ -2915,7 +2845,6 @@
             "y": 65
           },
           "id": 14,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [],
@@ -2933,7 +2862,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "100 - ((incus_filesystem_avail_bytes{job=\"$job\",project=\"$project\",name=\"$name\"} * 100) / incus_filesystem_size_bytes)",
@@ -2952,7 +2881,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "The number of bytes read from or written to the device per second",
           "fieldConfig": {
@@ -3022,7 +2951,6 @@
             "y": 75
           },
           "id": 334,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -3045,7 +2973,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_disk_written_bytes_total{job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3059,7 +2987,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_disk_read_bytes_total{job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3078,7 +3006,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "The number (after merges) of I/O requests completed per second for the device",
           "fieldConfig": {
@@ -3148,7 +3076,6 @@
             "y": 75
           },
           "id": 358,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -3171,7 +3098,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "expr": "rate(incus_disk_writes_completed_total{job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
               "interval": "",
@@ -3183,7 +3110,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_disk_reads_completed_total{job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3201,7 +3128,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "description": "Basic network info per interface",
           "fieldConfig": {
@@ -3294,7 +3221,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_transmit_bytes_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])*8",
@@ -3308,7 +3235,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_receive_bytes_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])*8",
@@ -3321,7 +3248,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_transmit_bytes_total{device=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])*8",
@@ -3335,7 +3262,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_receive_bytes_total{device=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])*8",
@@ -3347,14 +3274,13 @@
             }
           ],
           "title": "Network Traffic",
-          "transformations": [],
           "transparent": true,
           "type": "timeseries"
         },
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "fieldConfig": {
             "defaults": {
@@ -3430,7 +3356,6 @@
             "y": 85
           },
           "id": 357,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [],
@@ -3448,7 +3373,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_transmit_packets_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3462,7 +3387,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_receive_packets_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3476,7 +3401,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_transmit_packets_total{device=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3491,7 +3416,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
               "expr": "rate(incus_network_receive_packets_total{device=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
@@ -3511,7 +3436,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_INCUS}"
+            "uid": "PBFA97CFB590B2093"
           },
           "fieldConfig": {
             "defaults": {
@@ -3571,7 +3496,6 @@
             "y": 90
           },
           "id": 346,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -3591,7 +3515,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "expr": "rate(incus_network_receive_errs_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
               "format": "time_series",
@@ -3604,7 +3528,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "expr": "rate(incus_network_transmit_errs_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
               "format": "time_series",
@@ -3617,7 +3541,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "expr": "rate(incus_network_receive_drop_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
               "format": "time_series",
@@ -3631,7 +3555,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_INCUS}"
+                "uid": "PBFA97CFB590B2093"
               },
               "expr": "rate(incus_network_transmit_drop_total{device!=\"lo\",job=\"$job\",project=\"$project\",name=\"$name\"}[$__rate_interval])",
               "format": "time_series",
@@ -3658,7 +3582,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 62
       },
       "id": 521,
       "panels": [],
@@ -3668,13 +3592,17 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "${DS_LOKI}"
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 61
+        "y": 63
       },
       "id": 572,
       "options": {
@@ -3691,7 +3619,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_LOKI}"
+            "uid": "P8E80F9AEF21F6940"
           },
           "editorMode": "builder",
           "expr": "{app=\"incus\", type=\"lifecycle\", instance=\"$job\"}",
@@ -3705,13 +3633,17 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "${DS_LOKI}"
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 68
+        "y": 70
       },
       "id": 573,
       "options": {
@@ -3728,7 +3660,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_LOKI}"
+            "uid": "P8E80F9AEF21F6940"
           },
           "editorMode": "builder",
           "expr": "{app=\"incus\", type=\"logging\", instance=\"$job\"}",
@@ -3740,23 +3672,24 @@
       "type": "logs"
     }
   ],
-  "refresh": false,
-  "schemaVersion": 37,
-  "style": "dark",
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
   "tags": [],
   "templating": {
     "list": [
       {
-        "current": {},
+        "current": {
+          "text": "incus",
+          "value": "incus"
+        },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_INCUS}"
+          "uid": "PBFA97CFB590B2093"
         },
         "definition": "label_values(incus_procs_total, job)",
-        "hide": 0,
         "includeAll": false,
         "label": "Job",
-        "multi": false,
         "name": "job",
         "options": [],
         "query": {
@@ -3765,25 +3698,22 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 1,
-        "tagValuesQuery": "",
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
+        "type": "query"
       },
       {
-        "current": {},
+        "current": {
+          "text": "default",
+          "value": "default"
+        },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_INCUS}"
+          "uid": "PBFA97CFB590B2093"
         },
         "definition": "label_values(incus_procs_total{job=\"$job\"}, project)",
         "description": "Name of the project",
-        "hide": 0,
         "includeAll": false,
         "label": "Project",
-        "multi": false,
         "name": "project",
         "options": [],
         "query": {
@@ -3792,23 +3722,24 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 1,
-        "tagValuesQuery": "",
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
+        "type": "query"
       },
       {
-        "allValue": "",
-        "current": {},
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_INCUS}"
+          "uid": "PBFA97CFB590B2093"
         },
         "definition": "label_values(incus_procs_total{job=\"$job\",project=\"$project\"}, name)",
         "description": "Name of the instance",
-        "hide": 0,
         "includeAll": true,
         "label": "Instance",
         "multi": true,
@@ -3820,24 +3751,17 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 1,
-        "tagValuesQuery": "",
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
+        "type": "query"
       },
       {
         "current": {
-          "selected": false,
           "text": "5",
           "value": "5"
         },
         "description": "Number of instances to include in pie charts",
-        "hide": 0,
         "includeAll": false,
         "label": "Top",
-        "multi": false,
         "name": "top",
         "options": [
           {
@@ -3872,8 +3796,6 @@
           }
         ],
         "query": "3, 4, 5, 10, 15, 20",
-        "queryValue": "",
-        "skipUrlSync": false,
         "type": "custom"
       }
     ]
@@ -3896,6 +3818,6 @@
   "timezone": "",
   "title": "Incus",
   "uid": "bGY-LSB7k",
-  "version": 15,
+  "version": 1,
   "weekStart": ""
 }

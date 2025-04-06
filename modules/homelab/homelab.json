@@ -28,6 +28,13 @@
       "os": "Nixos",
       "platform": "bare-metal"
     },
+    "iot": {
+      "ipv4": "192.168.21.107",
+      "modules": ["cli", "nginx"],
+      "os": "Nixos",
+      "platform": "lxc",
+      "aliases": ["ha", "unifi"]
+    },
     "medias": {
       "ipv4": "192.168.11.185",
       "modules": ["nginx", "cli"],
@@ -40,7 +47,7 @@
       "modules": ["nginx", "cli"],
       "platform": "lxc",
       "os": "Nixos",
-      "aliases": ["grafana", "victoriametrics", "victorialogs"]
+      "aliases": ["grafana", "victoriametrics", "victorialogs", "loki"]
     },
     "security": {
       "ipv4": "192.168.11.58",

@@ -5,7 +5,7 @@
     enableACME = true;
     forceSSL = true;
     acmeRoot = null;
-    locations."/".proxyPass = "http://localhost:3000";
+    locations."/".proxyPass = "http://localhost:3030";
 
   };
 

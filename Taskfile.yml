@@ -11,6 +11,11 @@ tasks:
     cmds:
       - task --list-all
 
+  launch-iot:
+    internal: true
+    cmds:
+      - incus launch images:nixos/24.11 iot -p vlan21 -p ultra-30GiB -d eth0,hwaddr="BC:24:11:45:11:17" -c limits.cpu=1 -c limits.memory=4GiB -c security.nesting=true -c boot.autostart=true
+
   launch-dns:
     internal: true
     cmds:

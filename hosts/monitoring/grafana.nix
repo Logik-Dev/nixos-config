@@ -38,11 +38,12 @@
         domain = "grafana.${homelab.domain}";
       };
     };
+
     provision = {
       enable = true;
       datasources.settings.datasources = [
         {
-          name = "VictoriaMetrics";
+          name = "Prometheus";
           type = "prometheus";
           url = "https://victoriametrics.${homelab.domain}";
         }
@@ -52,11 +53,11 @@
           url = "https://loki.${homelab.domain}";
         }
       ];
-
       dashboards.settings.providers = [
         {
           name = "Incus";
           options.path = ./dashboards/incus.json;
+
         }
       ];
     };
