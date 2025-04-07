@@ -5,6 +5,7 @@
   ...
 }:
 {
+  imports = [ ./ha ];
 
   networking.networkmanager.enable = lib.mkForce false;
 

@@ -33,7 +33,7 @@
       "modules": ["cli", "nginx"],
       "os": "Nixos",
       "platform": "lxc",
-      "aliases": ["ha", "unifi"]
+      "aliases": ["home", "unifi"]
     },
     "medias": {
       "ipv4": "192.168.11.185",
