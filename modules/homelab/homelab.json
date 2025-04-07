@@ -40,7 +40,7 @@
       "modules": ["nginx", "cli"],
       "os": "Nixos",
       "platform": "lxc",
-      "aliases": ["jellyfin", "radarr", "sonarr", "prowlarr"]
+      "aliases": ["jellyfin", "jellyseerr", "radarr", "sonarr", "prowlarr"]
     },
     "monitoring": {
       "ipv4": "192.168.11.80",

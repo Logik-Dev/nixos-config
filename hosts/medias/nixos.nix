@@ -70,6 +70,10 @@ in
   services.jellyfin.group = "media";
   services.nginx.virtualHosts."jellyfin.${domain}" = mkProxy 8096;
 
+  # Jellyseerr
+  services.jellyseerr.enable = true;
+  services.nginx.virtualHosts."jellyseerr.${domain}" = mkProxy 5055;
+
   # 1. enable vaapi on OS-level
   nixpkgs.config.packageOverrides = pkgs: {
     vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
