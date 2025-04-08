@@ -5,6 +5,7 @@
     discord-ptb
     ns-usbloader
     wireguard-tools
+    dnsutils
   ];
 
   services.gpg-agent = {
