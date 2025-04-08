@@ -4,6 +4,7 @@
   home.packages = with pkgs; [
     discord-ptb
     ns-usbloader
+    wireguard-tools
   ];
 
   services.gpg-agent = {
