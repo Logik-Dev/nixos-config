@@ -17,6 +17,10 @@
     sopsFile = ./secrets.yaml;
   };
 
+  sops.secrets.iphone-psk = {
+    sopsFile = ./secrets.yaml;
+  };
+
   networking.nat = {
     enable = true;
     #enableIPv6 = true;
@@ -58,6 +62,15 @@
           presharedKeyFile = config.sops.secrets.oneplus-psk.path;
           allowedIPs = [
             "10.11.11.3/32"
+          ];
+        }
+
+        {
+          # Iphone
+          publicKey = "AS81dlMYnuKpF4y0A2rN5gC5qcood5tumSDIgjhSiAQ=";
+          presharedKeyFile = config.sops.secrets.iphone-psk.path;
+          allowedIPs = [
+            "10.11.11.4/32"
           ];
         }
       ];
