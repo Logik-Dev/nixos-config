@@ -5,5 +5,10 @@
     configurationLimit = 10;
   };
 
+  services.resolved = {
+    enable = true;
+    dnssec = "true";
+  };
+
   boot.loader.efi.canTouchEfiVariables = true;
 }
