@@ -7,8 +7,7 @@
 
   services.resolved = {
     enable = true;
-    dnssec = "true";
+    dnssec = "false";
   };
-
   boot.loader.efi.canTouchEfiVariables = true;
 }

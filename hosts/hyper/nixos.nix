@@ -12,7 +12,7 @@
     ./disko.nix
     ../common/bare-metal.nix
     ./incus.nix
-    ./homepage.nix
+    ./homepage
   ];
 
   users.groups.media.gid = lib.mkForce 991;

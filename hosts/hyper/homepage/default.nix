@@ -5,16 +5,24 @@
     sopsFile = ./secrets.env;
     format = "dotenv";
     key = "";
+    owner = "root";
+    group = "users";
+    mode = "400";
     restartUnits = [ "homepage-dashboard.service" ];
   };
 
   services.homepage-dashboard = {
     enable = true;
-    environmentFile = "/run/secrets/homepage.env";
+    environmentFile = config.sops.secrets."homepage.env".path;
     settings = {
       headerStyle = "boxedWidgets";
       target = "_blank";
     };
+    customCSS = ''
+      #information-widgets-right {
+        order: 2;
+      }
+    '';
     widgets = [
       {
         resources = {
@@ -26,6 +34,12 @@
             "/pools/ultra"
             "/"
           ];
+        };
+      }
+      {
+        search = {
+          provider = "google";
+          showSearchSuggestions = true;
         };
       }
       {
@@ -49,7 +63,7 @@
               widget = {
                 type = "jellyfin";
                 url = "https://jellyfin.${homelab.domain}";
-                key = "{{ HOMEPAGE_VAR_JELLYFIN_KEY }}";
+                key = "{{HOMEPAGE_VAR_JELLYFIN}}";
                 movies = true;
                 series = true;
                 enableBlocks = true;

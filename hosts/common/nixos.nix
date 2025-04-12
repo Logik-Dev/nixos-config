@@ -37,7 +37,6 @@ in
   networking = {
     nameservers = [
       "192.168.11.53"
-      "9.9.9.9"
     ];
     hostName = host.hostname;
     networkmanager.enable = true;
