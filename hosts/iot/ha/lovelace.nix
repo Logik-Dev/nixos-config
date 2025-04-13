@@ -16,17 +16,30 @@
             remote_id = "remote.fire_tv_salon";
             media_player_id = "media_player.fire_tv_salon";
             rows = [
-              [ "power" ]
               [
                 "netflix"
                 "disney"
                 "primevideo"
                 "youtube"
               ]
+              [ "dpad" ]
+              [
+                "back"
+                "home"
+                "power"
+                "info"
+              ]
+              [
+                "rewind"
+                "play"
+                "pause"
+                "fast_forward"
+              ]
             ];
           }
           {
             name = "Sonos Playbar";
+            theme = "happy";
             type = "media-control";
             entity = "media_player.salon";
           }

@@ -1,4 +1,9 @@
-{ homelab, pkgs, ... }:
+{
+  homelab,
+  pkgs,
+  config,
+  ...
+}:
 {
 
   imports = [
@@ -15,7 +20,9 @@
     path = "/var/lib/hass/secrets.yaml";
   };
 
+  # needed for sonos
   networking.firewall.allowedTCPPorts = [ 1400 ];
+
   services.nginx.virtualHosts."home.${homelab.domain}" = {
     enableACME = true;
     acmeRoot = null;
@@ -25,6 +32,11 @@
       proxyWebsockets = true;
     };
   };
+
+  # create automations.yaml
+  systemd.tmpfiles.rules = [
+    "f ${config.services.home-assistant.configDir}/automations.yaml 0755 hass hass"
+  ];
 
   services.home-assistant = {
     enable = true;
@@ -36,6 +48,7 @@
       python3Packages: with python3Packages; [
         androidtvremote2
         gtts
+        python-kasa
       ];
     extraComponents = [
       "alexa"
@@ -78,6 +91,8 @@
           };
         };
       };
+      "automation manual" = [ ];
+      "automation ui" = "!include automations.yaml";
     };
   };
 
