@@ -37,15 +37,60 @@
     inputs@{ nixpkgs, ... }:
     let
       lib = nixpkgs.lib;
-
-      homelab =
-        (lib.evalModules {
-          modules = [
-            ./modules/homelab
-          ];
-        }).config.homelab;
+      system = "x86_64-linux";
+      hosts = (import ./modules/homelab { inherit lib; }).config.hosts;
     in
     {
-      nixosConfigurations = import ./hosts { inherit inputs homelab lib; };
+      nixosConfigurations = {
+        # LXD Container Image
+        container = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./machines/common
+            "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
+          ];
+        };
+
+        # LXD Virtual Machine Image
+        vm = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./machines/common
+            "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"
+          ];
+        };
+
+        # Hyper
+        hyper = lib.nixosSystem {
+          inherit system;
+          specialArgs = {
+            inherit inputs hosts;
+          };
+          modules = [
+            ./machines/common
+            ./machines/hyper
+          ];
+        };
+
+        dns = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ../machines/dns
+          ];
+        };
+
+        security = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ./machines/hyper
+          ];
+        };
+      };
     };
 }

@@ -1,0 +1,28 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list-all
+
+  images-plan:
+    desc: "Plan incus images build"
+    cmds:
+      - tofu plan --target=incus_image.vm-image --target=incus_image.container-image
+
+  images-build:
+    desc: "Build incus images"
+    cmds:
+      - tofu apply --target=incus_image.vm-image --target=incus_image.container-image
+
+  hyper-plan:
+    desc: "Plan hyper install/rebuild"
+    cmds:
+      - tofu plan --target=module.deploy-hyper
+
+  hyper-build:
+    desc: "Install/Rebuild hyper"
+    cmds:
+      - tofu apply --target=module.deploy-hyper
