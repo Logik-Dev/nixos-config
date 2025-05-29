@@ -1,4 +1,9 @@
-{ config, homelab, ... }:
+{
+  config,
+  email,
+  domain,
+  ...
+}:
 {
 
   services.nginx = {
@@ -27,25 +32,26 @@
     443
   ];
 
-  sops.secrets.cloudflare-token.owner = "nginx";
-  sops.secrets.cloudflare-email.owner = "nginx";
+  sops.secrets."cloudflare.env" = {
+    sopsFile = ./cloudflare.env;
+    format = "dotenv";
+    key = "";
+    group = "nginx";
+  };
 
   security.acme = {
     acceptTerms = true;
 
     defaults = {
-      email = "logikdevfr@gmail.com";
+      inherit email;
       group = "nginx";
       dnsProvider = "cloudflare";
       dnsResolver = "1.1.1.1:53";
-      credentialFiles = {
-        "CF_API_EMAIL_FILE" = config.sops.secrets.cloudflare-email.path;
-        "CF_DNS_API_TOKEN_FILE" = config.sops.secrets.cloudflare-token.path;
-      };
+      environmentFile = config.sops.secrets."cloudflare.env".path;
     };
 
-    certs.${homelab.domain} = {
-      extraDomainNames = [ "*.${homelab.domain}" ];
+    certs.${domain} = {
+      extraDomainNames = [ "*.${domain}" ];
     };
   };
 }
