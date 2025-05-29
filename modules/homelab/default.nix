@@ -2,7 +2,7 @@
 with builtins;
 with lib;
 let
-  json = fromJSON (readFile ./homelab.json);
+  json = fromJSON (readFile ../../deployments/machines.json);
   hostType = types.submodule {
     options = {
       aliases = mkOption {
@@ -10,12 +10,6 @@ let
       };
       ipv4 = mkOption {
         type = types.nullOr types.str;
-      };
-      modules = mkOption {
-        type = types.listOf types.str;
-      };
-      os = mkOption {
-        type = types.str;
       };
       system = mkOption {
         type = types.str;
@@ -30,51 +24,34 @@ let
       platform = mkOption {
         type = types.enum [
           "bare-metal"
-          "vm"
-          "lxc"
+          "container"
+          "virtual-machine"
         ];
       };
     };
   };
 in
 {
-  options.homelab = {
-    username = mkOption {
-      type = types.str;
-    };
-
-    domain = mkOption {
-      type = types.str;
-    };
-
-    hosts = mkOption {
-      type = types.attrsOf hostType;
-    };
+  options.hosts = mkOption {
+    type = types.attrsOf hostType;
   };
 
-  config.homelab = {
-    username = json.username;
-    domain = json.domain;
-    hosts = mapAttrs (
-      hostname:
-      {
-        aliases ? [ ],
-        modules,
-        platform,
-        os,
-        ipv4 ? null,
-      }:
-      {
-        inherit
-          aliases
-          hostname
-          ipv4
-          modules
-          os
-          platform
-          ;
-        sshPublicKey = readFile ../../hosts/${hostname}/keys/ssh_host_ed25519_key.pub;
-      }
-    ) json.hosts;
-  };
+  config.hosts = mapAttrs (
+    hostname:
+    {
+      aliases ? [ ],
+      platform,
+      ipv4 ? null,
+      ...
+    }:
+    {
+      inherit
+        aliases
+        hostname
+        ipv4
+        platform
+        ;
+      sshPublicKey = readFile ../../machines/${hostname}/keys/ssh_host_ed25519_key.pub;
+    }
+  ) json;
 }
