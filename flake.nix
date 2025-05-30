@@ -45,7 +45,7 @@
         # LXD Container Image
         container = lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs; };
+          specialArgs = { inherit inputs hosts; };
           modules = [
             ./machines/common
             "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
@@ -55,7 +55,7 @@
         # LXD Virtual Machine Image
         vm = lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs; };
+          specialArgs = { inherit inputs hosts; };
           modules = [
             ./machines/common
             "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"

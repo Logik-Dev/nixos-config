@@ -29,7 +29,7 @@ resource "incus_storage_pool" "btrfs-pool" {
 
 # instance
 resource "incus_instance" "instance" {
-  for_each = { for k, v in local.machines : k => v.platform != "bare-metal" }
+  for_each = { for k, v in local.machines : k => v if v.platform != "bare-metal" }
   name     = each.key
   type     = each.value.platform
   image    = each.value.platform == "container" ? "nixos/custom/container" : "nixos/custom/vm"
