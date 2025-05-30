@@ -8,10 +8,28 @@ data "sops_file" "ssh_keys" {
   source_file = "../machines/${each.key}/secrets.yaml"
 }
 
+# LVM Pool
+resource "incus_storage_pool" "lvm-pool" {
+  name   = "lvm-pool"
+  driver = "lvm"
+  config = {
+    source              = "vg_local"
+    "lvm.thinpool_name" = "pool"
+  }
+}
+
+# BTRFS Pool
+resource "incus_storage_pool" "btrfs-pool" {
+  name   = "btrfs-pool"
+  driver = "btrfs"
+  config = {
+    source = "/mnt/ultra/pool"
+  }
+}
 
 # instance
 resource "incus_instance" "instance" {
-  for_each = local.machines
+  for_each = { for k, v in local.machines : k => v if v.platform != "bare-metal" }
   name     = each.key
   type     = each.value.platform
   image    = each.value.platform == "container" ? "nixos/custom/container" : "nixos/custom/vm"
@@ -35,7 +53,7 @@ resource "incus_instance" "instance" {
     type = "disk"
     properties = {
       path = "/"
-      pool = each.value.pool
+      pool = each.value.platform == "virtual-machine" ? incus_storage_pool.lvm-pool.name : incus_storage_pool.btrfs-pool.name
       size = each.value.size
     }
   }
