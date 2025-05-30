@@ -74,6 +74,15 @@
           ];
         };
 
+        borg = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ../machines/borg
+          ];
+        };
+
         dns = lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs hosts; };

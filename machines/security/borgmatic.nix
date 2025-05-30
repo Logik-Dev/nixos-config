@@ -14,7 +14,7 @@ let
 
     text = ''
       sudo systemctl stop vaultwarden
-      sudo borgmatic extract --archive latest --repository raid # Restore latest backup from RAID repo
+      sudo borgmatic extract --archive latest --repository borg # Restore latest backup
       sudo rm -rf /var/lib/vaultwarden
       sudo mv ./var/lib/vaultwarden /var/lib
       sudo systemctl start vaultwarden
@@ -28,20 +28,8 @@ in
   services.borgmatic.enable = true;
   services.borgmatic.configurations = {
     vaultwarden = {
-      source_directories = [
-        "/var/lib/vaultwarden"
-      ];
-      repositories =
-        map
-          (repo: {
-            path = "ssh://${username}@192.168.11.29/home/${username}/${repo}/security";
-            label = repo;
-          })
-          [
-            "backups"
-            "raid"
-            "archives"
-          ];
+      source_directories = [ "/var/lib/vaultwarden" ];
+      repositories = [ "ssh://${username}@borg/home/${username}/borg/security" ];
       encryption_passcommand = "${pkgs.coreutils}/bin/cat /run/secrets/borg";
       ssh_command = "ssh -i /etc/ssh/ssh_host_rsa_key";
       extra_borg_options.create = "--stats";

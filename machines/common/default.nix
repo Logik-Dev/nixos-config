@@ -30,12 +30,15 @@ in
   # The hostname is "nixos" until reboot
   # TODO find a solution
   networking.hostName = hostname;
+  networking.extraHosts = builtins.concatStringsSep "\n" (
+    builtins.attrValues (builtins.mapAttrs (k: v: "${v.ipv4} ${v.hostname}") hosts)
+  );
 
   # OpenSSH
   services.openssh.enable = true;
   services.openssh.settings.PermitRootLogin = "no";
-  #services.openssh.settings.PasswordAuthentication = false;
-  #services.openssh.settings.AllowUsers = [ username ];
+  services.openssh.settings.PasswordAuthentication = false;
+  services.openssh.settings.AllowUsers = [ username ];
 
   # Common secrets
   sops.defaultSopsFile = ./secrets.yaml;
