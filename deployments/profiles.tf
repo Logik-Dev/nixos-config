@@ -30,7 +30,7 @@ resource "incus_profile" "backup-folders" {
     name = "borg"
     type = "disk"
     properties = {
-      shift  = true
+      #shift  = true
       source = "/mnt/storage/borg"
       path   = format("/home/%s/borg", nonsensitive(data.sops_file.nix_globals.data["username"]))
     }
