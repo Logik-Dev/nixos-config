@@ -39,7 +39,9 @@ in
   services.openssh.enable = true;
   services.openssh.settings.PermitRootLogin = "no";
   services.openssh.settings.PasswordAuthentication = false;
-  services.openssh.settings.AllowUsers = [ username ];
+  security.pam.sshAgentAuth.enable = true;
+
+  #services.openssh.settings.AllowUsers = [ username ];
 
   # Common secrets
   sops.defaultSopsFile = ./secrets.yaml;

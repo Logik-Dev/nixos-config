@@ -97,7 +97,7 @@
           specialArgs = { inherit inputs hosts; };
           modules = [
             ./machines/common
-            ./machines/hyper
+            ./machines/security
           ];
         };
       };
