@@ -9,17 +9,18 @@ module "deploy-hyper" {
   nixos_system_attr      = ".#nixosConfigurations.hyper.config.system.build.toplevel"
   nixos_partitioner_attr = ".#nixosConfigurations.hyper.config.system.build.diskoScript"
   nixos_facter_path      = "../machines/hyper/facter.json"
-  install_user           = nonsensitive(data.sops_file.nix_globals.data["username"])
-  target_user            = nonsensitive(data.sops_file.nix_globals.data["username"])
+  install_user           = nonsensitive(data.sops_file.globals.data["username"])
+  target_user            = nonsensitive(data.sops_file.globals.data["username"])
   target_host            = local.hyper-ipv4
   instance_id            = local.hyper-ipv4
   extra_files_script     = "${path.module}/scripts/decrypt-ssh-secrets.sh"
   special_args = {
     hostname = "hyper"
-    username = nonsensitive(data.sops_file.nix_globals.data["username"])
-    email    = nonsensitive(data.sops_file.nix_globals.data["email"])
-    domain   = nonsensitive(data.sops_file.nix_globals.data["domain"])
+    username = nonsensitive(data.sops_file.globals.data["username"])
+    email    = nonsensitive(data.sops_file.globals.data["email"])
+    domain   = nonsensitive(data.sops_file.globals.data["domain"])
 
   }
+
 }
 
