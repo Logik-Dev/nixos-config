@@ -92,6 +92,15 @@
           ];
         };
 
+        medias = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ./machines/medias
+          ];
+        };
+
         security = lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs hosts; };
