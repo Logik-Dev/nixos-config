@@ -2,36 +2,13 @@
   "borg": {
     "platform": "container",
     "ipv4": "192.168.11.29",
-    "cpu": "1",
+    "cpus": "1",
     "memory": "4GiB",
     "vlan": 11,
     "size": "20GiB",
     "hwaddr": "BC:24:11:45:11:29",
-    "profiles": ["backup-folders"],
+    "profiles": ["backup_folders"],
     "aliases": []
-  },
-  "dns": {
-    "platform": "container",
-    "ipv4": "192.168.11.53",
-    "cpu": "1",
-    "memory": "2GiB",
-    "vlan": 11,
-    "size": "30GiB",
-    "hwaddr": "BC:24:11:45:11:53",
-    "profiles": [],
-    "aliases": ["dns"]
-  },
-
-  "security": {
-    "platform": "virtual-machine",
-    "ipv4": "192.168.11.58",
-    "cpu": "1",
-    "memory": "2GiB",
-    "vlan": 11,
-    "size": "30GiB",
-    "hwaddr": "BC:24:11:45:11:58",
-    "profiles": [],
-    "aliases": ["vaultwarden"]
   },
 
   "hyper": {

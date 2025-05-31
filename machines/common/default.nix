@@ -1,5 +1,6 @@
 {
   hostname,
+  lib,
   username,
   config,
   hosts,
@@ -51,6 +52,7 @@ in
   };
 
   # Common users
+  users.groups.media.gid = lib.mkForce 991;
   security.sudo.wheelNeedsPassword = false;
   users.users.${username} = {
     extraGroups = [ "wheel" ];

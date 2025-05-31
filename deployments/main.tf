@@ -31,20 +31,40 @@ module "storage_pools" {
 
 module "profiles" {
   source   = "./profiles"
-  username = nonsensitive(local.username)
+  username = local.username
 }
 
-module "container_image" {
+module "images" {
   source   = "./images"
   username = local.username
 }
 
+module "instances" {
+  for_each       = { for k, v in local.machines : k => v if v.platform != "bare-metal" }
+  source         = "./instance"
+  hostname       = each.key
+  type           = local.machines[each.key].platform
+  images         = module.images
+  storage_pools  = module.storage_pools
+  incus_profiles = module.profiles
+  profiles       = local.machines[each.key].profiles
+  cpus           = local.machines[each.key].cpus
+  memory         = local.machines[each.key].memory
+  hwaddr         = local.machines[each.key].hwaddr
+  vlan           = local.machines[each.key].vlan
+  size           = local.machines[each.key].size
+  username       = nonsensitive(local.username)
+  email          = nonsensitive(local.email)
+  domain         = nonsensitive(local.domain)
+}
+/*
 module "dns_instance" {
   source         = "./instance"
   hostname       = "dns"
-  image          = one(module.container_image.aliases)
+  image          = module.images.container
   hwaddr         = local.machines["dns"].hwaddr
   root_disk_pool = module.storage_pools.btrfs_pool
+  profiles       = [for x in local.machines["dns"].profiles : module.profiles[x]]
 }
 
 module "dns_rebuild" {
@@ -57,7 +77,7 @@ module "dns_rebuild" {
   }
   ipv4 = module.dns_instance.ipv4
 }
-
+*/
 
 
 

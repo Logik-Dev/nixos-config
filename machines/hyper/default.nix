@@ -1,5 +1,6 @@
 {
   inputs,
+  username,
   ...
 }:
 {
@@ -17,6 +18,19 @@
   boot.loader.systemd-boot = {
     enable = true;
     configurationLimit = 20;
+  };
+
+  # Needed folders
+  systemd.tmpfiles.settings = {
+    "10-shared-folders" = {
+      "/mnt/storage/borg" = {
+        d = {
+          group = "media";
+          mode = "775";
+          user = username;
+        };
+      };
+    };
   };
 
 }

@@ -1,23 +1,57 @@
+variable "storage_pools" {
+  description = "Incus pools"
+  type = object({
+    btrfs_pool = string
+    lvm_pool   = string
+  })
+}
+
+variable "profiles" {
+  description = "Profiles associated with the instance"
+  type        = set(string)
+}
+
+variable "incus_profiles" {
+  description = "Map of all incus profiles"
+  type        = map(string)
+}
+
 variable "type" {
   description = "Type of the instance: container or virtual-machine"
   type        = string
-  default     = "container"
 }
 
 variable "hostname" {
-  description = "Hostname of the instance"
+  description = "Hostname and name of the instance"
   type        = string
 }
 
-variable "image" {
-  description = "Base image for the instance"
+variable "username" {
+  description = "Admin username"
   type        = string
+}
+
+variable "email" {
+  description = "Admin email"
+  type        = string
+}
+
+variable "domain" {
+  description = "Main domain"
+  type        = string
+}
+
+variable "images" {
+  description = "Incus images"
+  type = object({
+    container       = string
+    virtual-machine = string
+  })
 }
 
 variable "vlan" {
   description = "VLAN for main NIC"
   type        = number
-  default     = 11
 }
 
 variable "hwaddr" {
@@ -25,27 +59,20 @@ variable "hwaddr" {
   type        = string
 }
 
-variable "root_disk_pool" {
-  description = "Storage pool for the root disk"
-  type        = string
-  default     = "btrfs_pool"
-}
-
 variable "size" {
   description = "Size of the root disk"
   type        = string
-  default     = "20GiB"
 }
 
 variable "cpus" {
   description = "CPU's assigned to the instance"
   type        = string
-  default     = "1"
 }
 
 variable "memory" {
   description = "Memory assigned to the container"
   type        = string
-  default     = "4GiB"
 }
+
+
 
