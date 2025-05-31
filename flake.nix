@@ -53,7 +53,7 @@
         };
 
         # LXD Virtual Machine Image
-        vm = lib.nixosSystem {
+        virtual-machine = lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs hosts; };
           modules = [
@@ -79,7 +79,7 @@
           specialArgs = { inherit inputs hosts; };
           modules = [
             ./machines/common
-            ../machines/borg
+            ./machines/borg
           ];
         };
 
@@ -88,7 +88,7 @@
           specialArgs = { inherit inputs hosts; };
           modules = [
             ./machines/common
-            ../machines/dns
+            ./machines/dns
           ];
         };
 
