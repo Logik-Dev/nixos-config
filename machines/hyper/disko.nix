@@ -44,33 +44,31 @@ in
                 vg = "vg_root";
               };
             };
-            # Local pool PV
+            # Local BTRFS pool + misc
             local = {
               size = "100%";
               content = {
-                type = "lvm_pv";
-                vg = "vg_local";
+                type = "btrfs";
+                extraArgs = [ "-f" ];
+                mountpoint = "/mnt/local";
+                mountOptions = btrfsMountOptions ++ [ "ssd" ];
+                subvolumes = {
+                  "/mnt/local/pool" = { };
+                  "/mnt/local/misc" = { };
+                };
               };
             };
           };
         };
       };
 
-      # Ultra M2 SSD (2Tb) misc + pool owned by incus for container storage
+      # Ultra M2 SSD (2Tb) LVM pool owned by incus for VMs storage
       ultra = {
         device = "/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_2TB_S7DNNJ0X165765M";
         type = "disk";
         content = {
-          type = "btrfs";
-          extraArgs = [ "-f" ];
-          subvolumes = {
-            "/mnt/ultra" = {
-              mountOptions = btrfsMountOptions ++ [ "ssd" ];
-              mountpoint = "/mnt/ultra";
-            };
-            "/mnt/ultra/pool" = { };
-            "/mnt/ultra/misc" = { };
-          };
+          type = "lvm_pv";
+          vg = "vg_ultra";
         };
       };
 
@@ -158,8 +156,8 @@ in
         };
       };
 
-      # Local VG is OWNED by incus for VMs ONLY
-      vg_local = {
+      # Ultra VG is OWNED by incus for VMs ONLY
+      vg_ultra = {
         type = "lvm_vg";
         lvs = {
           pool = {

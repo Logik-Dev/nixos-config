@@ -10,8 +10,8 @@
       "/mnt/parity2/snapraid.parity"
     ];
     contentFiles = [
-      "/mnt/ultra/misc/snapraid.content"
       "/var/snapraid.content"
+      "/mnt/local/misc/snapraid.content"
       "/mnt/data1/snapraid.content"
       "/mnt/data2/snapraid.content"
     ];
