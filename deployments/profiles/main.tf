@@ -11,7 +11,6 @@ terraform {
 resource "incus_profile" "backup_folders" {
   description = "Shared backup folders"
   name        = "backup_folders"
-
   device {
     name = "borg"
     type = "disk"
@@ -22,7 +21,43 @@ resource "incus_profile" "backup_folders" {
     }
   }
 }
+# intel_gpu
+resource "incus_profile" "intel_gpu" {
+  description = "Intel UHD Graphics"
+  name        = "intel_gpu"
+  device {
+    name = "intel_gpu"
+    type = "gpu"
+    properties = {
+      gid = 44
+      pci = "0000:00:02.0"
+    }
+  }
+}
+
+# medias_shares
+resource "incus_profile" "medias_shares" {
+  name        = "medias-shares"
+  description = "Medias Shares"
+  device {
+    name = "medias"
+    type = "disk"
+    properties = {
+      #shift  = true
+      source = "/mnt/storage/medias"
+      path   = "/medias"
+    }
+  }
+}
 
 output "backup_folders" {
   value = incus_profile.backup_folders.name
+}
+
+output "intel_gpu" {
+  value = incus_profile.intel_gpu.name
+}
+
+output "medias_shares" {
+  value = incus_profile.medias_shares.name
 }

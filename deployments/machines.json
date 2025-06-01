@@ -23,6 +23,18 @@
     "aliases": ["dns"]
   },
 
+  "medias": {
+    "platform": "container",
+    "ipv4": "192.168.11.185",
+    "cpus": "2",
+    "memory": "8GiB",
+    "vlan": 11,
+    "size": "100GiB",
+    "hwaddr": "BC:24:11:45:11:85",
+    "profiles": ["medias_shares", "intel_gpu"],
+    "aliases": ["jellyfin", "jellyseerr", "sonarr", "radarr"]
+  },
+
   "security": {
     "platform": "virtual-machine",
     "ipv4": "192.168.11.58",
