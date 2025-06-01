@@ -12,7 +12,7 @@ resource "incus_storage_pool" "lvm_pool" {
   name   = "lvm_pool"
   driver = "lvm"
   config = {
-    source              = "vg_local"
+    source              = "vg_ultra"
     "lvm.thinpool_name" = "pool"
   }
   lifecycle {
@@ -25,7 +25,7 @@ resource "incus_storage_pool" "btrfs_pool" {
   name   = "btrfs_pool"
   driver = "btrfs"
   config = {
-    source = "/mnt/ultra/pool"
+    source = "/mnt/local/pool"
   }
   lifecycle {
     prevent_destroy = true
