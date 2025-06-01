@@ -20,7 +20,7 @@
     "size": "30GiB",
     "hwaddr": "BC:24:11:45:11:53",
     "profiles": [],
-    "aliases": ["dns"]
+    "aliases": []
   },
 
   "medias": {
@@ -55,7 +55,14 @@
     "size": "20GiB",
     "hwaddr": "BC:24:11:45:11:80",
     "profiles": [],
-    "aliases": ["vaultwarden", "jellyfin", "jellyseerr", "sonarr", "radarr"]
+    "aliases": [
+      "dns",
+      "vaultwarden",
+      "jellyfin",
+      "jellyseerr",
+      "sonarr",
+      "radarr"
+    ]
   },
 
   "hyper": {

@@ -24,24 +24,27 @@ locals {
   email    = data.sops_file.globals.data["email"]
   domain   = data.sops_file.globals.data["domain"]
 
-  # images must be deployed to incus
+  # images must be deployed to incus for this to work
   prebuild_images = {
     virtual-machine = "nixos/custom/virtual-machine"
     container       = "nixos/custom/container"
   }
 }
 
+# Pools must be created before all other resources
 module "storage_pools" {
   source = "./storage"
 }
 
-module "profiles" {
-  source   = "./profiles"
+# Images must be created before instances
+module "images" {
+  source   = "./images"
   username = local.username
 }
 
-module "images" {
-  source   = "./images"
+# Profiles are created and destroyed by instances
+module "profiles" {
+  source   = "./profiles"
   username = local.username
 }
 

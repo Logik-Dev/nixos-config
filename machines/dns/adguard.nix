@@ -6,21 +6,8 @@
   ...
 }:
 {
-  imports = [
-    ../../modules/nginx
-  ];
 
   networking.firewall.allowedUDPPorts = [ 53 ];
-
-  services.nginx.virtualHosts."dns.${domain}" = {
-    enableACME = true;
-    forceSSL = true;
-    acmeRoot = null;
-    locations."/" = {
-      proxyPass = "http://localhost:3000";
-    };
-
-  };
 
   services.adguardhome = {
     enable = true;
