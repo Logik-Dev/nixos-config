@@ -28,8 +28,11 @@ in
     inputs.sops-nix.nixosModules.sops
   ] ++ virtModule;
 
-  # The hostname is "nixos" until reboot
-  # TODO find a solution
+  # Update hostname after rebuild
+  system.activationScripts.hostname.text = ''
+    hostname ${hostname}
+  '';
+
   networking.hostName = hostname;
   networking.extraHosts = builtins.concatStringsSep "\n" (
     builtins.attrValues (builtins.mapAttrs (k: v: "${v.ipv4} ${v.hostname}") hosts)
