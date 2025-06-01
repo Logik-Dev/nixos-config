@@ -24,7 +24,7 @@
   },
 
   "medias": {
-    "platform": "container",
+    "platform": "virtual-machine",
     "ipv4": "192.168.11.185",
     "cpus": "2",
     "memory": "8GiB",

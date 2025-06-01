@@ -20,6 +20,7 @@ resource "incus_profile" "backup_folders" {
     }
   }
 }
+
 # intel_gpu
 resource "incus_profile" "intel_gpu" {
   description = "Intel UHD Graphics"
@@ -28,7 +29,6 @@ resource "incus_profile" "intel_gpu" {
     name = "intel_gpu"
     type = "gpu"
     properties = {
-      gid = 44
       pci = "0000:00:02.0"
     }
   }
@@ -36,13 +36,12 @@ resource "incus_profile" "intel_gpu" {
 
 # medias_shares
 resource "incus_profile" "medias_shares" {
-  name        = "medias-shares"
+  name        = "medias_shares"
   description = "Medias Shares"
   device {
     name = "medias"
     type = "disk"
     properties = {
-      #shift  = true
       source = "/mnt/storage/medias"
       path   = "/medias"
     }
