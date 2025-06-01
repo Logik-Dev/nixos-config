@@ -8,6 +8,7 @@ variable "name" {
   type        = string
 }
 
+
 variable "image" {
   description = "Base image for the instance"
   type        = string

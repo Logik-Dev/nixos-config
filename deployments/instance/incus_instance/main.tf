@@ -49,11 +49,12 @@ resource "incus_instance" "instance" {
 
   # config
   config = {
-    "boot.autostart"     = true
-    "limits.cpu"         = var.cpus
-    "limits.memory"      = var.memory
-    "snapshots.schedule" = "@startup, @daily"
-    "snapshots.expiry"   = "4w"
+    "boot.autostart"      = true
+    "security.secureboot" = false
+    "limits.cpu"          = var.cpus
+    "limits.memory"       = var.memory
+    "snapshots.schedule"  = "@startup, @daily"
+    "snapshots.expiry"    = "4w"
   }
 
   wait_for {
@@ -96,7 +97,6 @@ resource "incus_instance" "instance" {
     uid         = 0
     gid         = 0
   }
-
 }
 
 output "ipv4" {

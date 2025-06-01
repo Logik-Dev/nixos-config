@@ -15,8 +15,7 @@ resource "incus_profile" "backup_folders" {
     name = "borg"
     type = "disk"
     properties = {
-      shift  = true
-      source = "/mnt/data1/borg" # Can't get shift working on mergerfs (idmap problem)
+      source = "/mnt/storage/borg"
       path   = "/home/${var.username}/borg"
     }
   }

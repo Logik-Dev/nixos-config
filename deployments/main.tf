@@ -23,6 +23,12 @@ locals {
   username = data.sops_file.globals.data["username"]
   email    = data.sops_file.globals.data["email"]
   domain   = data.sops_file.globals.data["domain"]
+
+  # images must be deployed to incus
+  prebuild_images = {
+    virtual-machine = "nixos/custom/virtual-machine"
+    container       = "nixos/custom/container"
+  }
 }
 
 module "storage_pools" {
@@ -44,7 +50,7 @@ module "instances" {
   source         = "./instance"
   hostname       = each.key
   type           = local.machines[each.key].platform
-  images         = module.images
+  images         = local.prebuild_images
   storage_pools  = module.storage_pools
   incus_profiles = module.profiles
   profiles       = local.machines[each.key].profiles
@@ -57,27 +63,4 @@ module "instances" {
   email          = nonsensitive(local.email)
   domain         = nonsensitive(local.domain)
 }
-/*
-module "dns_instance" {
-  source         = "./instance"
-  hostname       = "dns"
-  image          = module.images.container
-  hwaddr         = local.machines["dns"].hwaddr
-  root_disk_pool = module.storage_pools.btrfs_pool
-  profiles       = [for x in local.machines["dns"].profiles : module.profiles[x]]
-}
-
-module "dns_rebuild" {
-  source = "./nixos_rebuild"
-  special_args = {
-    hostname = "dns"
-    username = nonsensitive(local.username)
-    email    = nonsensitive(local.email)
-    domain   = nonsensitive(local.domain)
-  }
-  ipv4 = module.dns_instance.ipv4
-}
-*/
-
-
 

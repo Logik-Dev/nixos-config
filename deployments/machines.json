@@ -1,6 +1,6 @@
 {
   "borg": {
-    "platform": "container",
+    "platform": "virtual-machine",
     "ipv4": "192.168.11.29",
     "cpus": "1",
     "memory": "4GiB",
