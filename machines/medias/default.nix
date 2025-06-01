@@ -1,29 +1,14 @@
 {
-  domain,
   lib,
   pkgs,
   username,
   ...
 }:
-let
-
-  mkProxy = port: {
-    enableACME = true;
-    forceSSL = true;
-    acmeRoot = null;
-    locations."/" = {
-      proxyWebsockets = true;
-      proxyPass = "http://localhost:${toString port}";
-    };
-  };
-
-in
 {
 
   imports = [
     ./borgmatic.nix
     ./jellyfin.nix
-    ../../modules/nginx
   ];
 
   networking.networkmanager.enable = lib.mkForce false;
@@ -43,26 +28,20 @@ in
     };
   };
 
-  # Prowlarr
-  services.prowlarr.enable = true;
-  services.nginx.virtualHosts."prowlarr.${domain}" = mkProxy 9696;
+  networking.firewall.allowedTCPPorts = [
+    9696
+    7878
+    8989
+    8096
+    5055
+  ];
 
-  # Radarr
+  services.prowlarr.enable = true;
   services.radarr.enable = true;
   services.radarr.group = "media";
-  services.nginx.virtualHosts."radarr.${domain}" = mkProxy 7878;
-
-  # Sonarr
   services.sonarr.enable = true;
   services.sonarr.group = "media";
-  services.nginx.virtualHosts."sonarr.${domain}" = mkProxy 8989;
-
-  # jellyfin
-  services.nginx.virtualHosts."jellyfin.${domain}" = mkProxy 8096;
-
-  # Jellyseerr
   services.jellyseerr.enable = true;
-  services.nginx.virtualHosts."jellyseerr.${domain}" = mkProxy 5055;
 
   # 1. enable vaapi on OS-level
   nixpkgs.config.packageOverrides = pkgs: {

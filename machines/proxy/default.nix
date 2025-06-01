@@ -4,6 +4,19 @@
   domain,
   ...
 }:
+
+let
+  mkVirtualHost = host: service: port: {
+    "${service}.${domain}" = {
+      forceSSL = true;
+      useACMEHost = domain;
+      locations."/" = {
+        proxyWebsockets = true;
+        proxyPass = "http://${host}:${toString port}";
+      };
+    };
+  };
+in
 {
 
   services.nginx = {
@@ -26,14 +39,13 @@
       add_header X-Content-Type-Options nosniff;
     '';
 
-    virtualHosts."vaultwarden.${domain}" = {
-      forceSSL = true;
-      useACMEHost = domain;
-      locations."/" = {
-        proxyWebsockets = true;
-        proxyPass = "http://security:8222";
-      };
-    };
+    virtualHosts =
+      mkVirtualHost "security" "vaultwarden" 8222
+      // mkVirtualHost "medias" "prowlarr" 9696
+      // mkVirtualHost "medias" "radarr" 7878
+      // mkVirtualHost "medias" "sonarr" 8989
+      // mkVirtualHost "medias" "jellyfin" 8096
+      // mkVirtualHost "medias" "jellyseerr" 5055;
   };
 
   networking.firewall.allowedTCPPorts = [

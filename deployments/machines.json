@@ -32,7 +32,7 @@
     "size": "100GiB",
     "hwaddr": "BC:24:11:45:11:85",
     "profiles": ["medias_shares", "intel_gpu"],
-    "aliases": ["jellyfin", "jellyseerr", "sonarr", "radarr"]
+    "aliases": []
   },
 
   "security": {
@@ -55,7 +55,7 @@
     "size": "20GiB",
     "hwaddr": "BC:24:11:45:11:80",
     "profiles": [],
-    "aliases": ["vaultwarden"]
+    "aliases": ["vaultwarden", "jellyfin", "jellyseerr", "sonarr", "radarr"]
   },
 
   "hyper": {
