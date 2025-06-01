@@ -2,6 +2,7 @@
   domain,
   lib,
   pkgs,
+  username,
   ...
 }:
 let
@@ -32,18 +33,11 @@ in
   # Medias folders
   systemd.tmpfiles.settings = {
     "10-medias-folders" = {
-      "/medias/movies" = {
+      "/medias" = {
         d = {
           group = "media";
-          mode = "775";
-          user = "radarr";
-        };
-      };
-      "/medias/series" = {
-        d = {
-          group = "media";
-          mode = "775";
-          user = "sonarr";
+          mode = "750";
+          user = username;
         };
       };
     };
