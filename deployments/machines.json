@@ -39,10 +39,21 @@
     "platform": "virtual-machine",
     "ipv4": "192.168.11.58",
     "cpus": "1",
-    "memory": "2GiB",
+    "memory": "4GiB",
     "vlan": 11,
     "size": "30GiB",
     "hwaddr": "BC:24:11:45:11:58",
+    "profiles": []
+  },
+
+  "proxy": {
+    "platform": "container",
+    "ipv4": "192.168.11.80",
+    "cpus": "1",
+    "memory": "4GiB",
+    "vlan": 11,
+    "size": "20GiB",
+    "hwaddr": "BC:24:11:45:11:80",
     "profiles": [],
     "aliases": ["vaultwarden"]
   },

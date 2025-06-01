@@ -101,6 +101,15 @@
           ];
         };
 
+        proxy = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ./machines/proxy
+          ];
+        };
+
         security = lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs hosts; };

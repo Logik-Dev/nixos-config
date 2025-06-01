@@ -18,17 +18,5 @@
     environmentFile = config.sops.secrets."vaultwarden.env".path;
   };
 
-  # Nginx
-  services.nginx.virtualHosts."vaultwarden.${domain}" = {
-    enableACME = true;
-    forceSSL = true;
-    acmeRoot = null;
-
-    locations."/" = {
-      proxyWebsockets = true;
-      proxyPass = "http://localhost:8222";
-    };
-
-  };
-
+  networking.firewall.allowedTCPPorts = [ 8222 ];
 }
