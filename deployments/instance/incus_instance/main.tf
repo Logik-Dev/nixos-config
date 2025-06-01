@@ -50,7 +50,7 @@ resource "incus_instance" "instance" {
   # config
   config = {
     "boot.autostart"      = true
-    "security.secureboot" = false
+    "security.secureboot" = var.type == "container" ? null : false
     "limits.cpu"          = var.cpus
     "limits.memory"       = var.memory
     "snapshots.schedule"  = "@startup, @daily"
