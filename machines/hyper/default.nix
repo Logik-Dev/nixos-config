@@ -33,4 +33,16 @@
     };
   };
 
+  # GPU passtrough
+  boot.initrd.kernelModules = [
+    "vfio_pci"
+    "vfio"
+    "vfio_iommu_type1"
+  ];
+
+  boot.kernelParams = [
+    "intel_iommu=on"
+    "vfio-pci.ids=8086:3e98"
+  ];
+
 }
