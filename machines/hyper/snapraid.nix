@@ -1,5 +1,18 @@
-{ ... }:
+{ username, ... }:
 {
+  # parity disks permisions
+  systemd.tmpfiles.settings = {
+    "20-snapraid-folders" = {
+      "/mnt/parity2" = {
+        d = {
+          group = "users";
+          mode = "750";
+          user = username;
+        };
+      };
+    };
+  };
+
   services.snapraid = {
     enable = true;
     dataDisks = {
@@ -10,10 +23,9 @@
       "/mnt/parity2/snapraid.parity"
     ];
     contentFiles = [
-      "/var/snapraid.content"
-      "/mnt/local/misc/snapraid.content"
-      "/mnt/data1/snapraid.content"
-      "/mnt/data2/snapraid.content"
+      "/mnt/local/misc/.snapraid.content"
+      "/mnt/data1/.snapraid.content"
+      "/mnt/data2/.snapraid.content"
     ];
     exclude = [
       "/lost+found/"
