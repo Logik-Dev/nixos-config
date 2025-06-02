@@ -40,7 +40,9 @@ in
     '';
 
     virtualHosts =
-      mkVirtualHost "dns" "dns" 3000
+      mkVirtualHost "docker" "torrent" 8080
+      // mkVirtualHost "docker" "flaresolverr" 8191
+      // mkVirtualHost "dns" "dns" 3000
       // mkVirtualHost "security" "vaultwarden" 8222
       // mkVirtualHost "medias" "prowlarr" 9696
       // mkVirtualHost "medias" "radarr" 7878

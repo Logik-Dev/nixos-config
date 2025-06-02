@@ -92,6 +92,15 @@
           ];
         };
 
+        docker = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ./machines/docker
+          ];
+        };
+
         medias = lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs hosts; };

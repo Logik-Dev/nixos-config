@@ -11,6 +11,18 @@
     "aliases": []
   },
 
+  "docker": {
+    "platform": "virtual-machine",
+    "ipv4": "192.168.11.31",
+    "cpus": "2",
+    "memory": "16GiB",
+    "vlan": 11,
+    "size": "50GiB",
+    "hwaddr": "BC:24:11:45:11:31",
+    "profiles": ["medias_shares"],
+    "aliases": []
+  },
+
   "dns": {
     "platform": "container",
     "ipv4": "192.168.11.53",
@@ -57,9 +69,11 @@
     "profiles": [],
     "aliases": [
       "dns",
+      "flaresolverr",
       "vaultwarden",
       "jellyfin",
       "jellyseerr",
+      "torrent",
       "sonarr",
       "radarr"
     ]
