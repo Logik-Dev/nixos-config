@@ -7,8 +7,7 @@
     "vlan": 11,
     "size": "20GiB",
     "hwaddr": "BC:24:11:45:11:29",
-    "profiles": ["backup_folders"],
-    "aliases": []
+    "profiles": ["backup_folders"]
   },
 
   "docker": {
@@ -19,8 +18,7 @@
     "vlan": 11,
     "size": "50GiB",
     "hwaddr": "BC:24:11:45:11:31",
-    "profiles": ["medias_shares"],
-    "aliases": []
+    "profiles": ["medias_shares"]
   },
 
   "dns": {
@@ -31,8 +29,7 @@
     "vlan": 11,
     "size": "30GiB",
     "hwaddr": "BC:24:11:45:11:53",
-    "profiles": [],
-    "aliases": []
+    "profiles": []
   },
 
   "medias": {
@@ -43,8 +40,7 @@
     "vlan": 11,
     "size": "100GiB",
     "hwaddr": "BC:24:11:45:11:85",
-    "profiles": ["medias_shares", "intel_gpu"],
-    "aliases": []
+    "profiles": ["medias_shares", "intel_gpu"]
   },
 
   "security": {
@@ -66,17 +62,7 @@
     "vlan": 11,
     "size": "20GiB",
     "hwaddr": "BC:24:11:45:11:80",
-    "profiles": [],
-    "aliases": [
-      "dns",
-      "flaresolverr",
-      "vaultwarden",
-      "jellyfin",
-      "jellyseerr",
-      "torrent",
-      "sonarr",
-      "radarr"
-    ]
+    "profiles": []
   },
 
   "hyper": {

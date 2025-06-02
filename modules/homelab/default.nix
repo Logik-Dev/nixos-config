@@ -5,9 +5,6 @@ let
   json = fromJSON (readFile ../../deployments/machines.json);
   hostType = types.submodule {
     options = {
-      aliases = mkOption {
-        type = types.listOf types.str;
-      };
       ipv4 = mkOption {
         type = types.nullOr types.str;
       };
@@ -39,14 +36,12 @@ in
   config.hosts = mapAttrs (
     hostname:
     {
-      aliases ? [ ],
       platform,
       ipv4 ? null,
       ...
     }:
     {
       inherit
-        aliases
         hostname
         ipv4
         platform

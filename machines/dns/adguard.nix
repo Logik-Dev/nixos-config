@@ -1,6 +1,5 @@
 {
   domain,
-  lib,
   hosts,
   username,
   ...
@@ -29,18 +28,12 @@
         enable_dnssec = true;
       };
 
-      filtering.rewrites =
-        let
-          mkRewrites =
-            host:
-            (map (alias: {
-              domain = alias + "." + domain;
-              answer = host.ipv4;
-            }) host.aliases);
-
-        in
-        lib.flatten (lib.attrValues (lib.mapAttrs (k: host: mkRewrites host) hosts));
-
+      filtering.rewrites = [
+        {
+          domain = "*.${domain}";
+          answer = hosts.proxy.ipv4;
+        }
+      ];
     };
   };
 }
