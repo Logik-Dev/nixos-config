@@ -7,6 +7,7 @@
 
   programs.firefox.enable = true;
   programs.brave.enable = true;
+
   home.packages = with pkgs; [
     halloy
   ];
@@ -16,6 +17,10 @@
     enableZshIntegration = true;
     enableBashIntegration = true;
   };
+
+  # fix problem with mouse cursor transparency
+  home.sessionVariables."XCURSOR_THEME" = "Adwaita";
+
   programs.alacritty = {
     enable = true;
     settings = {

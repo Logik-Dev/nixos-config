@@ -1,6 +1,11 @@
-{ pkgs, ... }:
 {
-  home.sessionVariables.FLAKE = "/home/logikdev/Nixos";
+  pkgs,
+  username,
+  email,
+  ...
+}:
+{
+  home.sessionVariables.FLAKE = "/home/${username}/Nixos";
 
   home.packages = with pkgs; [
     bat
@@ -36,7 +41,7 @@
   programs.git = {
     enable = true;
     userName = "Logik-Dev";
-    userEmail = "logikdevfr@gmail.com";
+    userEmail = email;
 
     signing = {
       key = "F5A34D392D22853E7EB1FA85AC259B4007CB7CE9";
@@ -50,7 +55,7 @@
   programs.password-store = {
     enable = true;
     settings = {
-      PASSWORD_STORE_DIR = "/home/logikdev/.password-store";
+      PASSWORD_STORE_DIR = "/home/${username}/.password-store";
     };
   };
 

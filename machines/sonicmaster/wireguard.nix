@@ -1,4 +1,4 @@
-{ config, homelab, ... }:
+{ config, domain, ... }:
 {
 
   sops.secrets.wg-key.sopsFile = ./secrets.yaml;
@@ -17,7 +17,7 @@
           allowedIPs = [
             "0.0.0.0/0"
           ];
-          endpoint = "wireguard.${homelab.domain}:51820";
+          endpoint = "wireguard.${domain}:51820";
           persistentKeepalive = 25;
         }
       ];

@@ -127,6 +127,15 @@
             ./machines/security
           ];
         };
+
+        sonicmaster = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs hosts; };
+          modules = [
+            ./machines/common
+            ./machines/sonicmaster
+          ];
+        };
       };
     };
 }

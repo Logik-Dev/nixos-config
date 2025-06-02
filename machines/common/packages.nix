@@ -6,7 +6,10 @@
       pushr = inputs.pushr.defaultPackage.${pkgs.system};
     })
   ];
-
+  fonts.packages = with pkgs; [
+    nerd-fonts.fira-code
+    fira-code-symbols
+  ];
   environment.systemPackages = with pkgs; [
     borgbackup
     btrfs-progs

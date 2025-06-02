@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  username,
+  ...
+}:
 {
 
   services.xserver.enable = true;
@@ -8,6 +13,7 @@
 
   services.gnome.gnome-keyring.enable = lib.mkForce false;
 
+  programs.steam.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {
@@ -19,53 +25,53 @@
 
   virtualisation.libvirtd.enable = true;
   networking.nftables.enable = true;
+
   virtualisation.incus = {
     enable = true;
     package = pkgs.incus;
     agent.enable = true;
-    ui.enable = true;
-    #    preseed = { };
-    preseed = {
-      networks = [
-        {
-          config = {
-            "ipv4.address" = "auto";
-            "ipv6.address" = "none";
-            #"ipv4.nat" = "true";
-          };
-          name = "incusbr0";
-          type = "bridge";
-        }
-      ];
-      profiles = [
-        {
-          devices = {
-            eth0 = {
-              name = "eth0";
-              type = "nic";
-              nictype = "bridged";
-              parent = "incusbr0";
+    /*
+      preseed = {
+        networks = [
+          {
+            config = {
+              "ipv4.address" = "auto";
+              "ipv6.address" = "none";
             };
-            root = {
-              path = "/";
-              pool = "default";
-              size = "35GiB";
-              type = "disk";
+            name = "incusbr0";
+            type = "bridge";
+          }
+        ];
+        profiles = [
+          {
+            devices = {
+              eth0 = {
+                name = "eth0";
+                type = "nic";
+                nictype = "bridged";
+                parent = "incusbr0";
+              };
+              root = {
+                path = "/";
+                pool = "default";
+                size = "35GiB";
+                type = "disk";
+              };
             };
-          };
-          name = "default";
-        }
-      ];
-      storage_pools = [
-        {
-          config = {
-            source = "/var/lib/incus/storage-pools/default";
-          };
-          driver = "dir";
-          name = "default";
-        }
-      ];
-    };
+            name = "default";
+          }
+        ];
+        storage_pools = [
+          {
+            config = {
+              source = "/var/lib/incus/storage-pools/default";
+            };
+            driver = "dir";
+            name = "default";
+          }
+        ];
+      };
+    */
   };
   networking.firewall.interfaces.incusbr0.allowedTCPPorts = [
     53
@@ -77,7 +83,7 @@
   ];
 
   programs.virt-manager.enable = true;
-  users.users.logikdev.extraGroups = [
+  users.users.${username}.extraGroups = [
     "libvirtd"
     "incus-admin"
   ];

@@ -34,9 +34,16 @@ in
   '';
 
   networking.hostName = hostname;
-  networking.extraHosts = builtins.concatStringsSep "\n" (
-    builtins.attrValues (builtins.mapAttrs (k: v: "${v.ipv4} ${v.hostname}") hosts)
-  );
+  networking.extraHosts = lib.pipe hosts [
+    (lib.filterAttrs (k: v: k != hostname))
+    (lib.mapAttrsToList (k: v: "${k} ${v.ipv4}"))
+    (lib.concatStringsSep "\n")
+  ];
+
+  #
+  # networking.extraHosts = builtins.concatStringsSep "\n" (
+  #   builtins.attrValues (builtins.mapAttrs (k: v: "${v.ipv4} ${v.hostname}") hosts)
+  # );
 
   # OpenSSH
   services.openssh.enable = true;
@@ -70,6 +77,7 @@ in
   };
 
   # Nix config
+  nixpkgs.config.allowUnfree = true;
   nix = {
     gc.dates = "monthly";
     settings = {

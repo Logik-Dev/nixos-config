@@ -1,4 +1,9 @@
-{ pkgs, config, ... }:
+{
+  pkgs,
+  config,
+  username,
+  ...
+}:
 {
 
   home.packages = with pkgs; [
@@ -31,5 +36,8 @@
     };
 
   };
+  home.username = username;
+  home.homeDirectory = "/home/${username}";
+  home.stateVersion = "24.05";
 
 }

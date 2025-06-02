@@ -1,4 +1,9 @@
-{ pkgs, config, ... }:
+{
+  pkgs,
+  config,
+  username,
+  ...
+}:
 {
 
   home.sessionVariables = {
@@ -56,7 +61,7 @@
   };
   home.file = {
     ".config/nvim" = {
-      source = config.lib.file.mkOutOfStoreSymlink "/home/logikdev/Nixos/modules/neovim";
+      source = config.lib.file.mkOutOfStoreSymlink "/home/${username}/Nixos/modules/neovim";
       recursive = true;
     };
   };
