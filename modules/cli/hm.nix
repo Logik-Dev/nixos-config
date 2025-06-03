@@ -5,6 +5,11 @@
   ...
 }:
 {
+  imports = [
+    ./gpg.nix
+    ./zsh.nix
+  ];
+
   home.sessionVariables.FLAKE = "/home/${username}/Nixos";
 
   home.packages = with pkgs; [

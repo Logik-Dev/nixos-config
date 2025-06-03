@@ -49,6 +49,7 @@ in
   # zsh
   users.users.${username}.shell = pkgs.zsh;
   programs.zsh.enable = true;
+  environment.pathsToLink = [ "/share/zsh" ]; # autocompletion for system programs
 
   # bootloader
   boot.loader.systemd-boot = {
