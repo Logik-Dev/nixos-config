@@ -40,6 +40,7 @@
     tfat = "noglob tofu apply --target=";
     g = "git";
     ga = "git add";
+    gl = "git log";
     gs = "git status";
     gcm = "git commit -m";
     gcam = "git commit --amend --no-edit";
