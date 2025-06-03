@@ -2,7 +2,7 @@
 {
 
   sops.secrets."gluetun.env" = {
-    sopsFile = ./gluetun.env;
+    sopsFile = ../../secrets/gluetun.docker.env;
     format = "dotenv";
     key = "";
     restartUnits = [ "podman-seedbox-gluetun.service" ];

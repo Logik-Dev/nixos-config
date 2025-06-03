@@ -57,7 +57,7 @@ in
   ];
 
   sops.secrets."cloudflare.env" = {
-    sopsFile = ./cloudflare.env;
+    sopsFile = ../../secrets/cloudflare.proxy.env;
     format = "dotenv";
     key = "";
     group = "nginx";

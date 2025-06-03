@@ -15,7 +15,7 @@ provider "sops" {}
 
 # global vars passed as specialArgs to nix
 data "sops_file" "globals" {
-  source_file = "./secrets.yaml"
+  source_file = "../secrets/opentofu.yaml"
 }
 
 locals {

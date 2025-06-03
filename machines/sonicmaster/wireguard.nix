@@ -1,8 +1,11 @@
 { config, domain, ... }:
+let
+  sopsFile = ../../secrets/sonicmaster.yaml;
+in
 {
 
-  sops.secrets.wg-key.sopsFile = ./secrets.yaml;
-  sops.secrets.wg-psk.sopsFile = ./secrets.yaml;
+  sops.secrets.wg-key.sopsFile = sopsFile;
+  sops.secrets.wg-psk.sopsFile = sopsFile;
 
   networking.wg-quick.interfaces = {
     wg0 = {

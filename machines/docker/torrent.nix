@@ -3,7 +3,7 @@
 {
 
   sops.secrets."torrent.env" = {
-    sopsFile = ./torrent.env;
+    sopsFile = ../../secrets/torrent.docker.env;
     format = "dotenv";
     key = "";
     restartUnits = [ "podman-qbittorrent.service" ];

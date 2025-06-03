@@ -17,7 +17,7 @@
   ];
 
   sops.secrets."ddns.env" = {
-    sopsFile = ./ddns.env;
+    sopsFile = ../../secrets/ddns.dns.env;
     format = "dotenv";
     key = "";
   };

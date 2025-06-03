@@ -3,23 +3,18 @@
   config,
   ...
 }:
+let
+  sopsFile = ../../secrets/security.yaml;
+in
 
 {
-  sops.secrets.wg-key = {
-    sopsFile = ./secrets.yaml;
-  };
+  sops.secrets.wg-key.sopsFile = sopsFile;
 
-  sops.secrets.sonicmaster-psk = {
-    sopsFile = ./secrets.yaml;
-  };
+  sops.secrets.sonicmaster-psk.sopsFile = sopsFile;
 
-  sops.secrets.oneplus-psk = {
-    sopsFile = ./secrets.yaml;
-  };
+  sops.secrets.oneplus-psk.sopsFile = sopsFile;
 
-  sops.secrets.iphone-psk = {
-    sopsFile = ./secrets.yaml;
-  };
+  sops.secrets.iphone-psk.sopsFile = sopsFile;
 
   networking.nat = {
     enable = true;

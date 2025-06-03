@@ -14,7 +14,7 @@ terraform {
 
 # ssh private keys
 data "sops_file" "ssh_keys" {
-  source_file = "../machines/${var.name}/secrets.yaml"
+  source_file = "../secrets/${var.name}.yaml"
 }
 
 # Instance

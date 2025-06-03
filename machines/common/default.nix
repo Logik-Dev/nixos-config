@@ -40,11 +40,6 @@ in
     (lib.concatStringsSep "\n")
   ];
 
-  #
-  # networking.extraHosts = builtins.concatStringsSep "\n" (
-  #   builtins.attrValues (builtins.mapAttrs (k: v: "${v.ipv4} ${v.hostname}") hosts)
-  # );
-
   # OpenSSH
   services.openssh.enable = true;
   services.openssh.settings.PermitRootLogin = "no";
@@ -54,14 +49,11 @@ in
   #services.openssh.settings.AllowUsers = [ username ];
 
   # Common secrets
-  sops.defaultSopsFile = ./secrets.yaml;
+  sops.defaultSopsFile = ../../secrets/common.yaml;
   sops.secrets.borg = { };
   sops.secrets."borg-pushover-token" = { };
   sops.secrets."pushover-user" = { };
-  sops.secrets.password = {
-    sopsFile = ./secrets.yaml;
-    neededForUsers = true;
-  };
+  sops.secrets.password.neededForUsers = true;
 
   # Common users
   users.groups.media.gid = lib.mkForce 991;
@@ -72,7 +64,6 @@ in
     hashedPasswordFile = config.sops.secrets.password.path;
     openssh.authorizedKeys.keyFiles = [
       ../sonicmaster/keys/id_ed25519.pub
-      ../sonicmaster/keys/install-id_ed25519.pub
     ];
   };
 

@@ -9,7 +9,7 @@
     owner = "vaultwarden";
     format = "dotenv";
     key = "";
-    sopsFile = ./vaultwarden.env;
+    sopsFile = ../../secrets/vaultwarden.security.env;
     restartUnits = [ "vaultwarden.service" ];
   };
 
