@@ -6,17 +6,12 @@
 }:
 {
 
-  home.sessionVariables = {
-    EDITOR = "nvim";
-  };
-
   programs.neovim = {
     enable = true;
     viAlias = true;
     vimAlias = true;
     withNodeJs = true;
     withPython3 = true;
-    defaultEditor = true;
 
     # These environment variables are needed to build and run binaries
     # with external package managers like mason.nvim.

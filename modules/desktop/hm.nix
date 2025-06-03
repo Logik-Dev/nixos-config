@@ -21,6 +21,9 @@
   # fix problem with mouse cursor transparency
   home.sessionVariables."XCURSOR_THEME" = "Adwaita";
 
+  # vim by default
+  home.sessionVariables."EDITOR" = "vim";
+
   programs.alacritty = {
     enable = true;
     settings = {

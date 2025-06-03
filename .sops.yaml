@@ -16,6 +16,13 @@ creation_rules:
           - &iot age1smw3rsg7fer2vnqqk6d49lkpuf4nlnncjv33ke4e950tguh6qffswh663l
           - &proxy age10putr0f0gdsghjhgjw86u8xdwu2rlxl855m9wp6rxe08ttgsh5as9wgzc4
 
+  - path_regex: special_args.json
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+
   - path_regex: borg\.*
     key_groups:
       - pgp:
