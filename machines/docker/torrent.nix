@@ -21,6 +21,7 @@
     ];
     volumes = [
       "/medias/downloads:/medias/downloads:rw"
+      "/medias/ratio:/medias/ratio:rw"
       "/var/lib/containers:/config:rw"
     ];
     dependsOn = [
@@ -58,14 +59,28 @@
       "/var/lib/containers" = {
         d = {
           group = "media";
-          mode = "750";
+          mode = "770";
           user = username;
         };
       };
-      "/medias/downloads" = {
+      "/medias/downloads/movies" = {
         d = {
           group = "media";
-          mode = "750";
+          mode = "770";
+          user = username;
+        };
+      };
+      "/medias/downloads/series" = {
+        d = {
+          group = "media";
+          mode = "770";
+          user = username;
+        };
+      };
+      "/medias/ratio" = {
+        d = {
+          group = "media";
+          mode = "770";
           user = username;
         };
       };
