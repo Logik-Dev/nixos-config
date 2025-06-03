@@ -7,6 +7,7 @@
 {
 
   home.packages = with pkgs; [
+    age
     discord-ptb
     ns-usbloader
     wireguard-tools
