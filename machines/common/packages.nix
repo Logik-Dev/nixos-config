@@ -20,10 +20,12 @@
     fd
     git
     htop
+    jq
     pushr
     ripgrep
     vim
     wget
+    yq
   ];
 
   environment.shellAliases = {

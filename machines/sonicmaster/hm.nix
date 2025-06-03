@@ -13,7 +13,6 @@
     wireguard-tools
     dnsutils
     opentofu
-    jq
   ];
 
   services.gpg-agent = {
