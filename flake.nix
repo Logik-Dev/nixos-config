@@ -36,106 +36,55 @@
   outputs =
     inputs@{ nixpkgs, ... }:
     let
+      inherit (builtins.fromJSON (builtins.readFile ./special_args.json)) username domain email;
       lib = nixpkgs.lib;
       system = "x86_64-linux";
       hosts = (import ./modules/homelab { inherit lib; }).config.hosts;
     in
     {
-      nixosConfigurations = {
-        # LXD Container Image
-        container = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
-          ];
-        };
+      nixosConfigurations =
+        # machines
+        builtins.mapAttrs (
+          hostname: v:
+          lib.nixosSystem {
+            inherit system;
+            specialArgs = {
+              inherit
+                hostname
+                username
+                email
+                domain
+                inputs
+                hosts
+                ;
+            };
+            modules = [
+              ./machines/common
+              ./machines/${hostname}
+            ];
+          }
+        ) hosts
+        // {
 
-        # LXD Virtual Machine Image
-        virtual-machine = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"
-          ];
-        };
-
-        # Hyper
-        hyper = lib.nixosSystem {
-          inherit system;
-          specialArgs = {
-            inherit inputs hosts;
+          # LXD Container Image
+          container = lib.nixosSystem {
+            inherit system;
+            specialArgs = { inherit inputs hosts; };
+            modules = [
+              ./machines/common
+              "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
+            ];
           };
-          modules = [
-            ./machines/common
-            ./machines/hyper
-          ];
-        };
 
-        borg = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/borg
-          ];
+          # LXD Virtual Machine Image
+          virtual-machine = lib.nixosSystem {
+            inherit system;
+            specialArgs = { inherit inputs hosts; };
+            modules = [
+              ./machines/common
+              "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"
+            ];
+          };
         };
-
-        dns = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/dns
-          ];
-        };
-
-        docker = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/docker
-          ];
-        };
-
-        medias = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/medias
-          ];
-        };
-
-        proxy = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/proxy
-          ];
-        };
-
-        security = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/security
-          ];
-        };
-
-        sonicmaster = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs hosts; };
-          modules = [
-            ./machines/common
-            ./machines/sonicmaster
-          ];
-        };
-      };
     };
 }

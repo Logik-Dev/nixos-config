@@ -6,10 +6,12 @@
       pushr = inputs.pushr.defaultPackage.${pkgs.system};
     })
   ];
+
   fonts.packages = with pkgs; [
     nerd-fonts.fira-code
     fira-code-symbols
   ];
+  programs.nano.enable = false;
   environment.systemPackages = with pkgs; [
     bat
     borgbackup
@@ -45,6 +47,8 @@
     gcm = "git commit -m";
     gcam = "git commit --amend --no-edit";
     gcb = "git checkout -b";
+    nos = "nh os switch -- --impure";
+    not = "nh os test -- --impure";
 
   };
 
