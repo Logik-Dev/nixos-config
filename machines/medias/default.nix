@@ -7,8 +7,7 @@
 {
 
   imports = [
-    ./borgmatic-medias-apps.nix
-    ./borgmatic-photos.nix
+    ./backups.nix
     ./immich.nix
     ./jellyfin.nix
   ];

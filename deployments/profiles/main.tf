@@ -19,7 +19,7 @@ resource "incus_profile" "backup_folders" {
     type = "disk"
     properties = {
       source = "/mnt/storage/borg"
-      path   = "/home/${var.username}/borg"
+      path   = "/home/${var.username}/borg/storage"
     }
   }
 

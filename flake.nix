@@ -61,6 +61,7 @@
             modules = [
               ./machines/common
               ./machines/${hostname}
+              ./modules/backups
             ];
           }
         ) hosts

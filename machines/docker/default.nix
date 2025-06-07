@@ -1,7 +1,7 @@
 { pkgs, ... }:
 {
   imports = [
-    ./borgmatic.nix
+    ./backups.nix
     ./flaresolverr.nix
     ./gluetun.nix
     ./torrent.nix

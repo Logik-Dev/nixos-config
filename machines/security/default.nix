@@ -1,8 +1,10 @@
 { ... }:
 {
   imports = [
-    ./borgmatic.nix
+    ./backups.nix
     ./vaultwarden.nix
     ./wireguard.nix
+    ../../modules/backups
   ];
+
 }
