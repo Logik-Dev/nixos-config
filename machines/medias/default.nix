@@ -7,7 +7,9 @@
 {
 
   imports = [
-    ./borgmatic.nix
+    ./borgmatic-medias-apps.nix
+    ./borgmatic-photos.nix
+    ./immich.nix
     ./jellyfin.nix
   ];
 
@@ -15,7 +17,7 @@
 
   users.groups.media = { };
 
-  # Medias folders
+  # medias folders
   systemd.tmpfiles.settings = {
     "10-medias-folders" = {
       "/medias" = {
@@ -28,20 +30,23 @@
     };
   };
 
-  networking.firewall.allowedTCPPorts = [
-    9696
-    7878
-    8989
-    8096
-    5055
-  ];
-
+  # prowlarr
   services.prowlarr.enable = true;
+  services.prowlarr.openFirewall = true;
+
+  # radarr
   services.radarr.enable = true;
+  services.radarr.openFirewall = true;
   services.radarr.group = "media";
+
+  # sonarr
   services.sonarr.enable = true;
+  services.sonarr.openFirewall = true;
   services.sonarr.group = "media";
+
+  # jellyseerr
   services.jellyseerr.enable = true;
+  services.jellyseerr.openFirewall = true;
 
   # 1. enable vaapi on OS-level
   nixpkgs.config.packageOverrides = pkgs: {

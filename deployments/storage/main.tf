@@ -32,11 +32,25 @@ resource "incus_storage_pool" "btrfs_pool" {
   }
 }
 
+# nextcloud data volume
+resource "incus_storage_volume" "nextcloud_data" {
+  name         = "nextcloud_data"
+  pool         = incus_storage_pool.lvm_pool.name
+  content_type = "filesystem"
+  config = {
+    size = "1TiB"
+  }
+
+}
+
 output "lvm_pool" {
   value = incus_storage_pool.lvm_pool.name
 }
 
 output "btrfs_pool" {
   value = incus_storage_pool.btrfs_pool.name
+}
 
+output "nextcloud_data_volume" {
+  value = incus_storage_volume.nextcloud_data.name
 }

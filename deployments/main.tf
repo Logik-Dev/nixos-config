@@ -44,8 +44,9 @@ module "images" {
 
 # Profiles are created and destroyed by instances
 module "profiles" {
-  source   = "./profiles"
-  username = local.username
+  source        = "./profiles"
+  username      = local.username
+  storage_pools = module.storage_pools
 }
 
 module "instances" {

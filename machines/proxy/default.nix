@@ -6,16 +6,20 @@
 }:
 
 let
-  mkVirtualHost = host: service: port: {
+  mkVirtualHostWithExtraConfig = host: service: port: extraConfig: {
     "${service}.${domain}" = {
       forceSSL = true;
       useACMEHost = domain;
       locations."/" = {
+        inherit extraConfig;
         proxyWebsockets = true;
         proxyPass = "http://${host}:${toString port}";
       };
     };
   };
+  mkVirtualHost =
+    host: service: port:
+    mkVirtualHostWithExtraConfig host service port "";
 in
 {
 
@@ -48,14 +52,25 @@ in
       // mkVirtualHost "medias" "radarr" 7878
       // mkVirtualHost "medias" "sonarr" 8989
       // mkVirtualHost "medias" "jellyfin" 8096
-      // mkVirtualHost "medias" "jellyseerr" 5055;
+      // mkVirtualHost "medias" "jellyseerr" 5055
+
+      # immich specific
+      // mkVirtualHostWithExtraConfig "medias" "photos" 2283 ''
+        client_max_body_size 50000M;
+        proxy_read_timeout   600s;
+        proxy_send_timeout   600s;
+        send_timeout         600s;
+      '';
+
   };
 
+  # ports
   networking.firewall.allowedTCPPorts = [
     80
     443
   ];
 
+  # cloudflare secrets
   sops.secrets."cloudflare.env" = {
     sopsFile = ../../secrets/cloudflare.proxy.env;
     format = "dotenv";
@@ -63,9 +78,10 @@ in
     group = "nginx";
   };
 
+  # acme
   security.acme = {
     acceptTerms = true;
-
+    certs.${domain}.domain = "*.${domain}";
     defaults = {
       inherit email;
       group = "nginx";
@@ -73,7 +89,5 @@ in
       dnsResolver = "1.1.1.1:53";
       environmentFile = config.sops.secrets."cloudflare.env".path;
     };
-
-    certs.${domain}.domain = "*.${domain}";
   };
 }

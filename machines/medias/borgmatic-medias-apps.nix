@@ -7,24 +7,27 @@ let
     }:
     "${pkgs.pushr}/bin/pushr -p '${priority}' -t Borgmatic -K /run/secrets/borg-pushover-token -U /run/secrets/pushover-user -c '${msg}'";
 
-  borg-restore = pkgs.writeShellApplication {
-    name = "borg-restore";
+  borg-restore-medias-apps = pkgs.writeShellApplication {
+    name = "borg-restore-medias-apps";
 
     runtimeInputs = [ pkgs.borgmatic ];
 
     text = ''
       sudo systemctl stop jellyfin.service
       sudo systemctl stop prowlarr.service
+      sudo systemctl stop jellyseerr.service
       sudo systemctl stop radarr.service
       sudo systemctl stop sonarr.service
-      sudo borgmatic extract --archive latest --repository backups # Restore latest backup
+      sudo borgmatic extract --archive latest --repository medias-apps # Restore latest backup
       sudo rm -rf /var/lib/jellyfin
-      sudo rm -rf /var/lib/prowlarr
+      sudo rm -rf /var/lib/private/prowlarr
+      sudo rm -rf /var/lib/private/jellyseerr
       sudo rm -rf /var/lib/radarr
       sudo rm -rf /var/lib/sonarr
       sudo mv ./var/lib/* /var/lib
       sudo systemctl start jellyfin.service
       sudo systemctl start prowlarr.service
+      sudo systemctl start jellyseerr.service
       sudo systemctl start radarr.service
       sudo systemctl start sonarr.service
 
@@ -33,21 +36,25 @@ let
 in
 {
 
-  environment.systemPackages = [ borg-restore ];
+  environment.systemPackages = [ borg-restore-medias-apps ];
   services.borgmatic.enable = true;
   services.borgmatic.configurations = {
-    medias = {
+    medias-apps = {
 
+      # directories
       source_directories = [
         "/var/lib/jellyfin"
-        "/var/lib/prowlarr"
+        "/var/lib/private/prowlarr"
+        "/var/lib/private/jellyseerr"
         "/var/lib/radarr"
         "/var/lib/sonarr"
       ];
+
+      # repository
       repositories = [
         {
-          path = "ssh://${username}@borg/home/${username}/borg/medias";
-          label = "backups";
+          path = "ssh://${username}@borg/home/${username}/borg/medias-apps";
+          label = "medias-apps";
         }
       ];
 
@@ -61,19 +68,21 @@ in
         "borgmatic init --encryption repokey"
         "systemctl stop jellyfin.service"
         "systemctl stop prowlarr.service"
+        "systemctl stop jellyseerr.service"
         "systemctl stop radarr.service"
         "systemctl stop sonarr.service"
       ];
       after_backup = [
         "systemctl start jellyfin.service"
         "systemctl start prowlarr.service"
+        "systemctl start jellyseerr.service"
         "systemctl start radarr.service"
         "systemctl start sonarr.service"
-        (notify { msg = "Medias backup complete on {repository}"; })
+        (notify { msg = "Medias-apps backup complete on {repository}"; })
       ];
       on_error = [
         (notify {
-          msg = "An error occured, can't complete medias backup.";
+          msg = "An error occured, can't complete medias-apps backup.";
           priority = "emergency";
         })
       ];
