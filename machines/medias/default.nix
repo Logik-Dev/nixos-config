@@ -10,6 +10,7 @@
     ./backups.nix
     ./immich.nix
     ./jellyfin.nix
+    ./paperless.nix
   ];
 
   networking.networkmanager.enable = lib.mkForce false;

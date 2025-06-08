@@ -53,6 +53,7 @@ in
       // mkVirtualHost "medias" "sonarr" 8989
       // mkVirtualHost "medias" "jellyfin" 8096
       // mkVirtualHost "medias" "jellyseerr" 5055
+      // mkVirtualHost "medias" "papers" 28981
 
       # immich specific
       // mkVirtualHostWithExtraConfig "medias" "photos" 2283 ''
