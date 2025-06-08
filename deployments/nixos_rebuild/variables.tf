@@ -1,10 +1,11 @@
 variable "special_args" {
   description = "Nixos configuration's specials args"
   type = object({
-    hostname = string
-    username = string
-    email    = string
-    domain   = string
+    hostname     = string
+    username     = string
+    email        = string
+    domain       = string
+    hetzner_user = string
   })
 }
 

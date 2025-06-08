@@ -36,6 +36,11 @@ variable "email" {
   type        = string
 }
 
+variable "hetzner_user" {
+  description = "Hetzner username"
+  type        = string
+}
+
 variable "domain" {
   description = "Main domain"
   type        = string

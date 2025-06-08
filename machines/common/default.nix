@@ -5,6 +5,7 @@
   config,
   hosts,
   inputs,
+  hetzner_user,
   ...
 }:
 let
@@ -36,7 +37,7 @@ in
   networking.hostName = hostname;
   networking.extraHosts = lib.pipe hosts [
     (lib.filterAttrs (k: v: k != hostname))
-    (lib.mapAttrsToList (k: v: "${k} ${v.ipv4}"))
+    (lib.mapAttrsToList (k: v: "${v.ipv4} ${k}"))
     (lib.concatStringsSep "\n")
   ];
 
@@ -45,8 +46,21 @@ in
   services.openssh.settings.PermitRootLogin = "no";
   services.openssh.settings.PasswordAuthentication = false;
   security.pam.sshAgentAuth.enable = true;
+  programs.ssh.knownHosts =
+    {
+      "${hetzner_user}.your-storagebox.de".publicKey =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs";
+    }
+    // builtins.mapAttrs (k: v: {
+      publicKeyFile = ../../machines/${k}/keys/ssh_host_rsa_key.pub;
+    }) hosts;
 
-  #services.openssh.settings.AllowUsers = [ username ];
+  programs.ssh.extraConfig = ''
+    Host hetzner
+      Port 23
+      User ${hetzner_user}
+      HostName ${hetzner_user}.your-storagebox.de
+  '';
 
   # Common secrets
   sops.defaultSopsFile = ../../secrets/common.yaml;

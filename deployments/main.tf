@@ -19,10 +19,11 @@ data "sops_file" "globals" {
 }
 
 locals {
-  machines = jsondecode(file("./machines.json"))
-  username = data.sops_file.globals.data["username"]
-  email    = data.sops_file.globals.data["email"]
-  domain   = data.sops_file.globals.data["domain"]
+  machines     = jsondecode(file("./machines.json"))
+  username     = data.sops_file.globals.data["username"]
+  email        = data.sops_file.globals.data["email"]
+  domain       = data.sops_file.globals.data["domain"]
+  hetzner_user = data.sops_file.globals.data["hetzner_user"]
 
   # images must be deployed to incus for this to work
   prebuild_images = {
@@ -66,5 +67,6 @@ module "instances" {
   username       = nonsensitive(local.username)
   email          = nonsensitive(local.email)
   domain         = nonsensitive(local.domain)
+  hetzner_user   = nonsensitive(local.hetzner_user)
 }
 

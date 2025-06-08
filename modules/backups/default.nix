@@ -6,7 +6,7 @@
   ...
 }:
 let
-  inherit (specialArgs) username;
+  inherit (specialArgs) username hetzner_user;
   notify =
     {
       msg,
@@ -20,18 +20,22 @@ let
     submodule {
       options = {
         source_directories = lib.mkOption {
+          description = "List of directories to backup";
           type = listOf str;
           default = [ ];
         };
         keep_weekly = lib.mkOption {
+          description = "How many weekly backup to keep";
           type = number;
           default = 4;
         };
         keep_monthly = lib.mkOption {
+          description = "How many monthly backup to keep";
           type = number;
           default = 6;
         };
         services = lib.mkOption {
+          description = "List of services to stop before backup and restart after";
           type = listOf str;
           default = [ ];
         };
@@ -53,12 +57,16 @@ in
       source_directories = value.source_directories;
       repositories = [
         {
-          path = "ssh://${username}@borg/home/${username}/borg/storage/${name}";
+          path = "ssh://${username}@borg/./borg/storage/${name}";
           label = "storage";
         }
         {
-          path = "ssh://${username}@borg/home/${username}/borg/usb/${name}";
+          path = "ssh://${username}@borg/./borg/usb/${name}";
           label = "usb";
+        }
+        {
+          path = "ssh://hetzner/./borg/${name}";
+          label = "hetzner";
         }
       ];
       encryption_passcommand = "${pkgs.coreutils}/bin/cat /run/secrets/borg";
@@ -67,21 +75,37 @@ in
       keep_weekly = value.keep_weekly;
       keep_monthly = value.keep_monthly;
       relocated_repo_access_is_ok = true;
+
+      # notify and stop services before backing up
       before_backup = [
         (notify { msg = "${name} backup starting on {repository} ..."; })
         "borgmatic init --encryption repokey"
       ] ++ builtins.map (service: "systemctl stop ${service}.service") value.services;
 
+      # notify and start services after backing up
       after_backup = builtins.map (service: "systemctl start ${service}.service") value.services ++ [
         (notify { msg = "${name} backup complete on {repository}"; })
       ];
 
+      # notify on error
       on_error = [
         (notify {
           msg = "An error occured, can't complete ${name} backup.";
           priority = "emergency";
         })
       ];
+
+      # check every week
+      before_check = [ (notify { msg = "Start checking ${name} data on {repository}"; }) ];
+      checks = [
+        {
+          name = "data"; # check data integrity
+          frequency = "1 week";
+          only_run_on = [ "Monday" ];
+
+        }
+      ];
+      after_check = [ (notify { msg = "${name} check complete on {repository}"; }) ];
 
     }) cfg.configurations;
   };

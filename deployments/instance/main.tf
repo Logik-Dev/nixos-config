@@ -17,9 +17,10 @@ module "nixos_rebuild" {
   source = "../nixos_rebuild"
   ipv4   = module.incus_instance.ipv4
   special_args = {
-    hostname = var.hostname
-    username = var.username
-    email    = var.email
-    domain   = var.domain
+    hostname     = var.hostname
+    username     = var.username
+    email        = var.email
+    domain       = var.domain
+    hetzner_user = var.hetzner_user
   }
 }

@@ -36,7 +36,12 @@
   outputs =
     inputs@{ nixpkgs, ... }:
     let
-      inherit (builtins.fromJSON (builtins.readFile ./special_args.json)) username domain email;
+      inherit (builtins.fromJSON (builtins.readFile ./special_args.json))
+        username
+        domain
+        email
+        hetzner_user
+        ;
       lib = nixpkgs.lib;
       system = "x86_64-linux";
       hosts = (import ./modules/homelab { inherit lib; }).config.hosts;
@@ -54,6 +59,7 @@
                 username
                 email
                 domain
+                hetzner_user
                 inputs
                 hosts
                 ;
@@ -70,7 +76,7 @@
           # LXD Container Image
           container = lib.nixosSystem {
             inherit system;
-            specialArgs = { inherit inputs hosts; };
+            specialArgs = { inherit inputs hosts hetzner_user; };
             modules = [
               ./machines/common
               "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
@@ -80,7 +86,7 @@
           # LXD Virtual Machine Image
           virtual-machine = lib.nixosSystem {
             inherit system;
-            specialArgs = { inherit inputs hosts; };
+            specialArgs = { inherit inputs hosts hetzner_user; };
             modules = [
               ./machines/common
               "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"

@@ -1,4 +1,5 @@
 {
+  hetzner_user,
   inputs,
   email,
   username,
@@ -17,6 +18,7 @@ let
 in
 {
   imports = [
+    ./backups.nix
     ./hardware-configuration.nix
     ../../modules/desktop/nixos.nix
     ../../modules/yubikey/nixos.nix
@@ -40,6 +42,7 @@ in
             username
             domain
             hosts
+            hetzner_user
             ;
         };
       };
