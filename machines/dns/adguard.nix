@@ -30,6 +30,10 @@
 
       filtering.rewrites = [
         {
+          domain = "wireguard.${domain}";
+          answer = hosts.security.ipv4;
+        }
+        {
           domain = "*.${domain}";
           answer = hosts.proxy.ipv4;
         }

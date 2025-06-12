@@ -4,7 +4,6 @@
   domain,
   pkgs,
   hosts,
-  username,
   ...
 }:
 

@@ -9,7 +9,6 @@
   imports = [
     ./backups.nix
     ./immich.nix
-    ./jellyfin.nix
     ./paperless.nix
   ];
 
@@ -28,7 +27,21 @@
         };
       };
     };
+    "10-photos" = {
+      "/mnt/photos" = {
+        d = {
+          group = "media";
+          user = username;
+          mode = "770";
+        };
+      };
+    };
   };
+
+  # jellyfin
+  services.jellyfin.enable = true;
+  services.jellyfin.group = "media";
+  services.jellyfin.openFirewall = true;
 
   # prowlarr
   services.prowlarr.enable = true;
@@ -48,10 +61,12 @@
   services.jellyseerr.enable = true;
   services.jellyseerr.openFirewall = true;
 
-  # 1. enable vaapi on OS-level
+  # enable vaapi on OS-level
   nixpkgs.config.packageOverrides = pkgs: {
     vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
   };
+
+  # graphics
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
