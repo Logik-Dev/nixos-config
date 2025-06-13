@@ -1,0 +1,96 @@
+creation_rules:
+  - path_regex: common\.*
+    key_groups: &machines
+      - pgp:
+          - &yubikey F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
+        age:
+          - &rescue age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h
+          - &sonicmaster age1fcm0jwfrmx8myz4xm5l74jts5pngmmtve0wh5wc038fl9tzzcydskx5w8k
+          - &hyper age10hukjnxlessdxm6weznke7g4hwv4wteu6n6qygz8v5ywuyz7lajquxjlu7
+          - &dns age1hl38qjaje355tl75pldcn4esc4mt8ptmxj8ptjvu33v4r2hfpvhqvh8ak8
+          - &security age1fgpnxsed4jmw5mtkgsfa2k9kat7qruqt98z9s287mmpzvdtqjvts6j82y3
+          - &medias age1g3jnzdl8zr7r4efp26zq3wd6u2m625jsts4wgsdk5a8h44kcqe5qmrsrt6
+          - &borg age16hmzhh8lfr0rdk3psgv8mddqedh42l99jmrp5j635eyzf4qqec8sdy239d
+          - &docker age1cjh9cfmr463ykmqt58xcknu4p95xvgcczdyrqc0rft9ekgfldphqvum9g8
+          - &monitoring age1mzndux87xz4l046a7ac8mceaeuarnfnqyg33ce7jxkf3vc3mmfyqewg8zr
+          - &iot age1smw3rsg7fer2vnqqk6d49lkpuf4nlnncjv33ke4e950tguh6qffswh663l
+          - &proxy age10putr0f0gdsghjhgjw86u8xdwu2rlxl855m9wp6rxe08ttgsh5as9wgzc4
+
+  - path_regex: special_args.json
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+
+  - path_regex: borg\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *borg
+
+  - path_regex: (\.)?dns\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *dns
+
+  - path_regex: (\.)?docker\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *docker
+
+  - path_regex: (\.)?hyper\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *hyper
+
+  - path_regex: (\.)?medias\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *medias
+
+  - path_regex: (\.)?proxy\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *proxy
+
+  - path_regex: (\.)?security\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *security
+
+  - path_regex: (\.)?sonicmaster\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *sonicmaster
+
+  - path_regex: (\.)?opentofu\.*
+    key_groups:
+      - pgp:
+          - *yubikey
+        age:
+          - *rescue
+          - *sonicmaster

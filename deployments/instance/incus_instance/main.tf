@@ -53,8 +53,8 @@ resource "incus_instance" "instance" {
     "security.secureboot" = var.type == "container" ? null : false
     "limits.cpu"          = var.cpus
     "limits.memory"       = var.memory
-    "snapshots.schedule"  = "@startup, @daily"
-    "snapshots.expiry"    = "4w"
+    "snapshots.schedule"  = "@weekly"
+    "snapshots.expiry"    = "3w"
   }
 
   wait_for {

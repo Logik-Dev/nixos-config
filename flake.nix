@@ -44,9 +44,38 @@
         ;
       lib = nixpkgs.lib;
       system = "x86_64-linux";
+      pkgs = import nixpkgs { inherit system; };
       hosts = (import ./modules/homelab { inherit lib; }).config.hosts;
+
+      # machine-add script
+      machineAdd = pkgs.callPackage ./scripts/machine-add.nix { };
+
+      # sops config file
+      sopsConfig = pkgs.callPackage ./scripts/sops-config.nix { };
+
+      # copy sops config file and convert it to yaml
+      copySopsConfig = pkgs.writeShellApplication {
+        name = "copy-sops-config";
+        text = ''
+          ${pkgs.json2yaml}/bin/json2yaml ${sopsConfig} ./.sops.yaml
+        '';
+      };
     in
+
     {
+
+      # generate .sops.yaml with 'nix run .#sops-config-gen'
+      apps.${system} = {
+        sops-config-gen = {
+          type = "app";
+          program = "${copySopsConfig}/bin/copy-sops-config";
+        };
+        machine-add = {
+          type = "app";
+          program = "${machineAdd}/bin/machine-add";
+        };
+      };
+
       nixosConfigurations =
         # machines
         builtins.mapAttrs (

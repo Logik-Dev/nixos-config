@@ -27,7 +27,6 @@
     ripgrep
     vim
     wget
-    yq
   ];
 
   environment.shellAliases = {
@@ -35,6 +34,7 @@
     l = "eza";
     ll = "eza -l";
     ls = "eza -l";
+    lsh = "eza -la";
     llt = "eza -lT";
     tf = "noglob tofu";
     tfp = "noglob tofu plan";
