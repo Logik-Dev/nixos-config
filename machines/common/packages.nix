@@ -39,6 +39,7 @@
     tf = "noglob tofu";
     tfp = "noglob tofu plan";
     tfa = "noglob tofu apply";
+    tfaa = "noglob tofu apply -auto-approve --target=";
     tfat = "noglob tofu apply --target=";
     g = "git";
     ga = "git add";
@@ -49,6 +50,7 @@
     gcb = "git checkout -b";
     nos = "nh os switch -- --impure";
     not = "nh os test -- --impure";
+    nrt = "nix run .#rebuild-target";
 
   };
 

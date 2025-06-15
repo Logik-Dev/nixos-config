@@ -8,9 +8,11 @@
     inputs.disko.nixosModules.default
     inputs.nixos-facter-modules.nixosModules.facter
     { config.facter.reportPath = ./facter.json; }
+    ./builder.nix
     ./disko.nix
     ./incus.nix
     ./mergerfs.nix
+    ./nix-serve.nix
     ./snapraid.nix
   ];
 

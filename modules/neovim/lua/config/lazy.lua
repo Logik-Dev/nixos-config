@@ -16,7 +16,7 @@ require("lazy").setup({
 	{ import = "config.plugins" },
 	{ import = "config.plugins.lsp.mason" },
 	{ import = "config.plugins.lsp.lspconfig" },
-	{ import = "config.plugins.colorscheme.tokyonight" },
+	{ import = "config.plugins.colorscheme.catppuccin" },
 }, {
 	checker = {
 		enabled = true,

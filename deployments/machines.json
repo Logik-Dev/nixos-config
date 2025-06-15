@@ -10,6 +10,17 @@
     "profiles": ["backup_folders"]
   },
 
+  "monitoring": {
+    "platform": "container",
+    "ipv4": "192.168.11.8",
+    "cpus": "1",
+    "memory": "8GiB",
+    "vlan": 11,
+    "size": "200GiB",
+    "hwaddr": "BC:24:11:45:11:08",
+    "profiles": []
+  },
+
   "docker": {
     "platform": "virtual-machine",
     "ipv4": "192.168.11.31",

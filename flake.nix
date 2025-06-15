@@ -2,11 +2,11 @@
   description = "NixOS Configuration";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/25.05";
     nixpkgs-master.url = "github:nixos/nixpkgs";
 
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-25.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -50,6 +50,9 @@
       # machine-add script
       machineAdd = pkgs.callPackage ./scripts/machine-add.nix { };
 
+      # rebuild-target
+      rebuildTarget = pkgs.callPackage ./scripts/rebuild-target.nix { };
+
       # sops config file
       sopsConfig = pkgs.callPackage ./scripts/sops-config.nix { };
 
@@ -63,16 +66,24 @@
     in
 
     {
-
-      # generate .sops.yaml with 'nix run .#sops-config-gen'
       apps.${system} = {
+
+        # generate .sops.yaml with 'nix run .#sops-config-gen'
         sops-config-gen = {
           type = "app";
           program = "${copySopsConfig}/bin/copy-sops-config";
         };
+
+        # add new machine with 'nix run .#machine add <hostname>'
         machine-add = {
           type = "app";
           program = "${machineAdd}/bin/machine-add";
+        };
+
+        # rebuild remote host with 'nix run .#rebuild-target <hostname>'
+        rebuild-target = {
+          type = "app";
+          program = "${rebuildTarget}/bin/rebuild-target";
         };
       };
 

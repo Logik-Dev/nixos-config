@@ -1,6 +1,6 @@
 { username, ... }:
 {
-  services.backups.enable = true;
+  services.backups.enable = false;
   services.backups.configurations.laptop = {
     source_directories = [
       "/home/${username}/.config/age"

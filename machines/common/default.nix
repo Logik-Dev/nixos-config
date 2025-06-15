@@ -11,6 +11,8 @@
 let
   currentHost = if hostname == "nixos" then null else hosts.${hostname};
 
+  remote-builder = if currentHost == "hyper" then [ ] else [ ./remote-builder.nix ];
+
   # Virtualisation module for LXD
   virtModule =
     if isNull currentHost then
@@ -23,11 +25,14 @@ let
       [ ];
 in
 {
-  imports = [
-    ./locals.nix
-    ./packages.nix
-    inputs.sops-nix.nixosModules.sops
-  ] ++ virtModule;
+  imports =
+    [
+      ./locals.nix
+      ./packages.nix
+      inputs.sops-nix.nixosModules.sops
+    ]
+    ++ virtModule
+    ++ remote-builder;
 
   # Update hostname after rebuild
   system.activationScripts.hostname.text = ''
@@ -50,9 +55,13 @@ in
     {
       "${hetzner_user}.your-storagebox.de".publicKey =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs";
+      #"builder".publicKeyFile = ../../machines/hyper/keys/ssh_host_ed25519_key.pub;
     }
-    // builtins.mapAttrs (k: v: {
-      publicKeyFile = ../../machines/${k}/keys/ssh_host_rsa_key.pub;
+    // lib.mapAttrs' (k: v: {
+      name = "${k},${v.ipv4}";
+      value = {
+        publicKeyFile = ../../machines/${k}/keys/ssh_host_ed25519_key.pub;
+      };
     }) hosts;
 
   programs.ssh.extraConfig = ''
@@ -68,6 +77,12 @@ in
   sops.secrets."borg-pushover-token" = { };
   sops.secrets."pushover-user" = { };
   sops.secrets.password.neededForUsers = true;
+  sops.secrets.nix-builder-key = {
+    sopsFile = ../../secrets/common.yaml;
+    owner = "root";
+    path = "/root/.ssh/nix-builder-key";
+    mode = "0600";
+  };
 
   # Common users
   users.groups.media.gid = lib.mkForce 991;
@@ -87,6 +102,8 @@ in
     gc.dates = "monthly";
     settings = {
       auto-optimise-store = true;
+      substituters = [ "http://${hosts.hyper.ipv4}:5000" ];
+      trusted-public-keys = [ "builer-cache-1:3sC3Wme/HyYHJptBwGX4nDxXLdLvBx4Q+BdTBTZmQZA=" ];
       trusted-users = [
         "@wheel"
         "root"
