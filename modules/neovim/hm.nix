@@ -1,9 +1,10 @@
-{ pkgs, config, ... }:
 {
-
-  home.sessionVariables = {
-    EDITOR = "nvim";
-  };
+  pkgs,
+  config,
+  username,
+  ...
+}:
+{
 
   programs.neovim = {
     enable = true;
@@ -11,7 +12,6 @@
     vimAlias = true;
     withNodeJs = true;
     withPython3 = true;
-    defaultEditor = true;
 
     # These environment variables are needed to build and run binaries
     # with external package managers like mason.nvim.
@@ -56,7 +56,7 @@
   };
   home.file = {
     ".config/nvim" = {
-      source = config.lib.file.mkOutOfStoreSymlink "/home/logikdev/Nixos/modules/neovim";
+      source = config.lib.file.mkOutOfStoreSymlink "/home/${username}/Nixos/modules/neovim";
       recursive = true;
     };
   };
