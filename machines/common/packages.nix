@@ -39,7 +39,7 @@
     tf = "noglob tofu";
     tfp = "noglob tofu plan";
     tfa = "noglob tofu apply";
-    tfaa = "noglob tofu apply -auto-approve --target=";
+    tfaa = "noglob tofu apply -auto-approve";
     tfat = "noglob tofu apply --target=";
     g = "git";
     ga = "git add";

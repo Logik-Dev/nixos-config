@@ -34,7 +34,7 @@
   };
 
   outputs =
-    inputs@{ nixpkgs, ... }:
+    inputs@{ self, nixpkgs, ... }:
     let
       inherit (builtins.fromJSON (builtins.readFile ./special_args.json))
         username
@@ -56,6 +56,9 @@
       # sops config file
       sopsConfig = pkgs.callPackage ./scripts/sops-config.nix { };
 
+      # image-builder
+      imageBuilder = pkgs.callPackage ./scripts/image-builder.nix { };
+
       # copy sops config file and convert it to yaml
       copySopsConfig = pkgs.writeShellApplication {
         name = "copy-sops-config";
@@ -67,6 +70,11 @@
 
     {
       apps.${system} = {
+        # image-builder
+        image-builder = {
+          type = "app";
+          program = "${imageBuilder}/bin/image-builder";
+        };
 
         # generate .sops.yaml with 'nix run .#sops-config-gen'
         sops-config-gen = {
@@ -86,6 +94,8 @@
           program = "${rebuildTarget}/bin/rebuild-target";
         };
       };
+
+      packages.${system}.vm-base = self.nixosConfigurations.virtual-machine.config.system.build.qemuImage;
 
       nixosConfigurations =
         # machines
@@ -116,7 +126,15 @@
           # LXD Container Image
           container = lib.nixosSystem {
             inherit system;
-            specialArgs = { inherit inputs hosts hetzner_user; };
+            specialArgs = {
+              inherit
+                inputs
+                hosts
+                hetzner_user
+                username
+                ;
+              hostname = "nixos";
+            };
             modules = [
               ./machines/common
               "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
@@ -126,7 +144,15 @@
           # LXD Virtual Machine Image
           virtual-machine = lib.nixosSystem {
             inherit system;
-            specialArgs = { inherit inputs hosts hetzner_user; };
+            specialArgs = {
+              inherit
+                inputs
+                hosts
+                hetzner_user
+                username
+                ;
+              hostname = "nixos";
+            };
             modules = [
               ./machines/common
               "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"

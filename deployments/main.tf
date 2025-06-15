@@ -39,8 +39,7 @@ module "storage_pools" {
 
 # Images must be created before instances
 module "images" {
-  source   = "./images"
-  username = local.username
+  source = "./images"
 }
 
 # Profiles are created and destroyed by instances

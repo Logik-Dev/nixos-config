@@ -55,7 +55,6 @@ in
     {
       "${hetzner_user}.your-storagebox.de".publicKey =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs";
-      #"builder".publicKeyFile = ../../machines/hyper/keys/ssh_host_ed25519_key.pub;
     }
     // lib.mapAttrs' (k: v: {
       name = "${k},${v.ipv4}";

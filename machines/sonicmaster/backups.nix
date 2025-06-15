@@ -1,9 +1,9 @@
 { username, ... }:
 {
-  services.backups.enable = false;
+  services.backups.enable = true;
   services.backups.configurations.laptop = {
     source_directories = [
-      "/home/${username}/.config/age"
+      "/home/${username}/.config/sops"
       "/home/${username}/.config/incus"
       "/home/${username}/.config/Yubico"
       "/home/${username}/.gnupg"
