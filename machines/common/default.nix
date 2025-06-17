@@ -1,4 +1,6 @@
 {
+  pkgs,
+  domain,
   hostname,
   lib,
   username,
@@ -112,9 +114,35 @@ in
         "flakes"
         "pipe-operators"
       ];
-
     };
   };
+
+  /*
+    services.vmagent = {
+      enable = true;
+
+      remoteWrite = {
+        url = "http://logs.${domain}/loki/api/v1/push";
+      };
+
+      prometheusConfig = {
+        url = "https://logs.${domain}";
+        labels = {
+          job = "systemd-journal";
+          host = hostname;
+        };
+        journalScrapeConfig = {
+          directory = "/var/log/journal";
+          use_notify = true;
+          max_age = "24h";
+          label_map = {
+            "_SYSTEMD_UNIT" = "unit";
+            "_HOSTNAME" = "host";
+          };
+        };
+      };
+    };
+  */
 
   system.stateVersion = "25.05";
 }

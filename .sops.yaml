@@ -7,6 +7,7 @@ creation_rules:
     - age1cjh9cfmr463ykmqt58xcknu4p95xvgcczdyrqc0rft9ekgfldphqvum9g8
     - age10hukjnxlessdxm6weznke7g4hwv4wteu6n6qygz8v5ywuyz7lajquxjlu7
     - age1g3jnzdl8zr7r4efp26zq3wd6u2m625jsts4wgsdk5a8h44kcqe5qmrsrt6
+    - age1kglw4hgz593e0as23yy7yuhjypf2p70kgswqgxs28kr95f422s2qys24ws
     - age10putr0f0gdsghjhgjw86u8xdwu2rlxl855m9wp6rxe08ttgsh5as9wgzc4
     - age1fgpnxsed4jmw5mtkgsfa2k9kat7qruqt98z9s287mmpzvdtqjvts6j82y3
     - age1fcm0jwfrmx8myz4xm5l74jts5pngmmtve0wh5wc038fl9tzzcydskx5w8k
@@ -61,6 +62,13 @@ creation_rules:
     pgp:
     - F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
   path_regex: (\.)?medias\.*
+- key_groups:
+  - age:
+    - age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h
+    - age1kglw4hgz593e0as23yy7yuhjypf2p70kgswqgxs28kr95f422s2qys24ws
+    pgp:
+    - F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
+  path_regex: (\.)?monitoring\.*
 - key_groups:
   - age:
     - age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h

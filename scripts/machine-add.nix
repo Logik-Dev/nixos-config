@@ -8,6 +8,7 @@ let
     TMP_KEYS_DIR="$TMP/$HOSTNAME/keys"
     HOST_RSA="ssh_host_rsa_key"
     HOST_ED25519="ssh_host_ed25519_key"
+    SOPS_SECRET_FILE="$FLAKE/secrets/$HOSTNAME.yaml"
 
     cleanup(){
       echo "Clean temp directory..."
@@ -35,8 +36,8 @@ let
     ssh-to-age -i "$TMP/$HOSTNAME/keys/$HOST_ED25519.pub" -o "$TMP_KEYS_DIR/age.pub"
 
     echo "Insert ssh private keys in password store..."
-    pass insert -m homelab/hosts/$HOSTNAME/$HOST_RSA < $TMP_KEYS_DIR/$HOST_RSA
-    pass insert -m homelab/hosts/$HOSTNAME/$ED25519 <  $TMP_KEYS_DIR/$HOST_ED25519
+    pass insert -f -m homelab/hosts/$HOSTNAME/$HOST_RSA < $TMP_KEYS_DIR/$HOST_RSA
+    pass insert -f -m homelab/hosts/$HOSTNAME/$HOST_ED25519 <  $TMP_KEYS_DIR/$HOST_ED25519
 
     echo "Create hostname directory and copy public keys..."
     mkdir -p "$MACHINE_DIR"/keys
@@ -54,7 +55,22 @@ let
     echo "Update keys for common secrets..."
     sops updatekeys "$FLAKE"/secrets/common.yaml
 
-    echo "Machine generation complete, don't forget to update machines.json to complete the process"
+
+    echo "💾 Writing secrets to $SOPS_SECRET_FILE (unencrypted for now)..."
+
+    cat > "$SOPS_SECRET_FILE" <<EOF
+    ssh_host_rsa_key: |
+    $(sed 's/^/  /' "$TMP_KEYS_DIR/$HOST_RSA")
+
+    ssh_host_ed25519_key: |
+    $(sed 's/^/  /' "$TMP_KEYS_DIR/$HOST_ED25519")
+    EOF
+
+    echo "🔐 Encrypting with sops..."
+    sops --encrypt --in-place "$SOPS_SECRET_FILE"
+
+    echo "✅ SSH keys stored and encrypted in: $SOPS_SECRET_FILE"
+
   '';
 in
 machine-add

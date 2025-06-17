@@ -29,7 +29,7 @@ resource "incus_profile" "backup_folders" {
     type = "usb"
     properties = {
       busnum    = 2
-      devnum    = 2
+      devnum    = 5
       productid = "2620"
       vendorid  = "1058"
     }

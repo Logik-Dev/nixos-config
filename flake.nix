@@ -131,6 +131,7 @@
                 inputs
                 hosts
                 hetzner_user
+                domain
                 username
                 ;
               hostname = "nixos";
@@ -148,6 +149,7 @@
               inherit
                 inputs
                 hosts
+                domain
                 hetzner_user
                 username
                 ;

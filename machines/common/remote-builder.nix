@@ -11,6 +11,7 @@
       User nix-builder
       Hostname ${hosts.hyper.ipv4}
       IdentitiesOnly yes
+      ForwardAgent yes
       IdentityFile ${config.sops.secrets.nix-builder-key.path}
   '';
 
