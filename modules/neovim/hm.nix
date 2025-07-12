@@ -46,6 +46,7 @@
       cmake
       fd
       gnumake
+      lua-language-server
       nixd
       nixfmt-rfc-style
       python3
