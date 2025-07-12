@@ -54,6 +54,8 @@ in
       // mkVirtualHost "medias" "jellyfin" 8096
       // mkVirtualHost "medias" "jellyseerr" 5055
       // mkVirtualHost "medias" "papers" 28981
+      // mkVirtualHost "medias" "readarr" 8787
+      // mkVirtualHost "medias" "books" 8000
       // mkVirtualHost "monitoring" "logs" 9428
 
       # immich specific

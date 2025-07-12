@@ -32,21 +32,23 @@
         opacity = 0.9;
         startup_mode = "Fullscreen";
       };
-      font = {
-        normal = {
-          family = "FiraCodeNerdFont";
-          style = "Regular";
-        };
-        italic = {
-          family = "FiraCodeNerdFont";
-          style = "Italic";
-        };
-        bold = {
-          family = "FiraCodeNerdFont";
-          style = "Bold";
-        };
+      /*
+        font = {
+          normal = {
+            family = "FiraCodeNerdFont";
+            style = "Regular";
+          };
+          italic = {
+            family = "FiraCodeNerdFont";
+            style = "Italic";
+          };
+          bold = {
+            family = "FiraCodeNerdFont";
+            style = "Bold";
+          };
 
-      };
+        };
+      */
     };
   };
 }

@@ -7,7 +7,6 @@ terraform {
   }
 }
 
-
 # borg backup-folders
 resource "incus_profile" "backup_folders" {
   description = "Shared backup folders"

@@ -38,6 +38,7 @@
     environment = {
       IMMICH_HOST = lib.mkForce "0.0.0.0";
       IMMICH_TRUSTED_PROXIES = "${hosts.proxy.ipv4}";
+      #DB_SKIP_MIGRATIONS = "true";
     };
   };
 }

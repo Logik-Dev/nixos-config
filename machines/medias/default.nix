@@ -38,6 +38,12 @@
     };
   };
 
+  # audiobookshelf
+  services.audiobookshelf.enable = true;
+  services.audiobookshelf.openFirewall = true;
+  services.audiobookshelf.group = "media";
+  services.audiobookshelf.host = "0.0.0.0";
+
   # jellyfin
   services.jellyfin.enable = true;
   services.jellyfin.group = "media";
@@ -51,6 +57,11 @@
   services.radarr.enable = true;
   services.radarr.openFirewall = true;
   services.radarr.group = "media";
+
+  # readarr
+  services.readarr.enable = true;
+  services.readarr.openFirewall = true;
+  services.readarr.group = "media";
 
   # sonarr
   services.sonarr.enable = true;

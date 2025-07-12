@@ -1,6 +1,4 @@
 {
-  pkgs,
-  domain,
   hostname,
   lib,
   username,
@@ -11,6 +9,7 @@
   ...
 }:
 let
+
   currentHost = if hostname == "nixos" then null else hosts.${hostname};
 
   remote-builder = if currentHost == "hyper" then [ ] else [ ./remote-builder.nix ];
@@ -88,7 +87,7 @@ in
   # Common users
   users.groups.media.gid = lib.mkForce 991;
   security.sudo.wheelNeedsPassword = false;
-  users.users.${username} = {
+  users.users."${username}" = {
     extraGroups = [ "wheel" ];
     isNormalUser = true;
     hashedPasswordFile = config.sops.secrets.password.path;

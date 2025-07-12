@@ -49,6 +49,8 @@ in
     }
   ];
 
+  virtualisation.podman.enable = true;
+
   # zsh
   users.users.${username}.shell = pkgs.zsh;
   programs.zsh.enable = true;
