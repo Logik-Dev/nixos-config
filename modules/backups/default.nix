@@ -97,13 +97,10 @@ in
       # repositories
       repositories = builtins.filter (e: lib.elem e.label value.repositories) [
         {
-          path = "ssh://${username}@borg/./borg/storage/${name}";
+          path = "/mnt/storage/borg/${name}";
           label = "storage";
         }
-        {
-          path = "ssh://${username}@borg/./borg/usb/${name}";
-          label = "usb";
-        }
+
         {
           path = "ssh://hetzner/./borg/${name}";
           label = "hetzner";
