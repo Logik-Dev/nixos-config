@@ -97,6 +97,23 @@ resource "null_resource" "sync_kubeconfig" {
   }
 }
 
+# Install Cilium CNI via CLI after kubeconfig sync
+resource "null_resource" "install_cilium" {
+  depends_on = [null_resource.sync_kubeconfig]
+
+  provisioner "local-exec" {
+    command = "/home/logikdev/Nixos/scripts/install-cilium.sh"
+  }
+
+  # Trigger reinstall if configuration changes
+  triggers = {
+    cilium_config = md5(jsonencode({
+        k8s_service_host = "192.168.11.100"
+      l2_announcements = true
+    }))
+  }
+}
+
 # Output - Get IP from vlan11 interface specifically
 output "k3s_control_plane_ip" {
   value = "10.11.0.100"

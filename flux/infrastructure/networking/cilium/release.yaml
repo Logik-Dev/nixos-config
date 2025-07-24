@@ -1,0 +1,111 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: cilium
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: cilium
+      version: "1.16.5"
+      sourceRef:
+        kind: HelmRepository
+        name: cilium
+        namespace: flux-system
+  targetNamespace: kube-system
+  install:
+    createNamespace: false
+    remediation:
+      retries: 3
+    # Skip initial install since Cilium is already deployed by k3s
+    skipCRDs: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+    # Only manage configuration updates, not the initial deployment
+    force: false
+  uninstall:
+    keepHistory: false
+  values:
+    # Basic configuration for K3s
+    k8sServiceHost: "192.168.11.100"  # k3s-control-plane IP
+    k8sServicePort: 6443
+    
+    # Disable features that K3s handles
+    kubeProxyReplacement: "strict"
+    operator:
+      replicas: 1
+    
+    # CNI configuration
+    cni:
+      install: true
+      exclusive: false
+    
+    # IPAM configuration
+    ipam:
+      mode: kubernetes
+    
+    # Networking configuration  
+    ipv4NativeRoutingCIDR: "10.42.0.0/16"  # K3s default pod CIDR
+    tunnel: "disabled"
+    autoDirectNodeRoutes: true
+    
+    # Load balancing with L2 Announcement (replaces MetalLB)
+    loadBalancer:
+      algorithm: "maglev"
+      mode: "dsr"
+      
+    # L2 Announcement configuration (MetalLB replacement)
+    l2announcements:
+      enabled: true
+      leaseDuration: "15s"
+      leaseRenewDeadline: "5s"
+      leaseRetryPeriod: "2s"
+    
+    # External traffic policy
+    externalIPs:
+      enabled: true
+    
+    # Enable L2 aware LB
+    enableL7Proxy: true
+    
+    # BGP Control Plane (can be used instead of L2 if preferred)
+    bgpControlPlane:
+      enabled: false  # Set to true if you want BGP instead of L2
+    
+    # Observability (enabled via FluxCD upgrade)
+    hubble:
+      enabled: true
+      relay:
+        enabled: true
+      ui:
+        enabled: true
+        ingress:
+          enabled: false
+        service:
+          type: LoadBalancer  # Will use Cilium L2 announcement
+    
+    # Security
+    encryption:
+      enabled: false  # Can be enabled later if needed
+      type: "wireguard"
+    
+    # Resource requirements
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 4Gi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+    
+    # Tolerations for control plane
+    tolerations:
+      - operator: Exists
+    
+    # Enable features for load balancing
+    enableRuntimeDeviceDetection: true
+    devices: "eth+ ens+"
