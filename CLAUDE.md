@@ -59,6 +59,12 @@ This is a NixOS configuration repository that manages a homelab infrastructure w
 
 Global configuration is stored in `special_args.json` containing username, email, domain, and cloud provider details. These are passed to all NixOS configurations.
 
+**Security Note**: This file contains sensitive information required during NixOS evaluation (before SOPS initialization). It uses a pre-commit/post-commit hook system:
+- **Pre-commit**: Automatically encrypts `special_args.json` before git commit
+- **Post-commit**: Automatically decrypts `special_args.json` for local development
+- The file is stored encrypted in git but available decrypted locally for builds
+- This ensures secrets are available early in the NixOS evaluation process while maintaining security
+
 ### Host Configuration Pattern
 
 Each machine in `machines/<hostname>/` contains:
