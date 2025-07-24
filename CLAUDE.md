@@ -45,7 +45,7 @@ This is a NixOS configuration repository that manages a homelab infrastructure w
 - `machines/` - Individual machine configurations, organized by hostname
 - `modules/` - Reusable NixOS modules for common functionality
 - `secrets/` - SOPS-encrypted secrets files per machine/service
-- `deployments/` - Terraform configuration for cloud infrastructure
+- `deployments/` - Terraform configuration for cloud infrastructure (state files are SOPS-encrypted)
 - `scripts/` - Nix scripts for automation (machine-add, rebuild-target, etc.)
 
 ### Key Concepts
