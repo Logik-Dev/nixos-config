@@ -82,6 +82,21 @@ resource "null_resource" "deploy_k3s_control_plane_config" {
   }
 }
 
+# Copy kubeconfig to local machine after deployment
+resource "null_resource" "sync_kubeconfig" {
+  depends_on = [null_resource.deploy_k3s_control_plane_config]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      mkdir -p ~/.kube
+      ssh logikdev@k3s-control-plane "sudo cat /etc/rancher/k3s/k3s.yaml" > ~/.kube/config.tmp
+      sed 's/127.0.0.1/k3s-control-plane/g' ~/.kube/config.tmp > ~/.kube/config
+      chmod 600 ~/.kube/config
+      rm ~/.kube/config.tmp
+    EOT
+  }
+}
+
 # Output - Get IP from vlan11 interface specifically
 output "k3s_control_plane_ip" {
   value = "10.11.0.100"
