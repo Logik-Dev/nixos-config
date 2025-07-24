@@ -11,7 +11,10 @@
     tokenFile = config.sops.secrets.k3s-token.path;
     clusterInit = true;
     extraFlags = [
-      "--flannel-backend=none --disable-network-policy --disable=traefik --disable-kube-proxy"
+      "--flannel-backend=none"
+      "--disable-network-policy"
+      "--disable=traefik"
+      "--disable-kube-proxy"
     ];
   };
 
