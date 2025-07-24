@@ -4,6 +4,16 @@
     "ipv4": "192.168.11.100",
     "hwaddr": "BC:24:11:45:11:29"
   },
+  "k3s-worker1": {
+    "platform": "virtual-machine",
+    "ipv4": "192.168.11.101",
+    "hwaddr": "BC:24:11:45:11:30"
+  },
+  "k3s-worker2": {
+    "platform": "virtual-machine",
+    "ipv4": "192.168.11.102",
+    "hwaddr": "BC:24:11:45:11:31"
+  },
   "hyper": {
     "platform": "bare-metal",
     "ipv4": "192.168.10.100"
