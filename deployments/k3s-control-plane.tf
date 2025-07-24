@@ -114,7 +114,3 @@ resource "null_resource" "install_cilium" {
   }
 }
 
-# Output - Get IP from vlan11 interface specifically
-output "k3s_control_plane_ip" {
-  value = "10.11.0.100"
-}

@@ -23,6 +23,9 @@ resource "incus_network" "vlan12_ingress" {
     "bridge.external_interfaces" = "enp4s0.12/enp4s0/12"
     "ipv4.address" = "none"
     "ipv6.address" = "none"
+    "ipv4.dhcp.gateway" = "192.168.12.1"
+    "ipv4.firewall" = "false"
+
   }
 }
 
@@ -36,6 +39,9 @@ resource "incus_network" "vlan21_iot" {
     "bridge.external_interfaces" = "enp4s0.21/enp4s0/21"
     "ipv4.address" = "none"
     "ipv6.address" = "none"
+    "ipv4.dhcp.gateway" = "192.168.21.1"
+    "ipv4.firewall" = "false"
+
 
   }
 }

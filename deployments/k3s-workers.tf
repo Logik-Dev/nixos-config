@@ -183,11 +183,3 @@ resource "null_resource" "deploy_k3s_worker2_config" {
   }
 }
 
-# Outputs
-output "k3s_worker1_ip" {
-  value = incus_instance.k3s_worker1.ipv4_address
-}
-
-output "k3s_worker2_ip" {
-  value = incus_instance.k3s_worker2.ipv4_address
-}
