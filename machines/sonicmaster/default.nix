@@ -21,6 +21,7 @@ in
   imports = [
     ./backups.nix
     ./hardware-configuration.nix
+    ../common/remote-builder.nix
     ../../modules/desktop/nixos.nix
     ../../modules/yubikey/nixos.nix
     ./wireguard.nix
