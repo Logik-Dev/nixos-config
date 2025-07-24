@@ -1,86 +1,9 @@
 {
-  "borg": {
+  "k3s-control-plane": {
     "platform": "virtual-machine",
-    "ipv4": "192.168.11.29",
-    "cpus": "1",
-    "memory": "4GiB",
-    "vlan": 11,
-    "size": "20GiB",
-    "hwaddr": "BC:24:11:45:11:29",
-    "profiles": ["backup_folders"]
+    "ipv4": "192.168.11.100",
+    "hwaddr": "BC:24:11:45:11:29"
   },
-
-  "monitoring": {
-    "platform": "container",
-    "ipv4": "192.168.11.8",
-    "cpus": "1",
-    "memory": "8GiB",
-    "vlan": 11,
-    "size": "200GiB",
-    "hwaddr": "BC:24:11:45:11:08",
-    "profiles": []
-  },
-
-  "docker": {
-    "platform": "virtual-machine",
-    "ipv4": "192.168.11.31",
-    "cpus": "2",
-    "memory": "16GiB",
-    "vlan": 11,
-    "size": "50GiB",
-    "hwaddr": "BC:24:11:45:11:31",
-    "profiles": ["medias_shares"]
-  },
-
-  "dns": {
-    "platform": "container",
-    "ipv4": "192.168.11.53",
-    "cpus": "1",
-    "memory": "8GiB",
-    "vlan": 11,
-    "size": "30GiB",
-    "hwaddr": "BC:24:11:45:11:53",
-    "profiles": []
-  },
-
-  "medias": {
-    "platform": "virtual-machine",
-    "ipv4": "192.168.11.185",
-    "cpus": "4",
-    "memory": "8GiB",
-    "vlan": 11,
-    "size": "100GiB",
-    "hwaddr": "BC:24:11:45:11:85",
-    "profiles": [
-      "medias_shares",
-      "intel_gpu",
-      "nextcloud_data",
-      "nextcloud_import"
-    ]
-  },
-
-  "security": {
-    "platform": "virtual-machine",
-    "ipv4": "192.168.11.58",
-    "cpus": "1",
-    "memory": "4GiB",
-    "vlan": 11,
-    "size": "30GiB",
-    "hwaddr": "BC:24:11:45:11:58",
-    "profiles": []
-  },
-
-  "proxy": {
-    "platform": "container",
-    "ipv4": "192.168.11.80",
-    "cpus": "1",
-    "memory": "4GiB",
-    "vlan": 11,
-    "size": "20GiB",
-    "hwaddr": "BC:24:11:45:11:80",
-    "profiles": []
-  },
-
   "hyper": {
     "platform": "bare-metal",
     "ipv4": "192.168.10.100"
