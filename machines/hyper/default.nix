@@ -1,6 +1,7 @@
 {
   inputs,
   username,
+  pkgs,
   ...
 }:
 {
@@ -8,13 +9,29 @@
     inputs.disko.nixosModules.default
     inputs.nixos-facter-modules.nixosModules.facter
     { config.facter.reportPath = ./facter.json; }
+    ./adguard.nix
+    ./avahi.nix
     ./builder.nix
+    ./ddns.nix
     ./disko.nix
+    ./docker
+    ./firewall.nix
     ./incus.nix
-    ./mergerfs.nix
+    ./medias.nix
+    #    ./mergerfs.nix
+    ../../modules/traefik
     ./nix-serve.nix
-    ./snapraid.nix
+    #./snapraid.nix
+    ./vaultwarden.nix
+    ./wireguard.nix
   ];
+
+  # Firewall configuration in firewall.nix
+  # traefik
+  services.traefik-proxy.enable = true;
+
+  # backups
+  services.backups.enable = true;
 
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot = {

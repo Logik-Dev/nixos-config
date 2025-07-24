@@ -4,8 +4,8 @@
   ...
 }:
 {
-  networking.firewall.allowedTCPPorts = [ 8443 ];
-  networking.nftables.enable = true;
+  # Firewall configuration moved to firewall.nix
+  
   networking.useNetworkd = true;
 
   virtualisation.libvirtd.enable = true;
