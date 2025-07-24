@@ -25,7 +25,7 @@
     "disko": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs-master"
+          "nixpkgs"
         ]
       },
       "locked": {
@@ -130,15 +130,16 @@
     },
     "nixpkgs-master": {
       "locked": {
-        "lastModified": 1752321060,
-        "narHash": "sha256-XjSFqI4fHs4TdLlpCiXu5xzT2ZN0NGvjhP6sSbx1OnQ=",
+        "lastModified": 1752950548,
+        "narHash": "sha256-NS6BLD0lxOrnCiEOcvQCDVPXafX1/ek1dfJHX1nUIzc=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "9c492c323374a22963102ceb570dff269c01c2ae",
+        "rev": "c87b95e25065c028d31a94f06a62927d18763fdf",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -208,7 +209,7 @@
     "sops-nix": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-master"
         ]
       },
       "locked": {

@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/25.05";
-    nixpkgs-master.url = "github:nixos/nixpkgs";
+    nixpkgs-master.url = "github:nixos/nixpkgs/nixos-unstable";
 
     home-manager = {
       url = "github:nix-community/home-manager/release-25.05";
@@ -12,12 +12,12 @@
 
     sops-nix = {
       url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-master";
     };
 
     disko = {
       url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs-master";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     cf-ddns = {
@@ -34,7 +34,12 @@
   };
 
   outputs =
-    inputs@{ self, nixpkgs, ... }:
+    inputs@{
+      self,
+      nixpkgs,
+      nixpkgs-master,
+      ...
+    }:
     let
       inherit (builtins.fromJSON (builtins.readFile ./special_args.json))
         username
@@ -45,6 +50,10 @@
       lib = nixpkgs.lib;
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
+      pkgsUnstable = import nixpkgs-master {
+        inherit system;
+        config.allowUnfree = true;
+      };
       hosts = (import ./modules/homelab { inherit lib; }).config.hosts;
 
       # machine-add script
@@ -112,6 +121,7 @@
                 hetzner_user
                 inputs
                 hosts
+                pkgsUnstable
                 ;
             };
             modules = [

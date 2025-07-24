@@ -6,6 +6,7 @@
   pkgs,
   domain,
   hosts,
+  pkgsUnstable,
   ...
 }:
 let
@@ -23,7 +24,6 @@ in
     ../../modules/desktop/nixos.nix
     ../../modules/yubikey/nixos.nix
     ./wireguard.nix
-
     # home manager
     inputs.home-manager.nixosModules.home-manager
     {
@@ -43,6 +43,7 @@ in
             domain
             hosts
             hetzner_user
+            pkgsUnstable
             ;
         };
       };

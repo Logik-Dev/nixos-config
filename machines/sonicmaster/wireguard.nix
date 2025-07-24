@@ -10,7 +10,7 @@ in
   networking.wg-quick.interfaces = {
     wg0 = {
       address = [ "10.11.11.2/24" ];
-      dns = [ "192.168.11.53" ];
+      dns = [ "192.168.10.100" ];
       privateKeyFile = config.sops.secrets.wg-key.path;
 
       peers = [

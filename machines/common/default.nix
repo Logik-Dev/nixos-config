@@ -72,6 +72,7 @@ in
   '';
 
   # Common secrets
+  sops.secrets.k3s-token = { };
   sops.defaultSopsFile = ../../secrets/common.yaml;
   sops.secrets.borg = { };
   sops.secrets."borg-pushover-token" = { };
@@ -88,7 +89,7 @@ in
   users.groups.media.gid = lib.mkForce 991;
   security.sudo.wheelNeedsPassword = false;
   users.users."${username}" = {
-    extraGroups = [ "wheel" ];
+    extraGroups = [ "wheel" "networkmanager" ];
     isNormalUser = true;
     hashedPasswordFile = config.sops.secrets.password.path;
     openssh.authorizedKeys.keyFiles = [

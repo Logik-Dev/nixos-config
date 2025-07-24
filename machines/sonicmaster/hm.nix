@@ -1,18 +1,26 @@
 {
   pkgs,
   username,
+  pkgsUnstable,
   ...
 }:
 {
 
   home.packages = with pkgs; [
     age
+    nodejs
+    cilium-cli
     discord-ptb
+    kubectl
     ns-usbloader
     wireguard-tools
     dnsutils
     opentofu
+    talosctl
+    pkgsUnstable.claude-code
   ];
+
+  home.sessionVariables.CLAUDE_CODE_MAX_OUTPUT_TOKENS = "32000";
 
   home.username = username;
   home.homeDirectory = "/home/${username}";
