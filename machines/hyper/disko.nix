@@ -79,7 +79,7 @@ in
         content = {
           type = "filesystem";
           format = "ext4";
-          mountpoint = "/mnt/backups";
+          mountpoint = "/mnt/storage";
           mountOptions = [
             "nofail"
             "defaults"
@@ -87,27 +87,23 @@ in
         };
       };
 
-      # Data1 (8Tb) will be merged to /mnt/storage with mergerfs
+      # Data1 (8Tb) will be merged to /mnt/storage
       data1 = {
-        device = "/dev/disk/by-uuid/ef34a318-43d4-4afa-b309-b62dc3ef1a56";
+        device = "/dev/disk/by-id/ata-ST8000DM004-2U9188_ZR14KLX2";
         type = "disk";
         content = {
-          type = "btrfs";
-          mountpoint = "/mnt/data1";
-          extraArgs = [ "-f" ];
-          mountOptions = btrfsMountOptions;
+          type = "lvm_pv";
+          vg = "vg_storage";
         };
       };
 
-      # Data2 (8Tb) will be merged to /mnt/storage with mergerfs
+      # Data2 (8Tb) will be merged to /mnt/storage
       data2 = {
-        device = "/dev/disk/by-uuid/c4b2173a-ee14-402e-9596-a6a47093680d";
+        device = "/dev/disk/by-id/ata-ST8000DM004-2CX188_ZR13TZTV";
         type = "disk";
         content = {
-          type = "btrfs";
-          mountpoint = "/mnt/data2";
-          extraArgs = [ "-f" ];
-          mountOptions = btrfsMountOptions;
+          type = "lvm_pv";
+          vg = "vg_storage";
         };
       };
 
@@ -122,20 +118,6 @@ in
           mountOptions = btrfsMountOptions;
         };
       };
-
-      /*
-        # Archives (3Tb)
-        transfer = {
-          device = "/dev/disk/by-uuid/94fb43dc-bfff-428f-aaef-233749754f6f";
-          type = "disk";
-          content = {
-            type = "filesystem";
-            format = "ext4";
-            mountpoint = "/mnt/archives";
-          };
-        };
-      */
-
     };
 
     # Volume groups
@@ -163,6 +145,43 @@ in
           pool = {
             size = "100%";
             lvm_type = "thin-pool";
+          };
+        };
+      };
+
+      # Storage VG
+      vg_storage = {
+        type = "lvm_vg";
+        lvs = {
+
+          # Nfs for k8s
+          storage = {
+            size = "12T";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/mnt/future";
+              mountOptions = [
+                "nofail"
+                "defaults"
+                "noatime"
+              ];
+            };
+          };
+
+          # Snapshots
+          backups = {
+            size = "1T";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/mnt/storage-snapshots";
+              mountOptions = [
+                "nofail"
+                "defaults"
+                "noatime"
+              ];
+            };
           };
         };
       };
