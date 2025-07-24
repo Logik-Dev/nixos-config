@@ -14,8 +14,12 @@
 
   home.packages = with pkgs; [
     bat
+    cilium-cli
     compose2nix
     fd
+    fluxcd
+    k9s
+    kubectl
     nh
     nixd
     ripgrep

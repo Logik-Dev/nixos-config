@@ -9,9 +9,7 @@
   home.packages = with pkgs; [
     age
     nodejs
-    cilium-cli
     discord-ptb
-    kubectl
     ns-usbloader
     wireguard-tools
     dnsutils

@@ -12,7 +12,7 @@ let
 
   currentHost = if hostname == "nixos" then null else hosts.${hostname};
 
-  remote-builder = if currentHost == "hyper" then [ ] else [ ./remote-builder.nix ];
+  remote-builder = [ ]; # Remote builds disabled
 
   # Virtualisation module for LXD
   virtModule =
@@ -103,8 +103,8 @@ in
     gc.dates = "monthly";
     settings = {
       auto-optimise-store = true;
-      substituters = [ "http://${hosts.hyper.ipv4}:5000" ];
-      trusted-public-keys = [ "builer-cache-1:3sC3Wme/HyYHJptBwGX4nDxXLdLvBx4Q+BdTBTZmQZA=" ];
+      # substituters = [ "http://${hosts.hyper.ipv4}:5000" ];
+      # trusted-public-keys = [ "builer-cache-1:3sC3Wme/HyYHJptBwGX4nDxXLdLvBx4Q+BdTBTZmQZA=" ];
       trusted-users = [
         "@wheel"
         "root"

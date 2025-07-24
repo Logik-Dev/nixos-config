@@ -17,8 +17,6 @@
 
   };
 
-  # Deploy Cilium manifests via K3s static manifests directory
-  environment.etc."rancher/k3s/server/manifests/cilium.yaml".source = ./cilium-native-manifest.yaml;
 
   networking.firewall.allowedTCPPorts = [
     6443
