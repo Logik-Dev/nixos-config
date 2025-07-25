@@ -5,7 +5,7 @@ set -euo pipefail
 
 CLUSTER_NAME="k3s"
 GITHUB_USER="Logik-Dev"
-REPOSITORY="Nixos"
+REPOSITORY="nixos-config"
 BRANCH="main"
 PATH_PREFIX="./flux/clusters/k3s"
 
