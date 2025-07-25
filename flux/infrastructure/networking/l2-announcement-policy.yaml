@@ -3,7 +3,7 @@ apiVersion: cilium.io/v2alpha1
 kind: CiliumL2AnnouncementPolicy
 metadata:
   name: gateway-l2-policy
-  namespace: gateway-system
+  namespace: kube-system
 spec:
   loadBalancerIPs: true
   interfaces:
@@ -16,7 +16,7 @@ apiVersion: cilium.io/v2alpha1
 kind: CiliumLoadBalancerIPPool
 metadata:
   name: gateway-pool-vlan12
-  namespace: gateway-system
+  namespace: kube-system
 spec:
   blocks:
   - cidr: 192.168.12.100/29  # IP pool on VLAN 12 for gateways
