@@ -1,29 +1,21 @@
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: GatewayClass
-metadata:
-  name: cilium
-spec:
-  controllerName: io.cilium/gateway-controller
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: cilium-gateway
-  namespace: gateway-system
+  namespace: kube-system
   annotations:
     io.cilium/lb-ipam-ips: "192.168.12.100"
 spec:
   gatewayClassName: cilium
   listeners:
-  - name: web-gw
+  - name: http-gateway
     hostname: "*.local.dev"
     port: 80
     protocol: HTTP
     allowedRoutes:
       namespaces:
         from: All
-  - name: web-gw-secure
+  - name: https-gateway
     hostname: "*.local.dev"
     port: 443
     protocol: HTTPS
