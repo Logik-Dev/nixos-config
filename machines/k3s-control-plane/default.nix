@@ -3,6 +3,9 @@
   ...
 }:
 {
+  imports = [
+    ../../modules/k3s
+  ];
 
   services.k3s = {
     enable = true;
@@ -16,11 +19,4 @@
     ];
 
   };
-
-
-  networking.firewall.allowedTCPPorts = [
-    6443
-    2049
-  ];
-
 }

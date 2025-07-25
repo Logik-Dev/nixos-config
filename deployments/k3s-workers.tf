@@ -21,7 +21,8 @@ resource "incus_instance" "k3s_worker1" {
   }
 
   profiles = [
-    incus_profile.vlan11_k8s.name
+    incus_profile.vlan12_ingress.name,
+    #incus_profile.vlan21_iot.name
   ]
 
   device {
@@ -98,7 +99,8 @@ resource "incus_instance" "k3s_worker2" {
   }
 
   profiles = [
-    incus_profile.vlan11_k8s.name
+        incus_profile.vlan12_ingress.name,
+    #incus_profile.vlan21_iot.name
   ]
 
   device {

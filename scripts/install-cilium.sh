@@ -29,33 +29,14 @@ done
 echo "K3s API server is ready, installing Cilium..."
 
 # Install Cilium with L2 announcement configuration
-cilium install \
-    --version=1.16.5 \
+cilium install --version 1.17.6 \
+    --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16" \
+    --set kubeProxyReplacement=true \
     --set k8sServiceHost=192.168.11.100 \
     --set k8sServicePort=6443 \
-    --set kubeProxyReplacement=true \
-    --set operator.replicas=1 \
-    --set cni.install=true \
-    --set cni.exclusive=false \
-    --set ipam.mode=kubernetes \
-    --set ipv4NativeRoutingCIDR=10.42.0.0/16 \
-    --set routingMode=native \
-    --set autoDirectNodeRoutes=true \
-    --set loadBalancer.algorithm=maglev \
-    --set loadBalancer.mode=dsr \
     --set l2announcements.enabled=true \
-    --set l2announcements.leaseDuration=15s \
-    --set l2announcements.leaseRenewDeadline=5s \
-    --set l2announcements.leaseRetryPeriod=2s \
-    --set externalIPs.enabled=true \
-    --set enableL7Proxy=true \
-    --set resources.limits.cpu=2000m \
-    --set resources.limits.memory=2Gi \
-    --set resources.requests.cpu=100m \
-    --set resources.requests.memory=512Mi \
-    --set enableRuntimeDeviceDetection=true \
-    --set devices=enp5s0 \
-    --set hubble.enabled=false
+    --set l2announcements.interfaces="enp6s0" \
+    --set devices="enp5s0"
 
 echo "Waiting for Cilium to be ready..."
 cilium status --wait

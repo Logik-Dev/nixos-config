@@ -26,17 +26,18 @@ resource "incus_profile" "vlan12_ingress" {
   }
 }
 
-resource "incus_profile" "k3s_control_plane" {
-  name = "k3s-control-plane"
-  description = "K3s control plane profile with fixed MAC"
+resource "incus_profile" "vlan21_iot" {
+  name = "vlan21-iot"
+  description = "VLAN21 network profile for IoT"
 
   device {
-    name = "eth0"
+    name = "eth2"
     type = "nic"
 
     properties = {
-      network = incus_network.vlan11_k8s.name
-      "hwaddr" = "BC:24:11:45:11:29"
+      network = incus_network.vlan21_iot.name
     }
   }
 }
+
+

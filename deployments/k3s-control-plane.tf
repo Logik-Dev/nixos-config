@@ -10,14 +10,26 @@ resource "incus_instance" "k3s_control_plane" {
   name  = "k3s-control-plane"
   image = incus_image.nixos_vm.fingerprint
   type  = "virtual-machine"
-  
+ 
+  profiles = [
+        incus_profile.vlan12_ingress.name,
+    #incus_profile.vlan21_iot.name
+  ]
+
+ 
   wait_for {
     type = "agent"
   }
 
-  profiles = [
-    incus_profile.k3s_control_plane.name
-  ]
+  device {
+    name = "eth0"
+    type = "nic"
+    
+    properties = {
+      network = incus_network.vlan11_k8s.name
+      "hwaddr" = "BC:24:11:45:11:29"
+    }
+  }
 
   config = {
     "limits.cpu"       = "4"

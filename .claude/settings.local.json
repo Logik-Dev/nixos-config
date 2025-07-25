@@ -1,3 +1,19 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(kubectl get pods:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(cilium uninstall:*)",
+      "Bash(/home/logikdev/Nixos/scripts/install-cilium.sh:*)",
+      "Bash(kubectl run:*)",
+      "Bash(kubectl get svc:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(ssh:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(tofu destroy:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl patch:*)"
+    ]
+  },
   "enableAllProjectMcpServers": false
 }
