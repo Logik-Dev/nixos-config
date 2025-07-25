@@ -47,7 +47,7 @@ kubectl wait --for=condition=ready pod -l app=source-controller -n flux-system -
 kubectl wait --for=condition=ready pod -l app=kustomize-controller -n flux-system --timeout=300s
 kubectl wait --for=condition=ready pod -l app=helm-controller -n flux-system --timeout=300s
 
-echo "🎉 FluxCD is ready and will deploy Cilium automatically!"
+echo "🎉 FluxCD is ready! (Cilium is installed separately via script)"
 echo ""
 echo "📊 To monitor the deployment:"
 echo "  kubectl get pods -n flux-system"

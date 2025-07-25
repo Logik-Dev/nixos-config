@@ -1,0 +1,25 @@
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: gateway-l2-policy
+  namespace: gateway-system
+spec:
+  loadBalancerIPs: true
+  interfaces:
+  - enp6s0  # Untagged interface
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/os: linux
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: gateway-pool-vlan12
+  namespace: gateway-system
+spec:
+  blocks:
+  - cidr: 192.168.12.100/29  # IP pool on VLAN 12 for gateways
+  serviceSelector:
+    matchLabels:
+      io.cilium/lb-ipam-layer2: "true"
