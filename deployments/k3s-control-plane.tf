@@ -12,8 +12,8 @@ resource "incus_instance" "k3s_control_plane" {
   type  = "virtual-machine"
  
   profiles = [
-        incus_profile.vlan12_ingress.name,
-    #incus_profile.vlan21_iot.name
+    incus_profile.vlan12_ingress.name,
+    incus_profile.vlan21_iot.name
   ]
 
  

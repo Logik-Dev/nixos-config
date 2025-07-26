@@ -25,7 +25,6 @@ resource "incus_network" "vlan12_ingress" {
     "ipv6.address" = "none"
     "ipv4.dhcp.gateway" = "192.168.12.1"
     "ipv4.firewall" = "false"
-
   }
 }
 
@@ -41,7 +40,5 @@ resource "incus_network" "vlan21_iot" {
     "ipv6.address" = "none"
     "ipv4.dhcp.gateway" = "192.168.21.1"
     "ipv4.firewall" = "false"
-
-
   }
 }
