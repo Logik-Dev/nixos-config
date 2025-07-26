@@ -3,6 +3,8 @@ kind: Gateway
 metadata:
   name: cilium-gateway
   namespace: default
+  labels:
+    vlan: ingress
 spec:
   gatewayClassName: cilium
   addresses:
