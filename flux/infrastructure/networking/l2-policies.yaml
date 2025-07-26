@@ -12,4 +12,18 @@ spec:
     matchExpressions:
       - key: node-role.kubernetes.io/control-plane
         operator: DoesNotExist
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: vlan21-l2-policy
+  namespace: default
+spec:
+  loadBalancerIPs: true
+  interfaces:
+  - enp7s0  # Untagged interface
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: DoesNotExist
 
