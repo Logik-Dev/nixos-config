@@ -15,13 +15,3 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
-  - name: https
-    port: 443
-    protocol: HTTPS
-    tls:
-      mode: Terminate
-      certificateRefs:
-      - name: gateway-api-tls
-    allowedRoutes:
-      namespaces:
-        from: All
