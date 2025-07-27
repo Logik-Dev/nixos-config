@@ -23,6 +23,13 @@ creation_rules:
     pgp:
     - F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
   path_regex: (\.)?opentofu\.*
+- encrypted_regex: ^(data|stringData)$
+  key_groups:
+  - age:
+    - age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h
+    pgp:
+    - F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
+  path_regex: flux/.*.yaml
 - key_groups:
   - age:
     - age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h

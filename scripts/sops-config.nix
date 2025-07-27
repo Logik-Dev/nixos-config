@@ -24,6 +24,18 @@ let
   # all machines age.pub
   allKeys = map (name: firstLine ../machines/${name}/keys/age.pub) machines;
 
+  # kubernetes secrets in flux
+  fluxSecrets = {
+    path_regex = "flux/.*.yaml";
+    encrypted_regex = "^(data|stringData)$";
+    key_groups = [
+      {
+        inherit pgp;
+        age = [ rescue ];
+      }
+    ];
+  };
+
   # generate a rule block with at least pgp and rescue keys
   mkRuleWithKeys = machine: keys: {
     path_regex = "(\\.)?${machine}\\.*";
@@ -45,6 +57,7 @@ let
       (mkRuleWithKeys "common" allKeys)
       (mkRuleWithKeys "special_args" [ ])
       (mkRuleWithKeys "opentofu" [ sonicmaster ])
+      fluxSecrets
 
       # machines rules
     ] ++ map mkRule machines;
