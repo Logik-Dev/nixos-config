@@ -29,6 +29,11 @@ fi
 echo "🔍 Checking flux prerequisites..."
 flux check --pre
 
+# Bootstrap age key for SOPS decryption
+echo "🔐 Setting up age key for SOPS decryption..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$SCRIPT_DIR/bootstrap-flux-agekey.sh"
+
 # Bootstrap FluxCD
 echo "🎯 Bootstrapping FluxCD..."
 flux bootstrap github \
