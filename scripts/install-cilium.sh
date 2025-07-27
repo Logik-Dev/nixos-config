@@ -44,7 +44,6 @@ cilium install --version 1.17.6 \
     --set k8sServiceHost=192.168.11.100 \
     --set k8sServicePort=6443 \
     --set l2announcements.enabled=true \
-    --set l2announcements.interfaces="enp6s0" \
     --set devices="enp+" \
     --set gatewayAPI.enabled=true
 
