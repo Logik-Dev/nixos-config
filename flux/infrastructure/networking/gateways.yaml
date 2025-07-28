@@ -4,15 +4,22 @@ kind: Gateway
 metadata:
   name: vlan12-gateway
   namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   gatewayClassName: cilium
   addresses:
   - type: IPAddress
     value: 192.168.12.100
   listeners:
-  - name: http
-    port: 80
-    protocol: HTTP
+  - name: https
+    hostname: "*.ingress.logikdev.fr"
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - name: ingress-tls
     allowedRoutes:
       namespaces:
         from: All
@@ -26,11 +33,17 @@ spec:
   gatewayClassName: cilium
   addresses:
   - type: IPAddress
-    value: 192.168.21.241
+    value: 192.168.21.240
   listeners:
-  - name: http
-    port: 80
-    protocol: HTTP
+  - name: https
+    hostname: "*.iot.logikdev.fr"
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - name: iot-tls
     allowedRoutes:
       namespaces:
-        from: All 
+        from: All
+
