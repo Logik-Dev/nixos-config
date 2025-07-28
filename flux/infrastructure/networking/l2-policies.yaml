@@ -5,6 +5,7 @@ metadata:
   name: vlan12-l2-policy
   namespace: default
 spec:
+  externalIPs: true
   loadBalancerIPs: true
   interfaces:
   - enp6s0  # Untagged interface
@@ -20,6 +21,7 @@ metadata:
   namespace: default
 spec:
   loadBalancerIPs: true
+  externalIPs: true
   interfaces:
   - enp7s0  # Untagged interface
   nodeSelector:
