@@ -5,3 +5,4 @@ resources:
   - l2-policies.yaml
   - ip-pools.yaml
   - gateways.yaml
+  - hubble-ui.yaml

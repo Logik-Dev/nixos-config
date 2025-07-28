@@ -37,7 +37,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.2.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 echo "Install cilium..."
-# Install Cilium with L2 announcement configuration
+# Install Cilium with L2 announcement configuration and Hubble
 cilium install --version 1.17.6 \
     --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16" \
     --set kubeProxyReplacement=true \
@@ -46,9 +46,37 @@ cilium install --version 1.17.6 \
     --set l2announcements.enabled=true \
     --set devices="enp+" \
     --set externalIPs.enabled=true \
-    --set gatewayAPI.enabled=true
+    --set gatewayAPI.enabled=true \
+    --set hubble.relay.enabled=true \
+    --set hubble.ui.enabled=true \
+    --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\,source_namespace\,source_workload\,destination_ip\,destination_namespace\,destination_workload\,traffic_direction}"
 
 echo "Waiting for Cilium to be ready..."
 cilium status --wait
 
+# Install Hubble CLI if not present
+if ! command -v hubble &> /dev/null; then
+    echo "Installing Hubble CLI..."
+    HUBBLE_VERSION="v1.17.6"
+    curl -L --fail --remote-name-all "https://github.com/cilium/hubble/releases/download/${HUBBLE_VERSION}/hubble-linux-amd64.tar.gz{,.sha256sum}"
+    sha256sum --check hubble-linux-amd64.tar.gz.sha256sum
+    sudo tar xzvfC hubble-linux-amd64.tar.gz /usr/local/bin
+    rm hubble-linux-amd64.tar.gz{,.sha256sum}
+fi
+
+echo "Enabling Hubble for network observability..."
+cilium hubble enable --ui
+
+echo "Waiting for Hubble to be ready..."
+cilium status --wait
+
 echo "Cilium installation completed successfully!"
+echo ""
+echo "🔍 Hubble UI access:"
+echo "kubectl port-forward -n kube-system svc/hubble-ui 12000:80"
+echo "Then visit: http://localhost:12000"
+echo ""
+echo "🔍 Hubble CLI examples:"
+echo "hubble status"
+echo "hubble observe"
+echo "hubble observe --namespace default"
