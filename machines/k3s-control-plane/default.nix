@@ -16,6 +16,7 @@
       "--disable-network-policy"
       "--disable=traefik"
       "--disable-kube-proxy"
+      "--disable=servicelb"
     ];
 
   };
