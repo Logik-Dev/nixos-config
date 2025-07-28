@@ -29,6 +29,8 @@ kind: Gateway
 metadata:
   name: vlan21-gateway
   namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   gatewayClassName: cilium
   addresses:
