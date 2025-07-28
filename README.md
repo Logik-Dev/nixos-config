@@ -16,6 +16,7 @@ This repository contains a comprehensive NixOS configuration for managing a home
 - **Media**: Containerized media services via Docker
 - **Security**: Vaultwarden password manager
 - **Backups**: Automated backup system with Borg
+- **Kubernetes**: K3s cluster with Gateway API and cert-manager for TLS
 
 ## 🚀 Quick Start
 
@@ -62,6 +63,10 @@ This project uses two complementary approaches for secrets:
 │   ├── machines.json     # Machine inventory and networking
 │   ├── networks.tf       # Incus network configurations
 │   └── profiles.tf       # Container/VM profiles
+├── flux/                 # GitOps configuration for K3s cluster
+│   ├── clusters/k3s/     # FluxCD cluster configuration
+│   ├── infrastructure/   # cert-manager, networking (Cilium, Gateways)
+│   └── apps/             # Application deployments
 ├── machines/             # Individual machine configurations
 │   ├── common/           # Shared configuration across all machines
 │   ├── hyper/            # Main hypervisor with consolidated services
@@ -85,6 +90,9 @@ This repository includes Claude Code configuration for AI-assisted development:
 
 - **NixOS**: Declarative system configuration
 - **Terraform**: Infrastructure provisioning (Incus containers/VMs)
+- **FluxCD**: GitOps for Kubernetes cluster management
+- **Gateway API**: Cloud-native ingress with HTTPS/TLS
+- **cert-manager**: Automatic TLS certificate management
 - **SOPS**: Secrets management with age encryption
 - **Flakes**: Reproducible builds and dependency management
 

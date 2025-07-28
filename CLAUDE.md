@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a NixOS configuration repository that manages a homelab infrastructure with multiple machines and services. The infrastructure is defined using Nix flakes and includes container/VM management, secrets management with SOPS, and Terraform for cloud deployment.
+This is a NixOS configuration repository that manages a homelab infrastructure with multiple machines and services. The infrastructure is defined using Nix flakes and includes container/VM management, secrets management with SOPS, Terraform for cloud deployment, and GitOps with FluxCD for Kubernetes cluster management.
 
 ## Common Commands
 
@@ -38,6 +38,13 @@ This is a NixOS configuration repository that manages a homelab infrastructure w
 - `nix flake update` - Update flake inputs
 - `nix flake check` - Validate flake configuration
 
+### GitOps and Kubernetes
+
+- `flux bootstrap github --owner=Logik-Dev --repository=Nixos --branch=main --path=./flux/clusters/k3s --personal` - Bootstrap FluxCD on K3s cluster
+- `kubectl get gateways` - Check Gateway API status
+- `kubectl get certificates -A` - Check cert-manager certificate status
+- `kubectl logs -n cert-manager -l app=cert-manager` - Check cert-manager logs
+
 ## Architecture
 
 ### Directory Structure
@@ -46,6 +53,7 @@ This is a NixOS configuration repository that manages a homelab infrastructure w
 - `modules/` - Reusable NixOS modules for common functionality
 - `secrets/` - SOPS-encrypted secrets files per machine/service
 - `deployments/` - Terraform configuration for cloud infrastructure (state files are SOPS-encrypted)
+- `flux/` - GitOps configuration for K3s cluster with FluxCD
 - `scripts/` - Nix scripts for automation (machine-add, rebuild-target, etc.)
 
 ### Key Concepts
@@ -54,10 +62,13 @@ This is a NixOS configuration repository that manages a homelab infrastructure w
 - **Machine Discovery**: Hosts are defined in `deployments/machines.json` and loaded via `modules/homelab/default.nix`
 - **Secrets Management**: Uses SOPS-nix with age encryption, keys stored in `machines/<hostname>/keys/`
 - **Multi-platform Support**: Supports bare-metal, containers, and VMs via different deployment methods
+- **GitOps**: FluxCD manages K3s cluster state from `flux/` directory
+- **Gateway API**: Cloud-native ingress with automatic HTTPS/TLS via cert-manager
+- **Certificate Management**: Let's Encrypt integration with Cloudflare DNS challenge for wildcard certificates
 
 ### Special Args
 
-Global configuration is stored in `special_args.json` containing username, email, domain, and cloud provider details. These are passed to all NixOS configurations.
+Global configuration is stored in `special_args.json` containing username, email, domain, and cloud provider details (including `hetzner_user`). These are passed to all NixOS configurations.
 
 **Security Note**: This file contains sensitive information required during NixOS evaluation (before SOPS initialization). It uses a pre-commit/post-commit hook system:
 - **Pre-commit**: Automatically encrypts `special_args.json` before git commit
@@ -78,3 +89,16 @@ Each machine in `machines/<hostname>/` contains:
 - `modules/homelab/` - Host discovery and networking
 - `modules/traefik/` - Reverse proxy configuration
 - `modules/neovim/` - Neovim configuration with Lua
+- `modules/k3s/` - Kubernetes cluster configuration
+
+### FluxCD Structure
+
+- `flux/clusters/k3s/` - Cluster-specific FluxCD configuration
+- `flux/infrastructure/cert-manager/` - TLS certificate management with Let's Encrypt
+- `flux/infrastructure/networking/` - Gateway API configuration with HTTPS ingress
+- `flux/apps/` - Application deployments and services
+
+### TLS Certificate Domains
+
+- `*.ingress.logikdev.fr` - VLAN12 gateway (192.168.12.100) for general ingress
+- `*.iot.logikdev.fr` - VLAN21 gateway (192.168.21.240) for IoT services

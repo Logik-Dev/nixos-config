@@ -11,18 +11,30 @@ flux/
 │   ├── infrastructure.yaml # Infrastructure kustomization
 │   └── apps.yaml          # Applications kustomization
 ├── infrastructure/         # Infrastructure as Code
-│   └── networking/
-│       └── cilium/         # Cilium configuration with L2 Announcement
+│   ├── cert-manager/       # TLS certificate management
+│   └── networking/         # Network configuration (Cilium + Gateways)
 └── apps/                   # Business applications
 ```
 
-## Cilium Configuration
+## Certificate Management
 
+The cluster uses cert-manager with Let's Encrypt for automatic TLS certificate provisioning:
+- **DNS Challenge**: Cloudflare DNS-01 challenge for wildcard certificates
+- **Domains**: `*.ingress.logikdev.fr` and `*.iot.logikdev.fr`
+- **Issuer**: ClusterIssuer configured for Let's Encrypt production
+
+## Network Configuration
+
+### Cilium CNI
 Cilium is configured to replace MetalLB with the following features:
 - **L2 Announcement**: LoadBalancer IP announcement at Layer 2
 - **Kube-proxy replacement**: Cilium replaces kube-proxy
 - **Hubble**: Network observability
-- **Future VLAN12**: Support for ingress on VLAN12
+
+### Gateway API
+Two HTTPS gateways provide ingress for different VLANs:
+- **VLAN12 Gateway** (`192.168.12.100`): `*.ingress.logikdev.fr`
+- **VLAN21 Gateway** (`192.168.21.240`): `*.iot.logikdev.fr`
 
 ## Installation
 
@@ -38,14 +50,17 @@ flux bootstrap github \
 
 2. FluxCD will automatically deploy:
    - Cilium with L2 Announcement
+   - cert-manager with Let's Encrypt integration
+   - HTTPS Gateway configurations
    - Infrastructure components
    - Defined applications
 
-## L2 Announcement (To be configured later)
+## TLS Certificate Workflow
 
-L2 rules for VLAN12 ingress will be added via:
-- `CiliumLoadBalancerIPPool` to define IP ranges
-- `CiliumL2AnnouncementPolicy` for announcement rules on VLAN12
+1. **Gateway Creation**: Gateways are annotated with `cert-manager.io/cluster-issuer: letsencrypt`
+2. **DNS Challenge**: cert-manager uses Cloudflare API token for DNS-01 challenge
+3. **Certificate Issuance**: Let's Encrypt issues wildcard certificates for both domains
+4. **Automatic Renewal**: cert-manager handles certificate renewal automatically
 
 ## Monitoring
 
