@@ -9,7 +9,7 @@ provisioner: nfs.csi.k8s.io
 parameters:
     server: 192.168.10.100
     share: /mnt/future/medias
-    subDir: ""
+    subDir: "/"
 # NFSv4.2 optimized for media files
 mountOptions: 
   - vers=4.2 
