@@ -19,6 +19,7 @@
     ./incus.nix
     ./medias.nix
     #    ./mergerfs.nix
+    ./nfs.nix
     ../../modules/traefik
     ./nix-serve.nix
     #./snapraid.nix

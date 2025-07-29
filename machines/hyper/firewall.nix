@@ -40,6 +40,10 @@
         iifname "enp5s0" udp dport 53 accept
         iifname "enp5s0" tcp dport 53 accept
         
+        # Allow NFS server on enp5s0 (NFSv4 only)
+        iifname "enp5s0" tcp dport { 111, 2049 } accept
+        iifname "enp5s0" udp dport { 111, 2049 } accept
+        
         # Allow NixOS cache (nix-serve) from local network
         ip saddr 192.168.0.0/16 tcp dport 5000 accept
         
