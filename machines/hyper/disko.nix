@@ -143,8 +143,22 @@ in
         type = "lvm_vg";
         lvs = {
           pool = {
-            size = "100%";
+            size = "1.8T";
             lvm_type = "thin-pool";
+          };
+          # Shared storage for Kubernetes
+          ultra-shared = {
+            size = "1T";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/mnt/ultra";
+              mountOptions = [
+                "nofail"
+                "defaults"
+                "noatime"
+              ];
+            };
           };
         };
       };
