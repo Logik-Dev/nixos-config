@@ -10,7 +10,7 @@ spec:
   parameters:
     server: 192.168.10.100
     share: /mnt/ultra/k8s
-    subDir: "/"
+    subDir: "${pvc.metadata.name}"
   # NFSv4.2 optimized for general Kubernetes workloads
   mountOptions: 
     - vers=4.2 
