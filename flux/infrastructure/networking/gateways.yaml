@@ -4,6 +4,8 @@ kind: Gateway
 metadata:
   name: vlan12-gateway
   namespace: default
+  labels:
+      vlan: ingress
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
 spec:
@@ -29,6 +31,8 @@ kind: Gateway
 metadata:
   name: vlan21-gateway
   namespace: default
+  labels:
+    vlan: iot
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
 spec:

@@ -5,6 +5,8 @@ kind: HTTPRoute
 metadata:
   name: hubble-ui
   namespace: kube-system
+  labels:
+      vlan: ingress
 spec:
   parentRefs:
   - name: vlan12-gateway
