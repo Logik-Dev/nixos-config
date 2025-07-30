@@ -5,22 +5,21 @@ metadata:
   name: nfs-ultra
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
-spec:
-  provisioner: nfs.csi.k8s.io
-  parameters:
-    server: 192.168.10.100
-    share: /mnt/ultra/k8s
-    subDir: "${pvc.metadata.name}"
-  # NFSv4.2 optimized for general Kubernetes workloads
-  mountOptions: 
-    - vers=4.2 
-    - rsize=1048576
-    - wsize=1048576
-    - hard
-    - intr
-    - timeo=600
-    - noatime
-  # IMPORTANT: Retain to never delete existing data
-  reclaimPolicy: Retain
-  volumeBindingMode: Immediate
-  allowVolumeExpansion: true
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 192.168.10.100
+  share: /mnt/ultra/k8s
+  subDir: "${pvc.metadata.name}"
+# NFSv4.2 optimized for general Kubernetes workloads
+mountOptions: 
+  - vers=4.2 
+  - rsize=1048576
+  - wsize=1048576
+  - hard
+  - intr
+  - timeo=600
+  - noatime
+# IMPORTANT: Retain to never delete existing data
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
