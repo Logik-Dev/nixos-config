@@ -16,7 +16,6 @@ spec:
     initdb:
       database: vaultwarden
       secret: vaultwarden
-      secret: vaultwarden
       import:
         type: microservice
         databases:
