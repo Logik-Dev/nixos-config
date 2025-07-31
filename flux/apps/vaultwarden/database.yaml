@@ -1,0 +1,25 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: vaultwarden
+  namespace: vaultwarden
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      import:
+        type: microservice
+        source:
+          externalCluster: hyper
+  storage:
+    size: 1Gi
+  externalClusters:
+    - name: hyper
+      connectionParameters:
+        host: 192.168.10.100
+        user: vaultwarden
+        dbname: vaultwarden
+        sslmode: disable
+      password:
+        name: vaultwarden
+        key: db-pass
