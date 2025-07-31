@@ -6,7 +6,8 @@ metadata:
 spec:
   instances: 1
   enableSuperuserAccess: true
-  superuserSecret: db-auth
+  superuserSecret:
+    name: db-auth
   imageCatalogRef:
     apiGroup: postgresql.cnpg.io
     kind: ImageCatalog
