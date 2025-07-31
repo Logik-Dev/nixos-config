@@ -9,6 +9,8 @@ spec:
     initdb:
       import:
         type: microservice
+        databases:
+          - vaultwarden
         source:
           externalCluster: hyper
   storage:
