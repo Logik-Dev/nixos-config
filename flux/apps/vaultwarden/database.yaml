@@ -10,7 +10,7 @@ spec:
     name: db-auth
   imageCatalogRef:
     apiGroup: postgresql.cnpg.io
-    kind: ImageCatalog
+    kind: ClusterImageCatalog
     name: postgresql
     major: 15
   bootstrap:
