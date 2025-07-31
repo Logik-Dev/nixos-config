@@ -5,13 +5,13 @@ metadata:
   namespace: vaultwarden
 spec:
   instances: 1
+  imageCatalogRef:
+    apiGroup: postgresql.cnpg.io
+    kind: ImageCatalog
+    name: postgresql
+    major: 15
   bootstrap:
     secret: vaultwarden
-    imageCatalogRef:
-      apiGroup: postgresql.cnpg.io
-      kind: ImageCatalog
-      name: postgresql
-      major: 15
     initdb:
       database: vaultwarden
       secret: vaultwarden
