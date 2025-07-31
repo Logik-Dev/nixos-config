@@ -5,3 +5,4 @@ resources:
   - namespace.yaml
   - repository.yaml
   - release.yaml
+  - https://raw.githubusercontent.com/cloudnative-pg/postgres-containers/main/Debian/ClusterImageCatalog-bookworm.yaml # image catalog

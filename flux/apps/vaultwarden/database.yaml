@@ -6,7 +6,15 @@ metadata:
 spec:
   instances: 1
   bootstrap:
+    secret: vaultwarden
+    imageCatalogRef:
+      apiGroup: postgresql.cnpg.io
+      kind: ImageCatalog
+      name: postgresql
+      major: 15
     initdb:
+      database: vaultwarden
+      secret: vaultwarden
       import:
         type: microservice
         databases:
@@ -14,7 +22,7 @@ spec:
         source:
           externalCluster: hyper
   storage:
-    size: 1Gi
+    size: 5Gi
   externalClusters:
     - name: hyper
       connectionParameters:
@@ -24,4 +32,4 @@ spec:
         sslmode: disable
       password:
         name: vaultwarden
-        key: db-pass
+        key: password
