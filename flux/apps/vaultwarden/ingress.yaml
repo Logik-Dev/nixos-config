@@ -5,8 +5,8 @@ metadata:
   namespace: vaultwarden
 spec:
   parentRefs:
-  - name: ingress-gateway
-    namespace: gateway-system
+  - name: vlan12-gateway
+    namespace: default
   hostnames:
   - "vaultwarden.ingress.logikdev.fr"
   rules:
