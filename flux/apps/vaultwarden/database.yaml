@@ -20,7 +20,8 @@ spec:
         source:
           externalCluster: hyper
   storage:
-    size: 2Gi
+    storageClass: longhorn
+    size: 1Gi
   externalClusters:
     - name: hyper
       connectionParameters:
