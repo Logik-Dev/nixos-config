@@ -5,3 +5,4 @@ resources:
   - nfs-csi-driver.yaml
   - nfs-storage-class.yaml
   - nfs-ultra-storage-class.yaml
+  - longhorn.yaml
