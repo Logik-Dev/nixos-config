@@ -29,6 +29,9 @@ spec:
         name: longhorn
         namespace: longhorn-system
       interval: 12h
+  values:
+    defaultSettings:
+      defaultReplicaCount: 1 # Longhorn will be used only for Postgresql, replicas are managed by cloudnative PG
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
