@@ -9,3 +9,5 @@ resources:
   - service.yaml
   - pvc.yaml
   - ingress.yaml
+  - minio-creds.yaml
+  - backups.yaml

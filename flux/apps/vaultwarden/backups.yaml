@@ -1,0 +1,30 @@
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+    name: vaultwarden
+    namespace: vaultwarden
+spec:
+    configuration:
+        destinationPath: s3://vaultwarden
+        endpointURL: http://hyper:9000
+        s3Credentials:
+            accessKeyId:
+                name: minio
+                key: ACCESS_KEY_ID
+            secretAccessKey:
+                name: minio
+                key: ACCESS_SECRET_KEY
+        wal:
+            compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+    name: vaultwarden
+spec:
+    cluster:
+        name: vaultwarden-db
+    method: plugin
+    pluginConfiguration:
+        name: barman-cloud.cloudnative-pg.io
