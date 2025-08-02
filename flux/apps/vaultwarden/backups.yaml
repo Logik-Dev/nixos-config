@@ -7,7 +7,7 @@ metadata:
 spec:
     configuration:
         destinationPath: s3://vaultwarden
-        endpointURL: http://hyper:9000
+        endpointURL: http://192.168.10.100:9000
         s3Credentials:
             accessKeyId:
                 name: minio
@@ -17,15 +17,4 @@ spec:
                 key: ACCESS_KEY_SECRET
         wal:
             compression: gzip
----
-apiVersion: postgresql.cnpg.io/v1
-kind: Backup
-metadata:
-    name: vaultwarden
-    namespace: vaultwarden
-spec:
-    cluster:
-        name: vaultwarden-db
-    method: plugin
-    pluginConfiguration:
-        name: barman-cloud.cloudnative-pg.io
+
