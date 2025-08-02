@@ -14,7 +14,7 @@ spec:
                 key: ACCESS_KEY_ID
             secretAccessKey:
                 name: minio
-                key: ACCESS_SECRET_KEY
+                key: ACCESS_KEY_SECRET
         wal:
             compression: gzip
 ---
