@@ -47,6 +47,9 @@
         # Allow NixOS cache (nix-serve) from local network
         ip saddr 192.168.0.0/16 tcp dport 5000 accept
         
+        # Allow Minio on local network
+        iifname "enp5s0" tcp dport { 9000, 9001 } accept 
+
         # Allow PostgreSQL
         iifname "enp5s0" tcp dport 5432 accept
         

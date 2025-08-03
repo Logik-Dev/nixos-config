@@ -19,6 +19,7 @@
     ./incus.nix
     ./libvrit.nix
     ./medias.nix
+    ./minio.nix
     #    ./mergerfs.nix
     ./nfs.nix
     ../../modules/traefik
