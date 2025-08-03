@@ -1,10 +1,10 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: vaultwarden-db-restore
-  namespace: databases
+  name: vaultwarden-db
+  namespace: vaultwarden
 spec:
-  instances: 1
+  instances: 2
   imageCatalogRef:
     apiGroup: postgresql.cnpg.io
     kind: ClusterImageCatalog
@@ -14,15 +14,19 @@ spec:
     name: postgres-creds
   bootstrap:
     recovery:
-      source: origin
+      source: minio
+  storage:
+    storageClass: longhorn
+    size: 1Gi
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: minio
   externalClusters:
-    - name: origin
+    - name: minio
       plugin:
         name: barman-cloud.cloudnative-pg.io
         parameters:
           barmanObjectName: minio
           serverName: vaultwarden-db
-  storage:
-    storageClass: longhorn
-    size: 1Gi
-
