@@ -14,7 +14,7 @@ spec:
                 key: MINIO_ROOT_USER
             secretAccessKey:
                 name: minio-credentials
-        key: MINIO_ROOT_PASSWORD
+                key: MINIO_ROOT_PASSWORD
         wal:
           compression: gzip
         data:
