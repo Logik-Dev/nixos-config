@@ -6,7 +6,7 @@
 {
   # Disable standard NixOS iptables firewall to avoid conflicts with nftables
   networking.firewall.enable = false;
-  
+
   networking.nftables.enable = true;
   networking.nftables.ruleset = ''
     table inet filter {
@@ -47,6 +47,9 @@
         # Allow NixOS cache (nix-serve) from local network
         ip saddr 192.168.0.0/16 tcp dport 5000 accept
         
+        # Allow PostgreSQL
+        iifname "enp5s0" tcp dport 5432 accept
+        
         # Allow traffic on Incus bridges
         iifname { "vlan11-k8s", "vlan12-ingress", "vlan21-iot" } accept
         
@@ -71,7 +74,7 @@
         type filter hook output priority 0; policy accept;
       }
     }
-    
+
     table inet nat {
       chain postrouting {
         type nat hook postrouting priority 100; policy accept;

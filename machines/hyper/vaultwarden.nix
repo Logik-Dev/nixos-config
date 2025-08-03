@@ -28,9 +28,10 @@
   # traefik
   services.traefik-proxy.services.vaultwarden.port = 8222;
 
-  # postgresql is listening on local unix socket ONLY
+  # postgresql listening on TCP for cluster access
   services.postgresql = {
     enable = true;
+    enableTCPIP = true;
     package = pkgs.postgresql_15;
     ensureUsers = [
       {
@@ -47,6 +48,8 @@
     '';
     authentication = lib.mkOverride 10 ''
       local sameuser  all     peer            map=localusersmap
+      host  vaultwarden vaultwarden 192.168.0.0/16  md5
+      host  all        postgres    192.168.0.0/16  md5
     '';
 
   };
