@@ -2,7 +2,7 @@
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
-    name: vaultwarden
+    name: minio-backups
     namespace: vaultwarden
 spec:
     configuration:
@@ -10,13 +10,12 @@ spec:
         endpointURL: https://s3.ingress.logikdev.fr 
         s3Credentials:
             accessKeyId:
-                name: minio
-                key: ACCESS_KEY_ID
+                name: minio-credentials
+                key: MINIO_ROOT_USER
             secretAccessKey:
-                name: minio
-                key: ACCESS_KEY_SECRET
+                name: minio-credentials
+                key: MINIO_ROOT_PASSWORD
         wal:
           compression: gzip
         data:
           compression: gzip
-

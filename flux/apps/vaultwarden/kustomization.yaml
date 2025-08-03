@@ -9,5 +9,5 @@ resources:
   - service.yaml
   - pvc.yaml
   - ingress.yaml
-  - minio-creds.yaml
-  - backups.yaml
+  - object-store.yaml
+  - postgres-creds.yaml

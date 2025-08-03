@@ -1,7 +1,7 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: vaultwarden-db
+  name: vaultwarden-db-restore
   namespace: databases
 spec:
   instances: 2
@@ -10,6 +10,8 @@ spec:
     kind: ClusterImageCatalog
     name: postgresql
     major: 15
+  superuserSecret:
+    name: postgres-creds
   bootstrap:
     recovery:
       source: origin
