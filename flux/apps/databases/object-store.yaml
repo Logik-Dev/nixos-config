@@ -1,0 +1,21 @@
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+    name: minio-backups
+    namespace: databases
+spec:
+    configuration:
+        destinationPath: s3://backups
+        endpointURL: https://s3.ingress.logikdev.fr 
+        s3Credentials:
+            accessKeyId:
+                name: minio-credentials
+                key: MINIO_ROOT_USER
+            secretAccessKey:
+                name: minio-credentials
+        key: MINIO_ROOT_PASSWORD
+        wal:
+          compression: gzip
+        data:
+          compression: gzip
