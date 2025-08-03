@@ -160,7 +160,7 @@ resource "incus_instance" "k3s_worker2" {
     
     properties = {
       path = "/"
-      pool = incus_storage_pool.ultra.name
+      pool = incus_storage_pool.local_vg.name
       size = "150GB"
     }
   }
