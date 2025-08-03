@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: minio-credentials
+    namespace: vaultwarden
+type: Opaque
+stringData:
+    MINIO_ROOT_USER: ENC[AES256_GCM,data:8eRt+iC3nW8=,iv:ZH62pmVfmpFX30IYZcQSfhG+xkFPsEgtaXvHrU3FCZ0=,tag:sIQYJR3w7JXBp8I71FmD+w==,type:str]
+    MINIO_ROOT_PASSWORD: ENC[AES256_GCM,data:KbrJYnjt6LKlmKDh4KkRcXQc305KjJ91uA==,iv:95uVyHWQg8rjpBFiFSu7o8O2DBz61kJb79cU3qMwvDI=,tag:uaRqcQ3gkv3NgePJBUxoqw==,type:str]
+sops:
+    age:
+        - recipient: age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBwc1dYVmpISjlSeFdzSi9N
+            ZDVnSE1EYXQ2bnJ3d2g4aWI1b1JhaDl4dVdRCk9Fc3dwRSttb2N2Tm5vU2JRa0VH
+            WVBJRDAvYVdkb3ZPbVNqek9jNXk5RHcKLS0tIEhLSENMRHFwQlFGOXE5YnMrblF1
+            NWFic1gzSmR2SVVBR0RYbUNraEhTajQKFxuV2mx83lBbgrjuDKF7m4KzQb7+fyee
+            KfCBYUcUeG044P2l6BMwEggom5XJqF/Dnn+uLwH88We9VDg7TUitoA==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2025-08-03T23:25:00Z"
+    mac: ENC[AES256_GCM,data:OhPkOTEsSLxNQujkfTw9pC8ztSdpu15MuB5Ca9mQMOH39Z8kBl5dSJdj5KVoBChHLL9Wbxxelo8+hehF8hzmzn4nBCj9x4dzIkrrE4imFo4fezxgFQA/YH09vi3smLYv7j2OZrTKPID1owbZSE2g/rft02SYemWgu8Wtr+NhXOE=,iv:SeoFlO84MhVw3lHcj8uQ+6qsi6ZSAZABvzrFEr4oB5c=,tag:15P/cXtLcCnnng+bpyOcmQ==,type:str]
+    pgp:
+        - created_at: "2025-08-03T23:20:51Z"
+          enc: |-
+            -----BEGIN PGP MESSAGE-----
+
+            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
+            =n95Q
+            -----END PGP MESSAGE-----
+          fp: F5A34D392D22853E7EB1FA85AC259B4007CB7CE9
+    encrypted_regex: ^(data|stringData)$
+    version: 3.10.2
