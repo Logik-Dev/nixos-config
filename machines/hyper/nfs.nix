@@ -6,6 +6,10 @@
     exports = ''
       # Export medias directory to entire 192.168.0.0/16 network
       /mnt/future/medias 192.168.0.0/16(rw,sync,no_subtree_check,no_root_squash)
+
+      # Export archives directory to entire 192.168.0.0/16 network
+      /mnt/future/archives 192.168.0.0/16(rw,sync,no_subtree_check,no_root_squash)
+
       # Export Kubernetes shared storage subdirectory
       /mnt/ultra/k8s 192.168.0.0/16(rw,sync,no_subtree_check,no_root_squash)
     '';
@@ -28,6 +32,13 @@
           user = username;
         };
       };
+      "/mnt/future/archives" = {
+        d = {
+          group = "media";
+          mode = "775";
+          user = username;
+        };
+      };
       "/mnt/ultra/k8s" = {
         d = {
           group = "users";
@@ -41,4 +52,3 @@
   # Enable required services for NFS
   services.rpcbind.enable = true;
 }
-
