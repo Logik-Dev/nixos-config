@@ -4,7 +4,7 @@ metadata:
   name: vaultwarden-db
   namespace: vaultwarden
 spec:
-  instances: 2
+  instances: 1
   imageCatalogRef:
     apiGroup: postgresql.cnpg.io
     kind: ClusterImageCatalog
