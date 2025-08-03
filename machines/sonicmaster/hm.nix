@@ -17,6 +17,7 @@
     opentofu
     talosctl
     pkgsUnstable.claude-code
+    vscode-fhs
   ];
 
   home.sessionVariables.CLAUDE_CODE_MAX_OUTPUT_TOKENS = "32000";
