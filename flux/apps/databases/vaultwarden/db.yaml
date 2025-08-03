@@ -14,8 +14,6 @@ spec:
     name: postgres-creds
   bootstrap:
     recovery:
-      recoveryTarget:
-        targetTime: "2025-08-03 14:14:21.00000+02"
       source: origin
   externalClusters:
     - name: origin
