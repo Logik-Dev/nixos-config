@@ -38,3 +38,17 @@ spec:
       password:
         name: vaultwarden-hyper-secret
         key: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: vaultwarden-scheduled-backup
+spec:
+  schedule: "0 0 0 * * *"  # At midnight every day
+  backupOwnerReference: self
+  cluster:
+    name: vaultwarden-db
+    method: plugin
+    pluginConfiguration:
+        name: barman-cloud.cloudnative-pg.io
+
