@@ -2,12 +2,12 @@
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
-    name: minio-backups
+    name: minio
     namespace: databases
 spec:
     configuration:
-        destinationPath: s3://backups
-        endpointURL: http://minio.minio.svc.cluster.local:9000
+        destinationPath: s3://vaultwarden
+        endpointURL: http://192.168.10.100:9000
         s3Credentials:
             accessKeyId:
                 name: minio-credentials
