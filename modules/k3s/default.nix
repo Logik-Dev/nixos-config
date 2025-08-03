@@ -1,9 +1,18 @@
 {
   pkgs,
+  hostname,
   ...
 }:
 
 {
+
+  # enable openiscsi
+  services.openiscsi.enable = true;
+  services.openiscsi.name = "iqn.2020-08.org.linux-iscsi.initiatorhost:${hostname}";
+  systemd.services.iscsid.serviceConfig = {
+    PrivateMounts = "yes";
+    BindPaths = "/run/current-system/sw/bin:/bin";
+  };
   # Kernel modules required for Cilium and K3s
   boot.kernelModules = [
     "iptable_mangle"
@@ -27,6 +36,7 @@
   environment.systemPackages = with pkgs; [
     iptables
     conntrack-tools
+    openiscsi
   ];
 
   # Firewall configuration for K3s
@@ -34,4 +44,3 @@
     enable = false; # Disabled to avoid conflicts with K3s
   };
 }
-
