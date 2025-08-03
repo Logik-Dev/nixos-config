@@ -1,0 +1,11 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: minio
+  namespace: minio
+spec:
+  interval: 24h
+  url: oci://registry-1.docker.io/bitnamicharts/minio
+  ref:
+    tag: "17.0.16"

@@ -1,0 +1,50 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: minio
+  namespace: minio
+spec:
+  interval: 24h
+  chartRef:
+    kind: OCIRepository
+    name: minio
+    namespace: minio
+  values:
+    # Authentication configuration
+    auth:
+      existingSecret: minio-credentials
+      rootUserSecretKey: MINIO_ROOT_USER
+      rootPasswordSecretKey: MINIO_ROOT_PASSWORD
+
+    # Standalone mode
+    mode: standalone
+    
+    # Default bucket
+    defaultBuckets: "backups"
+    
+    # NFS storage configuration
+    persistence:
+      enabled: true
+      storageClass: nfs-archives
+      size: 100Gi
+      mountPath: /bitnami/minio/data
+   
+    # Resources
+    resources:
+      limits:
+        cpu: 2
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+    
+    # Security with user 1000 and group 991
+    podSecurityContext:
+      enabled: true
+      fsGroup: 991
+    
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1000
+      runAsNonRoot: true
