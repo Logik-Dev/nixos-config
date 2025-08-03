@@ -49,7 +49,7 @@ spec:
   backupOwnerReference: self
   cluster:
     name: vaultwarden-db
-    method: plugin
-    pluginConfiguration:
-        name: barman-cloud.cloudnative-pg.io
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
 
