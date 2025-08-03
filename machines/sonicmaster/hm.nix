@@ -10,6 +10,7 @@
     age
     nodejs
     discord-ptb
+    hubble
     ns-usbloader
     wireguard-tools
     dnsutils
