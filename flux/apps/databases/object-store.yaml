@@ -7,7 +7,7 @@ metadata:
 spec:
     configuration:
         destinationPath: s3://backups
-        endpointURL: https://s3.ingress.logikdev.fr 
+        endpointURL: http://minio.minio.svc.cluster.local 
         s3Credentials:
             accessKeyId:
                 name: minio-credentials
