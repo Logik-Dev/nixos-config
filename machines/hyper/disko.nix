@@ -44,18 +44,12 @@ in
                 vg = "vg_root";
               };
             };
-            # Local BTRFS pool + misc
+            # Local LVM pool + misc
             local = {
               size = "100%";
               content = {
-                type = "btrfs";
-                extraArgs = [ "-f" ];
-                mountpoint = "/mnt/local";
-                mountOptions = btrfsMountOptions ++ [ "ssd" ];
-                subvolumes = {
-                  "/mnt/local/pool" = { };
-                  "/mnt/local/misc" = { };
-                };
+                type = "lvm_pv";
+                vg = "vg_local";
               };
             };
           };
@@ -159,6 +153,17 @@ in
                 "noatime"
               ];
             };
+          };
+        };
+      };
+
+      # Local VG for misc storage
+      vg_local = {
+        type = "lvm_vg";
+        lvs = {
+          thin_pool = {
+            size = "100%";
+            lvm_type = "thin-pool";
           };
         };
       };

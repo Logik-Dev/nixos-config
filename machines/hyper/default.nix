@@ -17,6 +17,7 @@
     ./docker
     ./firewall.nix
     ./incus.nix
+    ./libvrit.nix
     ./medias.nix
     #    ./mergerfs.nix
     ./nfs.nix
