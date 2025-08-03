@@ -20,14 +20,9 @@ spec:
       plugin:
         name: barman-cloud.cloudnative-pg.io
         parameters:
-          barmanObjectName: minio-backups
+          barmanObjectName: minio
           #serverName: vaultwarden-db
   storage:
     storageClass: longhorn
     size: 1Gi
-  plugins:
-  - name: barman-cloud.cloudnative-pg.io
-    isWALArchiver: true
-    parameters:
-      barmanObjectName: minio
 
