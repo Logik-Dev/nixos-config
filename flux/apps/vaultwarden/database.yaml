@@ -32,7 +32,7 @@ spec:
     - name: hyper
       connectionParameters:
         host: 192.168.10.100
-        user: vaultwarden
+        user: postgres
         dbname: vaultwarden
         sslmode: disable
       password:
