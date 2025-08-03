@@ -43,6 +43,7 @@ apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
   name: vaultwarden-scheduled-backup
+  namespace: vaultwarden
 spec:
   schedule: "0 0 0 * * *"  # At midnight every day
   backupOwnerReference: self
