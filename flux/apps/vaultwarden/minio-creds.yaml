@@ -5,8 +5,8 @@ metadata:
     namespace: vaultwarden
 type: Opaque
 stringData:
-    ACCESS_KEY_ID: ENC[AES256_GCM,data:ujpsiaw9P5tad7jc8BUZZw1Zbyc=,iv:3YJ1wL6tIYem6Qe8KfuXAIAASLrHQnMiUTIdjx40uio=,tag:l8Q6BhHa8GKdh2lWQSBlQg==,type:str]
-    ACCESS_KEY_SECRET: ENC[AES256_GCM,data:mIE0f4G1dAzVRzrmJoMw5BzzrUGYdc7KECFr9RmAlaLMZlECspE6mw==,iv:nrfqjg31pATsjroT3XtyGjWi2LGiaBdvgdG3NS02pxg=,tag:rTSvLabbc1wm82oU1sFxBw==,type:str]
+    ACCESS_KEY_ID: ENC[AES256_GCM,data:zvVs53nE8ew=,iv:2baUf3cVZiU4CAqrYXftAJHVyetA1A7pzhV5zlJzqR0=,tag:hZvVZVvA8boHN1TyFtthlQ==,type:str]
+    ACCESS_KEY_SECRET: ENC[AES256_GCM,data:+SHoV8yxwxrSy0+Gc5NeF3vI38s+pcgAJQ==,iv:V+ob0sTX+b9tfE9FzI1pHwPsgzGcnu/W9/98olJ2I2k=,tag:lilwELryjT3eVgmf8TsZJQ==,type:str]
 sops:
     age:
         - recipient: age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h
@@ -18,8 +18,8 @@ sops:
             TzJIbjI5dlhDbGpwU05lVXM2aGNJWW8KHPL4Wbw1Uzb2F6+YpZaz0Jd3tS5jDFyE
             rSGxkq2ayvDw/+2a5GML9++Htpy3AKOEWc/VY657KhzEMkmXwBbyug==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2025-08-02T06:48:41Z"
-    mac: ENC[AES256_GCM,data:CcaCsijPpp9TKrxPNCPEXjtGh4N84gKPl7Gg0F2RDDtpLLtvPgXBRQZwdyTNsuVxSX3MvY9XgzJz6cmLYDP3ELMW0CbBVAbEI3cTSqsRnk6l5KRYkY69eUkQTKTwQdB7I6FWO3rkufN9SNVNBk85J0WwRICsrt8rDYmkx7ebp9Q=,iv:qCewtJ45Yr6XAAHj1aVIrsbeGJPqra/XH4kIYW+gzI0=,tag:GNduqWafAlnML5MOWhMVgQ==,type:str]
+    lastmodified: "2025-08-03T10:20:11Z"
+    mac: ENC[AES256_GCM,data:A7TGNhrsdXyfQBXP1n5GeIVp8tFqDPb8ABEf0PunKsEKsL7Kw+YX83HYf8nDdfHhSzvWhsNYrawcX9SfBj49vd9t/vSGJOtXtZyYcjWS5/ZL6wwuIwQJbUDgDseLedyCmtOfymEXXOOdARgi3BzzM0hpxaspSLlfFItpNtOwX8I=,iv:sq5BEenHMjcy8EkaiUXdkftTFATcwINl29QUAUI0ix4=,tag:egfGGtoVTHAnZWSK4ZSaww==,type:str]
     pgp:
         - created_at: "2025-08-02T06:48:41Z"
           enc: |-
