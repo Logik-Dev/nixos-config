@@ -4,4 +4,4 @@ kind: Kustomization
 resources:
   - vaultwarden
   - minio
-  #- databases
+  - databases
