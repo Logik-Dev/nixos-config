@@ -6,8 +6,8 @@ metadata:
     namespace: vaultwarden
 spec:
     configuration:
-        destinationPath: s3://backups
-        endpointURL: https://s3.ingress.logikdev.fr 
+        destinationPath: s3://vaultwarden
+        endpointURL: http://192.168.10.100:9000 
         s3Credentials:
             accessKeyId:
                 name: minio-credentials
