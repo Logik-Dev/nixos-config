@@ -15,6 +15,7 @@ spec:
   bootstrap:
     recovery:
       database: vaultwarden
+      owner: vaultwarden
       source: origin
   externalClusters:
     - name: origin
