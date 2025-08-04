@@ -55,3 +55,10 @@ spec:
     - name: longhorn-frontend
       port: 80
       weight: 100
+---
+kind: VolumeSnapshotClass
+apiVersion: snapshot.storage.k8s.io/v1
+metadata:
+  name: longhorn
+driver: driver.longhorn.io
+deletionPolicy: Delete
