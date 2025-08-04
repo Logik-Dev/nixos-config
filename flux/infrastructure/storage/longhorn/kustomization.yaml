@@ -6,5 +6,6 @@ resources:
   - repository.yaml
   - release.yaml
   - ingress.yaml
+  - nodes.yaml
   - storage-class.yaml
   - snapshot-class.yaml

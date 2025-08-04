@@ -1,0 +1,16 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: Node
+metadata:
+  name: k3s-worker1
+spec:
+  tags:
+    - role=worker
+---
+apiVersion: longhorn.io/v1beta2
+kind: Node
+metadata:
+  name: k3s-worker2
+spec:
+  tags:
+    - role=worker
