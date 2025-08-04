@@ -28,7 +28,7 @@ spec:
       isWALArchiver: true
       parameters:
        barmanObjectName: minio
-       serverName: vaultwarden-db-bis  # destination
+       serverName: vaultwarden-db-ter  # destination
   # recover from minio
   externalClusters:
     - name: minio
