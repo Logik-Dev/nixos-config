@@ -18,6 +18,7 @@ spec:
       initContainers:
       - name: gluetun
         image: qmcgaw/gluetun:v3.39.0
+        restartPolicy: Always
         lifecycle:
           postStart:
             exec:
