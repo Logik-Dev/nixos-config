@@ -16,5 +16,4 @@ provisioner: driver.longhorn.io
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
----
 
