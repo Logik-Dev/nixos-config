@@ -6,4 +6,7 @@ resources:
   - nfs-storage-class.yaml
   - nfs-ultra-storage-class.yaml
   - longhorn.yaml
-  - https://github.com/kubernetes-csi/external-snapshotter/tree/v8.2.0/client/config/crd  # k8s snapshots crds
+  # k8s snapshotter crds
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.2.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.2.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+  - https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.2.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
