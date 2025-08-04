@@ -30,5 +30,4 @@ parameters:
   fromBackup: ""
   fsType: "ext4"
   dataLocality: "disabled"
-  numberOfReplicas: "2"
-  nodeSelector: "node-role.kubernetes.io/worker,true"
+  nodeSelector: "!node-role.kubernetes.io/master"
