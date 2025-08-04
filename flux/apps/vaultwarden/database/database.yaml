@@ -16,7 +16,7 @@ spec:
     recovery:
       source: minio
   storage:
-    storageClass: longhorn
+    storageClass: longhorn-no-replicas
     size: 1Gi
   # longhorn snapshot
   backup:
