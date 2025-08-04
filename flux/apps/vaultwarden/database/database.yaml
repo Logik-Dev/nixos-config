@@ -18,10 +18,22 @@ spec:
   storage:
     storageClass: longhorn
     size: 1Gi
+  # longhorn snapshot
+  backup:
+    volumeSnapshot:
+      className: longhorn
+  # minio backups
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+       barmanObjectName: minio
+       serverName: vaultwarden-db-bis  # destination
+  # recover from minio
   externalClusters:
     - name: minio
       plugin:
         name: barman-cloud.cloudnative-pg.io
         parameters:
           barmanObjectName: minio
-          serverName: vaultwarden-db
+          serverName: vaultwarden-db # source

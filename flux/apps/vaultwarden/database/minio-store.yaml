@@ -17,5 +17,6 @@ spec:
                 key: MINIO_ROOT_PASSWORD
         wal:
           compression: gzip
+          maxParallel: 8
         data:
           compression: gzip
