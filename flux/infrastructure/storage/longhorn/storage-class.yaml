@@ -30,4 +30,4 @@ parameters:
   fromBackup: ""
   fsType: "ext4"
   dataLocality: "disabled"
-  nodeSelector: worker
+  numberOfReplicas: "2"
