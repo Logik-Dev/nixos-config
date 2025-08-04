@@ -6,7 +6,7 @@ metadata:
   namespace: longhorn-system
 spec:
   tags:
-    - role=worker
+    - worker
 ---
 apiVersion: longhorn.io/v1beta2
 kind: Node
@@ -15,4 +15,4 @@ metadata:
   namespace: longhorn-system
 spec:
   tags:
-    - role=worker
+    - worker
