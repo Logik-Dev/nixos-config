@@ -29,6 +29,9 @@ spec:
         envFrom:
         - secretRef:
             name: wireguard-config
+        env:
+        - name: DOT
+          value: off
         volumeMounts:
         - name: tun-device
           mountPath: /dev/net/tun
