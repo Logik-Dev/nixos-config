@@ -3,3 +3,6 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - wireguard-secret.yaml
+  - pvc.yaml
+  - service.yaml
+  - httproute.yaml
