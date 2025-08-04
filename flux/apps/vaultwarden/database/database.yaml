@@ -4,7 +4,7 @@ metadata:
   name: vaultwarden-db
   namespace: vaultwarden
 spec:
-  instances: 1
+  instances: 2
   imageCatalogRef:
     apiGroup: postgresql.cnpg.io
     kind: ClusterImageCatalog
@@ -18,11 +18,6 @@ spec:
   storage:
     storageClass: longhorn
     size: 1Gi
-  plugins:
-  - name: barman-cloud.cloudnative-pg.io
-    isWALArchiver: true
-    parameters:
-      barmanObjectName: minio
   externalClusters:
     - name: minio
       plugin:
