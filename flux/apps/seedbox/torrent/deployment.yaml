@@ -43,8 +43,6 @@ spec:
               value: "on"
             - name: JOURNALD
               value: "off"
-            - name: VPN_PORT_FORWARDING
-              value: "on"
             - name: STATUS_FILE
               value: "/tmp/gluetun-status.json"
             - name: LOG_LEVEL
