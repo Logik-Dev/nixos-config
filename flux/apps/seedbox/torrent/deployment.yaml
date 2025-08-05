@@ -35,6 +35,8 @@ spec:
               value: "on"
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+            - name: DOT
+              value: "off"
             - name: DNS_ADDRESS
               value: "1.1.1.1"
             - name: HEALTH_SERVER_PORT
