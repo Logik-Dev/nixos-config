@@ -36,7 +36,7 @@
       filtering.rewrites = [
         {
           domain = "*.${domain}";
-          answer = hosts.hyper.ipv4;
+          answer = "192.168.12.100";
         }
       ];
     };
