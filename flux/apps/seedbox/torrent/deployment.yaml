@@ -15,6 +15,12 @@ spec:
       labels:
         app: qbittorrent
     spec:
+      enableServiceLinks: false
+      shareProcessNamespace: true 
+      securityContext:
+        sysctls:
+        - name: net.ipv4.conf.all.src_valid_mark
+          value: "1"
       containers:
       - name: gluetun
         image: qmcgaw/gluetun:v3.39.0
@@ -31,15 +37,7 @@ spec:
             name: wireguard-config
         env:
         - name: DOT
-          value: off
-        - name: FIREWALL_OUTBOUND_SUBNETS
-          value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
-        - name: FIREWALL
           value: "off"
-        ports:
-        - name: webui
-          containerPort: 8080
-          protocol: TCP
         volumeMounts:
         - name: tun-device
           mountPath: /dev/net/tun
@@ -70,6 +68,10 @@ spec:
           subPath: ratio
         - name: config-storage
           mountPath: /config
+        ports:
+        - name: webui
+          containerPort: 8080
+          protocol: TCP
         resources:
           requests:
             memory: "128Mi"
