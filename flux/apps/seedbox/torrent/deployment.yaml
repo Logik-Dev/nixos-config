@@ -15,7 +15,8 @@ spec:
       labels:
         app: qbittorrent
     spec:
-      initContainers:
+      shareProcessNamespace: true
+      containers:
       - name: gluetun
         image: qmcgaw/gluetun:v3.39.0
         restartPolicy: Always
@@ -47,7 +48,6 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "200m"
-      containers:
       - name: qbittorrent
         image: lscr.io/linuxserver/qbittorrent:latest
         env:
