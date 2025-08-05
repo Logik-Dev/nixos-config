@@ -32,6 +32,10 @@ spec:
         env:
         - name: DOT
           value: off
+        ports:
+        - name: webui
+          containerPort: 8080
+          protocol: TCP
         volumeMounts:
         - name: tun-device
           mountPath: /dev/net/tun
@@ -53,6 +57,8 @@ spec:
           value: "Europe/Paris"
         - name: WEBUI_PORT
           value: "8080"
+        - name: FIREWALL_OUTBOUND_SUBNETS
+          value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
         volumeMounts:
         - name: media-storage
           mountPath: /mnt/future/medias/downloads
@@ -62,10 +68,7 @@ spec:
           subPath: ratio
         - name: config-storage
           mountPath: /config
-        ports:
-        - name: webui
-          containerPort: 8080
-          protocol: TCP
+
         resources:
           requests:
             memory: "128Mi"
