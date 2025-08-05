@@ -15,46 +15,75 @@ spec:
       labels:
         app: qbittorrent
     spec:
-      initContainers:
+      containers:
         - name: gluetun
           image: qmcgaw/gluetun:v3.39.0
-          restartPolicy: Always
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  [
-                    "/bin/sh",
-                    "-c",
-                    "(ip rule del table 51820; ip -6 rule del table 51820) || true",
-                  ]
           securityContext:
+            privileged: true
             capabilities:
               add:
                 - NET_ADMIN
-          ports:
-            - name: webui
-              containerPort: 8080
-              protocol: TCP
           envFrom:
             - secretRef:
                 name: wireguard-config
           env:
-            - name: DOT
+            - name: FIREWALL
+              value: "on"
+            - name: FIREWALL_OUTBOUND_SUBNETS
+              value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+            - name: DNS_ADDRESS
+              value: "1.1.1.1"
+            - name: HEALTH_SERVER_PORT
+              value: "8000"
+            - name: SERVER_ALLOWLIST
+              value: "qbittorrent:8080"
+            - name: FIREWALL_INPUT_PORTS
+              value: "8080"
+            - name: FIREWALL_DEBUG
+              value: "on"
+            - name: JOURNALD
               value: "off"
+            - name: VPN_PORT_FORWARDING
+              value: "on"
+            - name: STATUS_FILE
+              value: "/tmp/gluetun-status.json"
+            - name: LOG_LEVEL
+              value: "info"
+          ports:
+            - name: control
+              containerPort: 8000
+              protocol: TCP
+            - name: http-proxy
+              containerPort: 8888
+              protocol: TCP
+            - name: shadowsocks-tcp
+              containerPort: 8388
+              protocol: TCP
+            - name: shadowsocks-udp
+              containerPort: 8388
+              protocol: UDP
           volumeMounts:
             - name: tun-device
               mountPath: /dev/net/tun
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
+              memory: "128Mi"
+              cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "200m"
-      containers:
+              memory: "256Mi"
+              cpu: "300m"
         - name: qbittorrent
           image: lscr.io/linuxserver/qbittorrent:latest
+          ports:
+            - name: webui
+              containerPort: 8080
+              protocol: TCP
+            - name: bittorrent-tcp
+              containerPort: 6881
+              protocol: TCP
+            - name: bittorrent-udp
+              containerPort: 6881
+              protocol: UDP
           env:
             - name: PUID
               value: "1000"
@@ -64,6 +93,24 @@ spec:
               value: "Europe/Paris"
             - name: WEBUI_PORT
               value: "8080"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
           volumeMounts:
             - name: media-storage
               mountPath: /mnt/future/medias/downloads
@@ -73,14 +120,13 @@ spec:
               subPath: ratio
             - name: config-storage
               mountPath: /config
-
           resources:
             requests:
               memory: "128Mi"
               cpu: "100m"
             limits:
-              memory: "1Gi"
-              cpu: "500m"
+              memory: "2Gi"
+              cpu: "2"
       volumes:
         - name: tun-device
           hostPath:
