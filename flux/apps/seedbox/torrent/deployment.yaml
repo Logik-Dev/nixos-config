@@ -35,10 +35,6 @@ spec:
         volumeMounts:
         - name: tun-device
           mountPath: /dev/net/tun
-        ports:
-        - name: webui
-          containerPort: 8080
-          protocol: TCP
         resources:
           requests:
             memory: "64Mi"
