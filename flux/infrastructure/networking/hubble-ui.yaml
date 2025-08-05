@@ -12,7 +12,7 @@ spec:
   - name: vlan12-gateway
     namespace: default
   hostnames:
-  - "hubble.ingress.logikdev.fr"
+  - "hubble.logikdev.fr"
   rules:
   - matches:
     - path:

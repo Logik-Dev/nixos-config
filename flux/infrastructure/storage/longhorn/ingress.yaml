@@ -10,7 +10,7 @@ spec:
   - name: vlan12-gateway
     namespace: default
   hostnames:
-  - "longhorn.ingress.logikdev.fr"
+  - "longhorn.logikdev.fr"
   rules:
   - matches:
     - path:

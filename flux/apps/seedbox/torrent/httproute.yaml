@@ -8,7 +8,7 @@ spec:
   - name: vlan12-gateway
     namespace: default
   hostnames:
-  - torrent.ingress.logikdev.fr
+  - torrent.logikdev.fr
   rules:
   - matches:
     - path:

@@ -17,5 +17,6 @@ spec:
             key: api-token
       selector:
         dnsZones:
+          - "logikdev.fr"
           - "ingress.logikdev.fr"
           - "iot.logikdev.fr"

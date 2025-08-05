@@ -15,7 +15,7 @@ spec:
     value: 192.168.12.100
   listeners:
   - name: https
-    hostname: "*.ingress.logikdev.fr"
+    hostname: "*.logikdev.fr"
     port: 443
     protocol: HTTPS
     tls:
