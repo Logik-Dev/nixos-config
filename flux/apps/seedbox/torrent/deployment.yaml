@@ -66,10 +66,6 @@ spec:
           subPath: ratio
         - name: config-storage
           mountPath: /config
-        ports:
-        - name: webui
-          containerPort: 8080
-          protocol: TCP
         resources:
           requests:
             memory: "128Mi"
