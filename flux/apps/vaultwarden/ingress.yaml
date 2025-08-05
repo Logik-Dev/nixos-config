@@ -8,7 +8,7 @@ spec:
   - name: vlan12-gateway
     namespace: default
   hostnames:
-  - "vaultwarden.ingress.logikdev.fr"
+  - "vaultwarden.logikdev.fr"
   rules:
   - matches:
     - path:
