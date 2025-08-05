@@ -15,7 +15,6 @@ spec:
       labels:
         app: qbittorrent
     spec:
-      shareProcessNamespace: true
       containers:
       - name: gluetun
         image: qmcgaw/gluetun:v3.39.0
