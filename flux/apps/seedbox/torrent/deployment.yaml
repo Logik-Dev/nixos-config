@@ -17,10 +17,6 @@ spec:
     spec:
       enableServiceLinks: false
       shareProcessNamespace: true 
-      securityContext:
-        sysctls:
-        - name: net.ipv4.conf.all.src_valid_mark
-          value: "1"
       containers:
       - name: gluetun
         image: qmcgaw/gluetun:v3.39.0
