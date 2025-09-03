@@ -16,16 +16,15 @@
   services.snapraid = {
     enable = true;
     dataDisks = {
-      data1 = "/mnt/data1";
-      data2 = "/mnt/data2";
+      storage = "/mnt/storage";
     };
     parityFiles = [
       "/mnt/parity2/snapraid.parity"
     ];
     contentFiles = [
-      "/mnt/local/misc/.snapraid.content"
-      "/mnt/data1/.snapraid.content"
-      "/mnt/data2/.snapraid.content"
+      "/mnt/ultra/.snapraid.content"
+      "/mnt/local/.snapraid.content"
+      "/mnt/storage/.snapraid.content"
     ];
     exclude = [
       "/lost+found/"

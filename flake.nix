@@ -41,135 +41,36 @@
       ...
     }:
     let
-      inherit (builtins.fromJSON (builtins.readFile ./special_args.json))
-        username
-        domain
-        email
-        hetzner_user
-        ;
+      username = "logikdev";
+      domain = "logikdev.fr";
+      email = "logikdevfr@gmail.com";
       lib = nixpkgs.lib;
       system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
       pkgsUnstable = import nixpkgs-master {
         inherit system;
         config.allowUnfree = true;
       };
-      hosts = (import ./modules/homelab { inherit lib; }).config.hosts;
 
-      # machine-add script
-      machineAdd = pkgs.callPackage ./scripts/machine-add.nix { };
-
-      # rebuild-target
-      rebuildTarget = pkgs.callPackage ./scripts/rebuild-target.nix { };
-
-      # sops config file
-      sopsConfig = pkgs.callPackage ./scripts/sops-config.nix { };
-
-      # image-builder
-      imageBuilder = pkgs.callPackage ./scripts/image-builder.nix { };
-
-      # copy sops config file and convert it to yaml
-      copySopsConfig = pkgs.writeShellApplication {
-        name = "copy-sops-config";
-        text = ''
-          ${pkgs.json2yaml}/bin/json2yaml ${sopsConfig} ./.sops.yaml
-        '';
-      };
     in
 
     {
-      apps.${system} = {
-        # image-builder
-        image-builder = {
-          type = "app";
-          program = "${imageBuilder}/bin/image-builder";
+      # Single server configuration
+      nixosConfigurations.hyper = lib.nixosSystem {
+        inherit system;
+        specialArgs = {
+          inherit
+            username
+            email
+            domain
+            inputs
+            pkgsUnstable
+            ;
+          hostname = "hyper";
+          hosts = { hyper = { ipv4 = "192.168.10.100"; }; };
         };
-
-        # generate .sops.yaml with 'nix run .#sops-config-gen'
-        sops-config-gen = {
-          type = "app";
-          program = "${copySopsConfig}/bin/copy-sops-config";
-        };
-
-        # add new machine with 'nix run .#machine add <hostname>'
-        machine-add = {
-          type = "app";
-          program = "${machineAdd}/bin/machine-add";
-        };
-
-        # rebuild remote host with 'nix run .#rebuild-target <hostname>'
-        rebuild-target = {
-          type = "app";
-          program = "${rebuildTarget}/bin/rebuild-target";
-        };
+        modules = [
+          ./machines/hyper
+        ];
       };
-
-      packages.${system}.vm-base = self.nixosConfigurations.virtual-machine.config.system.build.qemuImage;
-
-      nixosConfigurations =
-        # machines
-        builtins.mapAttrs (
-          hostname: v:
-          lib.nixosSystem {
-            inherit system;
-            specialArgs = {
-              inherit
-                hostname
-                username
-                email
-                domain
-                hetzner_user
-                inputs
-                hosts
-                pkgsUnstable
-                ;
-            };
-            modules = [
-              ./machines/common
-              ./machines/${hostname}
-              ./modules/backups
-            ];
-          }
-        ) hosts
-        // {
-
-          # LXD Container Image
-          container = lib.nixosSystem {
-            inherit system;
-            specialArgs = {
-              inherit
-                inputs
-                hosts
-                hetzner_user
-                domain
-                username
-                ;
-              hostname = "nixos";
-            };
-            modules = [
-              ./machines/common
-              "${inputs.nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
-            ];
-          };
-
-          # LXD Virtual Machine Image
-          virtual-machine = lib.nixosSystem {
-            inherit system;
-            specialArgs = {
-              inherit
-                inputs
-                hosts
-                domain
-                hetzner_user
-                username
-                ;
-              hostname = "nixos";
-            };
-            modules = [
-              ./machines/common
-              "${inputs.nixpkgs}/nixos/modules/virtualisation/lxd-virtual-machine.nix"
-            ];
-          };
-        };
     };
 }

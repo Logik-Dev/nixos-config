@@ -2,6 +2,11 @@
   ...
 }:
 let
+  mountOptions = [
+    "nofail"
+    "defaults"
+    "noatime"
+  ];
   btrfsMountOptions = [
     "nofail" # dont block system if failed
     "noatime"
@@ -16,7 +21,7 @@ in
   ### After installation reconnect disk and decomment mounts here
   disko.devices = {
     disk = {
-      # Nixos M2 SSD (1Tb) AND local pool for VMs
+      # Nixos M2 SSD (1Tb) Root and Local PVs
       nixos = {
         device = "/dev/disk/by-id/nvme-CT1000P3PSSD8_2227E6457CFF";
         type = "disk";
@@ -44,7 +49,7 @@ in
                 vg = "vg_root";
               };
             };
-            # Local LVM pool + misc
+            # Local PV
             local = {
               size = "100%";
               content = {
@@ -56,7 +61,7 @@ in
         };
       };
 
-      # Ultra M2 SSD (2Tb) LVM pool owned by incus for VMs storage
+      # Ultra M2 SSD (2Tb) Ultra PV
       ultra = {
         device = "/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_2TB_S7DNNJ0X165765M";
         type = "disk";
@@ -73,11 +78,8 @@ in
         content = {
           type = "filesystem";
           format = "ext4";
-          mountpoint = "/mnt/storage";
-          mountOptions = [
-            "nofail"
-            "defaults"
-          ];
+          mountpoint = "/mnt/backups";
+          inherit mountOptions;
         };
       };
 
@@ -112,6 +114,18 @@ in
           mountOptions = btrfsMountOptions;
         };
       };
+
+      # USB WD Drive (20Tb)
+      usb = {
+        device = "/dev/disk/by-id/ata-WDC_WD20JDRW-11C7VS1_WD-WX22AC4KLCU0";
+        type = "disk";
+        content = {
+          type = "btrfs";
+          mountpoint = "/mnt/usb";
+          extraArgs = [ "-f" ];
+          mountOptions = btrfsMountOptions;
+        };
+      };
     };
 
     # Volume groups
@@ -132,38 +146,35 @@ in
         };
       };
 
-      # Ultra VG is OWNED by incus for VMs ONLY
-      vg_ultra = {
+      # Local VG
+      vg_local = {
         type = "lvm_vg";
         lvs = {
-          pool = {
-            size = "1.8T";
-            lvm_type = "thin-pool";
-          };
-          # Shared storage for Kubernetes
-          ultra-shared = {
-            size = "1T";
+          local = {
+            size = "100%";
             content = {
               type = "filesystem";
               format = "ext4";
-              mountpoint = "/mnt/ultra";
-              mountOptions = [
-                "nofail"
-                "defaults"
-                "noatime"
-              ];
+              mountpoint = "/mnt/local";
+              inherit mountOptions;
             };
           };
         };
       };
 
-      # Local VG for misc storage
-      vg_local = {
+      # Ultra VG
+      vg_ultra = {
         type = "lvm_vg";
         lvs = {
-          thin_pool = {
+          # Ultra storage - now takes all available space
+          ultra = {
             size = "100%";
-            lvm_type = "thin-pool";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/mnt/ultra";
+              inherit mountOptions;
+            };
           };
         };
       };
@@ -173,18 +184,13 @@ in
         type = "lvm_vg";
         lvs = {
 
-          # Nfs for k8s
           storage = {
             size = "12T";
             content = {
               type = "filesystem";
               format = "ext4";
-              mountpoint = "/mnt/future";
-              mountOptions = [
-                "nofail"
-                "defaults"
-                "noatime"
-              ];
+              mountpoint = "/mnt/storage";
+              inherit mountOptions;
             };
           };
 
@@ -195,11 +201,7 @@ in
               type = "filesystem";
               format = "ext4";
               mountpoint = "/mnt/storage-snapshots";
-              mountOptions = [
-                "nofail"
-                "defaults"
-                "noatime"
-              ];
+              inherit mountOptions;
             };
           };
         };

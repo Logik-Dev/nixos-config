@@ -1,70 +1,31 @@
 {
   inputs,
-  username,
-  pkgs,
   ...
 }:
 {
   imports = [
     inputs.disko.nixosModules.default
     inputs.nixos-facter-modules.nixosModules.facter
+    inputs.sops-nix.nixosModules.sops
     { config.facter.reportPath = ./facter.json; }
+    ./locals.nix
+    ./packages.nix
+    ./shell.nix
+    ./networking.nix
+    ./ssh.nix
+    ./secrets.nix
+    ./users.nix
+    ./nix.nix
+    ./boot.nix
+    ./services.nix
     ./adguard.nix
-    ./avahi.nix
-    ./builder.nix
     ./ddns.nix
     ./disko.nix
-    ./docker
     ./firewall.nix
-    ./incus.nix
     ./libvrit.nix
-    ./medias.nix
     ./minio.nix
-    #    ./mergerfs.nix
     ./nfs.nix
     ../../modules/traefik
-    ./nix-serve.nix
-    #./snapraid.nix
-    ./vaultwarden.nix
-    ./wireguard.nix
+    ./snapraid.nix
   ];
-
-  # Firewall configuration in firewall.nix
-  # traefik
-  services.traefik-proxy.enable = true;
-
-  # backups
-  services.backups.enable = true;
-
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.systemd-boot = {
-    enable = true;
-    configurationLimit = 20;
-  };
-
-  # Needed folders
-  systemd.tmpfiles.settings = {
-    "10-shared-folders" = {
-      "/mnt/storage/borg" = {
-        d = {
-          group = "media";
-          mode = "775";
-          user = username;
-        };
-      };
-    };
-  };
-
-  # GPU passtrough
-  boot.initrd.kernelModules = [
-    "vfio_pci"
-    "vfio"
-    "vfio_iommu_type1"
-  ];
-
-  boot.kernelParams = [
-    "intel_iommu=on"
-    "vfio-pci.ids=8086:3e98"
-  ];
-
 }

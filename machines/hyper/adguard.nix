@@ -8,11 +8,13 @@
 
   # resolved conflicts with adguard port
   services.resolved.enable = false;
-
-  # DNS port managed by nftables in firewall.nix
+  
+  # Configure nameservers to use AdGuard Home
+  networking.nameservers = [ "127.0.0.1" ];
 
   # traefik
   services.traefik-proxy.services.adguardhome.subdomain = "dns";
+  services.traefik-proxy.services.adguardhome.port = 3000;
 
   services.adguardhome = {
     enable = true;
@@ -36,8 +38,25 @@
       filtering.rewrites = [
         {
           domain = "*.${domain}";
-          answer = "192.168.12.100";
+          answer = "10.0.200.100";
         }
+        {
+          domain = "minio.${domain}";
+          answer = hosts.hyper.ipv4;
+        }
+        {
+          domain = "s3.${domain}";
+          answer = hosts.hyper.ipv4;
+        }
+        {
+          domain = "dns.${domain}";
+          answer = hosts.hyper.ipv4;
+        }
+        {
+          domain = "unifi.${domain}";
+          answer = hosts.hyper.ipv4;
+        }
+
       ];
     };
   };

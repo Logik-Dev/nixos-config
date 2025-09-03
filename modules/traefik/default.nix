@@ -19,6 +19,11 @@ let
         type = lib.types.nullOr lib.types.str;
         default = null;
       };
+      https = lib.mkOption {
+        description = "Whether the service uses HTTPS";
+        type = lib.types.bool;
+        default = false;
+      };
     };
   };
 in
@@ -102,15 +107,27 @@ in
             service: v:
             let
               port = if isNull v.port then config.services.${service}.port else v.port;
+              protocol = if v.https then "https" else "http";
             in
             {
-              loadBalancer.servers = [
-                {
-                  url = "http://localhost:${toString port}";
-                }
-              ];
+              loadBalancer = {
+                servers = [
+                  {
+                    url = "${protocol}://localhost:${toString port}";
+                  }
+                ];
+              } // (if v.https then {
+                serversTransport = "${service}-transport";
+              } else {});
             }
           ) cfg.services;
+
+          # HTTPS transports for services that need it  
+          serversTransports = lib.mapAttrs' (
+            service: v: lib.nameValuePair "${service}-transport" {
+              insecureSkipVerify = true;
+            }
+          ) (lib.filterAttrs (name: v: v.https) cfg.services);
         };
       };
     };
