@@ -16,6 +16,9 @@
         # SSH uniquement sur management
         iifname "management" tcp dport 22 accept
 
+        # SSH for QEMU on tailscale0 
+        iifname "tailscale0" tcp dport 22 accept 
+
         # HTTPS sur Management
         iifname "management" tcp dport 443 accept
         iifname "management" udp dport 443 accept
