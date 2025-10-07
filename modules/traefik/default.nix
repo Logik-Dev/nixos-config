@@ -65,7 +65,7 @@ in
                 {
                   main = domain;
                   sans = [
-                    "*.${domain}"
+                    "*.hyper.home.${domain}"
                   ];
                 }
               ];
@@ -98,7 +98,7 @@ in
             in
             {
               inherit service;
-              rule = "Host(`${subdomain}.${domain}`)";
+              rule = "Host(`${subdomain}.hyper.home.${domain}`)";
             }
           ) cfg.services;
 

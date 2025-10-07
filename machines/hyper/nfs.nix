@@ -5,7 +5,7 @@
     enable = true;
     exports = ''
       # Export medias directory to kubernetes
-      /mnt/storage/medias 10.0.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=991)
+      /mnt/storage/medias 10.0.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=991) 192.168.10.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=991)
 
       # Export archives directory to kubernetes
       /mnt/storage/archives 10.0.100.0/24(rw,sync,no_subtree_check,no_root_squash)

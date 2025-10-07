@@ -37,25 +37,22 @@
 
       filtering.rewrites = [
         {
-          domain = "*.${domain}";
+          domain = "*.k8sp.home.${domain}";
+          answer = "10.0.200.100";
+        }
+       {
+          domain = "*.k8sd.home.${domain}";
+          answer = "10.0.200.99";
+        }
+        {
+          domain = "*.k8s.home.${domain}";
           answer = "10.0.200.100";
         }
         {
-          domain = "minio.${domain}";
+          domain = "*.hyper.home.${domain}";
           answer = hosts.hyper.ipv4;
         }
-        {
-          domain = "s3.${domain}";
-          answer = hosts.hyper.ipv4;
-        }
-        {
-          domain = "dns.${domain}";
-          answer = hosts.hyper.ipv4;
-        }
-        {
-          domain = "unifi.${domain}";
-          answer = hosts.hyper.ipv4;
-        }
+        
 
       ];
     };
