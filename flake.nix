@@ -1,76 +1,64 @@
 {
-  description = "NixOS Configuration";
+  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/25.05";
-    nixpkgs-master.url = "github:nixos/nixpkgs/nixos-unstable";
-
-    home-manager = {
-      url = "github:nix-community/home-manager/release-25.05";
+    agenix = {
+      url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs-master";
+    agenix-rekey = {
+      url = "github:oddlama/agenix-rekey";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
-
+    devshell = {
+      url = "github:numtide/devshell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
     cf-ddns = {
       url = "github:Logik-Dev/cf-ddns";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
     pushr = {
       url = "github:Logik-Dev/pushr";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
-  };
-
-  outputs =
-    inputs@{
-      self,
-      nixpkgs,
-      nixpkgs-master,
-      ...
-    }:
-    let
-      username = "logikdev";
-      domain = "logikdev.fr";
-      email = "logikdevfr@gmail.com";
-      lib = nixpkgs.lib;
-      system = "x86_64-linux";
-      pkgsUnstable = import nixpkgs-master {
-        inherit system;
-        config.allowUnfree = true;
-      };
-
-    in
-
-    {
-      # Single server configuration
-      nixosConfigurations.hyper = lib.nixosSystem {
-        inherit system;
-        specialArgs = {
-          inherit
-            username
-            email
-            domain
-            inputs
-            pkgsUnstable
-            ;
-          hostname = "hyper";
-          hosts = { hyper = { ipv4 = "192.168.10.100"; }; };
-        };
-        modules = [
-          ./machines/hyper
-        ];
-      };
+    allfollow = {
+      url = "github:spikespaz/allfollow";
     };
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+    };
+    import-tree = {
+      url = "github:vic/import-tree";
+    };
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nixpkgs = {
+      url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    };
+    nixos-facter-modules = {
+      url = "github:nix-community/nixos-facter-modules";
+    };
+    nixpkgs-lib = {
+      follows = "nixpkgs";
+    };
+    nixvim = {
+      url = "github:nix-community/nixvim";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nur = {
+      url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 }
