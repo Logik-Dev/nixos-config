@@ -1,7 +1,7 @@
 { inputs, ... }:
 let
   hostKeys = {
-    hyper = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHXqrykNYJ1BjjyvJY9WbvsHYSpX+Urlk0ZPe5y++1fY";
+    hyper = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK2VcspYbzVcMN9I1QjbhEErS52gfrp5rXNPBfG3YvNi";
     sonicmaster = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIKWq7Zig25N+JdghtVp/T4V1gr1VKNG9egaQjWU4adb root@sonicmaster";
   };
 in

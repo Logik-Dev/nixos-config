@@ -9,10 +9,10 @@ let
     audio
     common
     ddns
-    kde-desktop
+    gnome
+    #kde-desktop
     kvm-intel
     network
-    reverse-proxy
     yubikey
   ];
 

@@ -37,6 +37,12 @@ let
             type = types.bool;
             default = false;
           };
+
+          extraConfig = mkOption {
+            description = "Extra configuration";
+            type = types.nullOr types.lines;
+            default = null;
+          };
         };
       };
 
@@ -62,19 +68,26 @@ let
         # needed for nginx to be able to read certificates
         users.users.nginx.extraGroups = [ "acme" ];
 
-        networking.firewall.allowedTCPPorts = [ 443 ];
+        networking.firewall.allowedTCPPorts = [
+          443
+          80
+        ];
 
         services.nginx = {
           enable = true;
+
+          # Active les logs d'accès et d'erreur globaux
           virtualHosts = mapAttrs' (
             vhost: value:
             nameValuePair "${vhost}.${host}.${domain}" {
+              listenAddresses = [ "192.168.10.100" ];
               useACMEHost = "${host}.${domain}";
               forceSSL = true;
               locations."/" = {
                 proxyPass = "${value.protocol}://localhost:${toString value.port}";
                 proxyWebsockets = value.enableWebsockets;
                 recommendedProxySettings = true;
+                extraConfig = lib.mkIf (value.extraConfig != null) value.extraConfig;
               };
             }
 

@@ -6,6 +6,7 @@
       nui.enable = true;
       web-devicons.enable = true;
       neo-tree.enable = true;
+      otter.enable = true;
       comment.enable = true;
       neo-tree.settings = {
         window.mappings = {

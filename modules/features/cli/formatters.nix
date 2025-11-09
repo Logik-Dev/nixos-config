@@ -7,10 +7,11 @@
     { pkgs, ... }:
     {
       treefmt = {
-        projectRootFile = "flake.nix";
+        projectRootFile = "README.md";
         programs.nixfmt.enable = true;
         programs.nixfmt.package = pkgs.nixfmt-rfc-style;
         programs.rustfmt.enable = true;
+        programs.prettier.enable = true;
       };
     };
 

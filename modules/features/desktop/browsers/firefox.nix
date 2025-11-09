@@ -2,9 +2,9 @@
 let
   inherit (inputs.self.meta.owner) domain;
 
-  k8sp = app: "https://${app}.k8sp.${domain}";
+  k8s = app: "https://${app}.k8s.${domain}";
   hyper = app: "https://${app}.hyper.${domain}";
-  tail = app: "https://${app}-prod.bream-toad.ts.net";
+  tail = app: "https://${app}.bream-toad.ts.net";
 
   mkBookmarksFolder = folder: bms: {
     name = folder;
@@ -24,28 +24,40 @@ let
   };
 
   seedbox = mkBookmarksFolder "Seedbox" {
-    "Jellyseerr" = hyper "jellyseerr";
+    "Jellyseerr" = tail "jellyseerr";
     "Jellyfin" = hyper "jellyfin";
-    "Radarr" = hyper "radarr";
-    "Sonarr" = hyper "sonarr";
-    "Prowlarr" = hyper "prowlarr";
-    "Torrent" = k8sp "torrent";
+    "Radarr" = k8s "radarr";
+    "Sonarr" = k8s "sonarr";
+    "Prowlarr" = k8s "prowlarr";
+    "Torrent" = k8s "torrent";
   };
 
   infra = mkBookmarksFolder "Infra" {
-    "Vaultwarden" = hyper "vaultwarden";
+    "Vaultwarden" = tail "vaultwarden";
     "Longhorn" = tail "longhorn";
-    "Authentik" = k8sp "authentik";
+    "Authentik" = k8s "authentik";
     "Minio" = hyper "minio";
     "Adguard" = hyper "dns";
   };
 
   github = mkBookmarksFolder "Github" {
     "Logikdev" = "https://github.com/Logik-Dev";
+    "Niki modules" = "https://github.com/niki-on-github/nixos-modules";
+    "Niki K3S" = "https://github.com/niki-on-github/nixos-k3s";
   };
 
   blogs = mkBookmarksFolder "Blogs" {
     "Alice Ryhl" = "https://draft.ryhl.io/";
+  };
+
+  linux = mkBookmarksFolder "Linux" {
+    "Systemd tmpfiles" = "https://www.freedesktop.org/software/systemd/man/latest/tmpfiles.d.html";
+  };
+
+  home = mkBookmarksFolder "Home" {
+    HomeAssistant = tail "hass";
+    Immich = tail "immich";
+    N8N = k8s "n8n";
   };
 
   toolbar = {
@@ -61,6 +73,10 @@ let
       github
       separator
       blogs
+      separator
+      linux
+      separator
+      home
     ];
   };
 

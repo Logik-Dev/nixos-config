@@ -49,7 +49,7 @@ let
   vim = {
     props.focus = true;
     props.split_direction = "vertical";
-    panes.right.size = "30%";
+    panes.right.size = "40%";
     panes.vim.command = "vi";
   };
 
@@ -63,6 +63,24 @@ let
     panes.default.args = "repl";
   };
 
+  k8s =
+    let
+      cwd = "/home/logikdev/Homelab/k8s";
+    in
+    {
+      props.split_direction = "vertical";
+
+      panes.k9s = {
+        inherit cwd;
+        command = "k9s";
+      };
+
+      panes.k8s = {
+        inherit cwd;
+        size = "50%";
+      };
+    };
+
 in
 {
   flake.modules.homeManager.desktop = {
@@ -72,7 +90,7 @@ in
       attachExistingSession = true;
       exitShellOnExit = true;
       settings.theme = "cyber-dark";
-      settings.default_layout = "nixos";
+      settings.default_layout = "k8s";
       layouts = mapLayouts {
         nixos = {
           props.cwd = "/home/logikdev/Homelab/Nixos";
@@ -82,6 +100,16 @@ in
               vim
               nixrepl
               btop
+              hyper
+              ;
+          };
+        };
+        k8s = {
+          props.cwd = "/home/logikdev/Homelab/Nixos";
+          tabs = {
+            inherit
+              vim
+              k8s
               hyper
               ;
           };

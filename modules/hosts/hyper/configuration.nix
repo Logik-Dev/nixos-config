@@ -12,17 +12,19 @@ let
     disableNetworkManager
     ddns
     kvm-intel
-    libvirt
+    #libvirt
     no-root-password
     nvidia
     reverse-proxy
     seedbox
-    unifi
+    #unifi
+    vaultwarden
   ];
 
   disableNetworkManager = {
     networking.networkmanager.enable = lib.mkForce false;
   };
+
 in
 {
   inherit flake;

@@ -1,13 +1,28 @@
 { ... }:
 let
   flake.modules.homeManager.nixvim.imports = [
+    bash
     common
-    rust
     nix
+    rust
+    ts
+    yaml
   ];
 
   common = {
     programs.nixvim.lsp.inlayHints.enable = true;
+  };
+
+  bash = {
+    programs.nixvim.lsp.servers.bashls.enable = true;
+  };
+
+  yaml = {
+    programs.nixvim.lsp.servers.yamlls.enable = true;
+  };
+
+  ts = {
+    programs.nixvim.lsp.servers.ts_ls.enable = true;
   };
 
   rust = {

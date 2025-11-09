@@ -10,7 +10,7 @@ let
       enable = true;
       exports = ''
         /mnt/storage/medias 10.0.100.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=991) 192.168.10.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=991)
-        /mnt/storage/archives 10.0.100.0/24(rw,sync,no_subtree_check,no_root_squash)
+        /mnt/storage/archives 192.168.10.0/24(rw,sync,no_subtree_check,no_root_squash)
       '';
     };
 

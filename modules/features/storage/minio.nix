@@ -1,12 +1,66 @@
 { ... }:
 let
+
   flake.modules.nixos.hyper.imports = [
     backup
     minio
-    { services.minio.dataDir = [ "/mnt/storage/archives/minio" ]; }
+    {
+      services.minio.dataDir = [
+        "/mnt/ultra/minio"
+      ];
+    }
   ];
 
-  flake.modules.nixos.sonicmaster.imports = [ minio ];
+  flake.modules.nixos.common =
+    { pkgs, ... }:
+    let
+      createBucket = pkgs.writeShellScriptBin "create-bucket" ''
+
+        set -euo pipefail
+
+        if [ $# -ne 1 ]; then
+            echo "Usage: $0 BUCKET_NAME"
+            exit 1
+        fi
+
+        BUCKET_NAME="$1"
+        MINIO_ALIAS="hyper"
+        PASS_PATH="minio/$BUCKET_NAME"
+
+        # Create bucket
+        mc mb "$MINIO_ALIAS/$BUCKET_NAME" 2>/dev/null || true
+
+        # Enable versioning
+        mc version enable "$MINIO_ALIAS/$BUCKET_NAME"
+
+        # Generate password with pass
+        pass generate -n "$PASS_PATH" 40 > /dev/null
+
+        # Create user (password read from stdin, not stored in variable)
+        pass show "$PASS_PATH" | mc admin user add "$MINIO_ALIAS" "$BUCKET_NAME" --password-stdin > /dev/null 2>&1 || \
+            mc admin user add "$MINIO_ALIAS" "$BUCKET_NAME" "$(pass show "$PASS_PATH")" > /dev/null 2>&1
+
+        # Apply readwrite policy
+        mc admin policy attach $MINIO_ALIAS readwrite --user="$BUCKET_NAME"
+
+        # Add metadata to pass entry
+        {
+            pass show "$PASS_PATH"
+            echo "access_key: $BUCKET_NAME"
+            echo "bucket: $BUCKET_NAME"
+        } | pass insert -m -f "$PASS_PATH" > /dev/null
+
+        echo "✅ Bucket '$BUCKET_NAME' created"
+        echo "📦 Password stored in: $PASS_PATH"
+
+      '';
+    in
+    {
+      environment.systemPackages = [
+        createBucket
+        pkgs.minio-client
+      ];
+    };
 
   minio =
     {
@@ -16,8 +70,21 @@ let
       ...
     }:
     {
-      services.reverse-proxy.vhosts.s3.port = 9000;
-      services.reverse-proxy.vhosts.minio.port = 9001;
+      services.reverse-proxy.vhosts.s3 = {
+        port = 9000;
+        extraConfig = ''
+          client_max_body_size 1024m;
+          proxy_request_buffering off;
+          proxy_set_header Connection "";
+          proxy_connect_timeout 300s;
+          proxy_send_timeout 300s;
+          proxy_read_timeout 300s;
+        '';
+      };
+      services.reverse-proxy.vhosts.minio = {
+        port = 9001;
+        enableWebsockets = true;
+      };
 
       age.secrets.minio.rekeyFile = commonSecret "minio";
 

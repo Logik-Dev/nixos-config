@@ -15,5 +15,6 @@
 
   flake.modules.nixos.hyper = {
     services.tailscale.useRoutingFeatures = "both";
+    networking.firewall.allowedTCPPorts = [ 5432 ];
   };
 }

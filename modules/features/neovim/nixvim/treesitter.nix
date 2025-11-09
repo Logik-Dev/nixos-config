@@ -5,10 +5,11 @@
       treesitter = {
         enable = true;
         nixvimInjections = true;
+        #settings.highlight.enable = true;
       };
 
       treesitter-refactor = {
-        enable = true;
+        #enable = true;
         settings = {
           highlight_definitions = {
             enable = true;

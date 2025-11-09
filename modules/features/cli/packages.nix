@@ -3,11 +3,14 @@
     { pkgs, ... }:
     {
       home.packages = with pkgs; [
+        agenix-cli
+        barman
         bat
         dig
         btop
         fd
         ripgrep
+        sops
         wl-clipboard
       ];
 

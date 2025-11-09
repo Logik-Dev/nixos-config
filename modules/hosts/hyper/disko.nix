@@ -18,14 +18,15 @@ let
 in
 {
   ### WARNING
-  ### When reinstall first disconnect ALL disks and keep ONLY system disk and comment mounts here
-  ### After installation reconnect disk and decomment mounts here
+  ### When reinstalling keep ONLY system disk and comment other mounts here
   flake.modules.nixos.hyper = {
+
     imports = [
       inputs.disko.nixosModules.default
     ];
     disko.devices = {
       disk = {
+
         # Nixos M2 SSD (1Tb) Root and Local PVs
         nixos = {
           device = "/dev/disk/by-id/nvme-CT1000P3PSSD8_2227E6457CFF";
@@ -37,7 +38,7 @@ in
               ESP = {
                 name = "ESP";
                 start = "1M";
-                end = "128M";
+                end = "2G";
                 type = "EF00";
                 content = {
                   type = "filesystem";
@@ -48,7 +49,7 @@ in
               };
               # Root PV
               root = {
-                size = "931G";
+                size = "100%";
                 content = {
                   type = "lvm_pv";
                   vg = "vg_root";
@@ -100,8 +101,8 @@ in
           };
         };
 
-        # Parity2 (8Tb) ONLY used by snapraid
-        parity2 = {
+        # Parity1 (8Tb) ONLY used by snapraid
+        parity1 = {
           device = "/dev/disk/by-uuid/6810c203-848a-451c-9fe0-8bbe7014e190";
           type = "disk";
           content = {
@@ -141,28 +142,12 @@ in
               };
             };
             local = {
-              size = "431G";
+              size = "100%";
               content = {
                 type = "filesystem";
                 format = "ext4";
                 mountpoint = "/mnt/local";
                 inherit mountOptions;
-              };
-            };
-          };
-        };
-
-        # Local VG
-        vg_local = {
-          type = "lvm_vg";
-          lvs = {
-            local = {
-              size = "100%";
-              content = {
-                type = "filesystem";
-                format = "ext4";
-                #mountpoint = "/mnt/local";
-                #inherit mountOptions;
               };
             };
           };
