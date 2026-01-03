@@ -8,9 +8,7 @@ let
     agenix
     audio
     common
-    ddns
     gnome
-    #kde-desktop
     kvm-intel
     network
     yubikey
