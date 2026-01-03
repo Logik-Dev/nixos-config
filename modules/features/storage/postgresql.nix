@@ -19,6 +19,10 @@
           ALTER DATABASE "radarr-logs" OWNER TO radarr;
           ALTER DATABASE "prowlarr-main" OWNER TO prowlarr;
           ALTER DATABASE "prowlarr-logs" OWNER TO prowlarr;
+          \c prowlarr-main
+          GRANT ALL ON SCHEMA public TO prowlarr;
+          \c prowlarr-logs
+          GRANT ALL ON SCHEMA public TO prowlarr;
         '';
 
         # WAL archive
