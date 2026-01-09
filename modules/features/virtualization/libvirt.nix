@@ -5,7 +5,13 @@ let
 in
 {
   flake.modules.nixos.hyper = {
-    networking.bridges.br-iot.interfaces = [ "vlan21" ];
+
+    # home assistant
+    services.reverse-proxy.vhosts.hass = {
+      port = 8123;
+      host = "192.168.21.181";
+      enableWebsockets = true;
+    };
 
     users.users."${username}".extraGroups = [ "libvirtd" ];
 
