@@ -13,7 +13,6 @@ let
     };
 
     networking = {
-
       defaultGateway = "192.168.10.1"; # default route
 
       vlans = {
@@ -31,6 +30,10 @@ let
         };
       };
 
+      bridges.br-iot = {
+        interfaces = [ "vlan21" ];
+      };
+
       interfaces = {
         vlan21.useDHCP = false;
         vlan100.useDHCP = false;
@@ -41,6 +44,16 @@ let
           ipv4.addresses = [
             {
               address = "192.168.10.100";
+              prefixLength = 24;
+            }
+          ];
+        };
+
+        br-iot = {
+          useDHCP = false;
+          ipv4.addresses = [
+            {
+              address = "192.168.21.241";
               prefixLength = 24;
             }
           ];
