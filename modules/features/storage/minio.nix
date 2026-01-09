@@ -70,21 +70,9 @@ let
       ...
     }:
     {
-      services.reverse-proxy.vhosts.s3 = {
-        port = 9000;
-        extraConfig = ''
-          client_max_body_size 1024m;
-          proxy_request_buffering off;
-          proxy_set_header Connection "";
-          proxy_connect_timeout 300s;
-          proxy_send_timeout 300s;
-          proxy_read_timeout 300s;
-        '';
-      };
-      services.reverse-proxy.vhosts.minio = {
-        port = 9001;
-        enableWebsockets = true;
-      };
+      # TODO enable websockets on 9001
+      services.mytraefik.services.minio.port = 9001;
+      services.mytraefik.services.s3.port = 9000;
 
       age.secrets.minio.rekeyFile = commonSecret "minio";
 
