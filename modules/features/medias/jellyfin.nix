@@ -1,6 +1,6 @@
 {
   flake.modules.nixos.seedbox = {
-    services.reverse-proxy.vhosts.jellyfin.port = 8096;
+    services.mytraefik.services.jellyfin.port = 8096;
 
     services.jellyfin = {
       enable = true;

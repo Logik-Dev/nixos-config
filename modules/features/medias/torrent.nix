@@ -6,7 +6,7 @@
 
       age.secrets."gluetun.env".rekeyFile = hostSecret "gluetun.env";
 
-      services.reverse-proxy.vhosts.torrent.port = 8080;
+      services.mytraefik.services.torrent.port = 8080;
 
       systemd.tmpfiles.rules = [ "d /mnt/ultra/qbittorrent 775 logikdev media - -" ];
 

@@ -26,7 +26,7 @@
         ];
       };
 
-      services.reverse-proxy.vhosts.radarr.port = 7878;
+      services.mytraefik.services.radarr.port = 7878;
 
       services.radarr = {
         enable = true;

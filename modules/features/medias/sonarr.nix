@@ -25,7 +25,7 @@
         ];
       };
 
-      services.reverse-proxy.vhosts.sonarr.port = 8989;
+      services.mytraefik.services.sonarr.port = 8989;
 
       services.sonarr = {
         enable = true;

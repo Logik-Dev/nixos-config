@@ -26,7 +26,7 @@
         ];
       };
 
-      services.reverse-proxy.vhosts.prowlarr.port = 9696;
+      services.mytraefik.services.prowlarr.port = 9696;
 
       services.prowlarr = {
         enable = true;
