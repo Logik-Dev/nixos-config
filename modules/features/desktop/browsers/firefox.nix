@@ -2,9 +2,7 @@
 let
   inherit (inputs.self.meta.owner) domain;
 
-  k8s = app: "https://${app}.k8s.${domain}";
   hyper = app: "https://${app}.hyper.${domain}";
-  tail = app: "https://${app}.bream-toad.ts.net";
 
   mkBookmarksFolder = folder: bms: {
     name = folder;
@@ -24,18 +22,16 @@ let
   };
 
   seedbox = mkBookmarksFolder "Seedbox" {
-    "Jellyseerr" = tail "jellyseerr";
+    "Jellyseerr" = hyper "jellyseerr";
     "Jellyfin" = hyper "jellyfin";
-    "Radarr" = k8s "radarr";
-    "Sonarr" = k8s "sonarr";
-    "Prowlarr" = k8s "prowlarr";
-    "Torrent" = k8s "torrent";
+    "Radarr" = hyper "radarr";
+    "Sonarr" = hyper "sonarr";
+    "Prowlarr" = hyper "prowlarr";
+    "Torrent" = hyper "torrent";
   };
 
   infra = mkBookmarksFolder "Infra" {
-    "Vaultwarden" = tail "vaultwarden";
-    "Longhorn" = tail "longhorn";
-    "Authentik" = k8s "authentik";
+    "Vaultwarden" = hyper "vaultwarden";
     "Minio" = hyper "minio";
     "Adguard" = hyper "dns";
   };
@@ -55,9 +51,9 @@ let
   };
 
   home = mkBookmarksFolder "Home" {
-    HomeAssistant = tail "hass";
-    Immich = tail "immich";
-    N8N = k8s "n8n";
+    HomeAssistant = hyper "hass";
+    Immich = hyper "immich";
+    N8N = hyper "n8n";
   };
 
   toolbar = {
