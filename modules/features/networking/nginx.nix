@@ -17,6 +17,12 @@ let
             default = null;
           };
 
+          host = mkOption {
+            description = "Host IP";
+            type = types.str;
+            default = "localhost";
+          };
+
           port = mkOption {
             description = "Port which the service is listening on";
             type = types.nullOr types.number;
@@ -84,7 +90,7 @@ let
               useACMEHost = "${host}.${domain}";
               forceSSL = true;
               locations."/" = {
-                proxyPass = "${value.protocol}://localhost:${toString value.port}";
+                proxyPass = "${value.protocol}://${value.host}:${toString value.port}";
                 proxyWebsockets = value.enableWebsockets;
                 recommendedProxySettings = true;
                 extraConfig = lib.mkIf (value.extraConfig != null) value.extraConfig;
