@@ -17,7 +17,7 @@
 
       age.secrets."vaultwarden.env".rekeyFile = hostSecret "vaultwarden.env";
 
-      services.reverse-proxy.vhosts.vaultwarden.port = 8082;
+      services.mytraefik.services.vaultwarden.port = 8082;
 
       services.vaultwarden = {
         enable = true;
