@@ -47,6 +47,12 @@ let
             ];
             default = "http";
           };
+
+          enableAuthelia = mkOption {
+            description = "Wheter to enable authelia";
+            type = types.bool;
+            default = false;
+          };
         };
       };
     in
@@ -76,9 +82,28 @@ let
             config.age.secrets.cloudflare.path
           ];
           dataDir = "/mnt/ultra/traefik";
+
+          # static config
           staticConfigOptions = {
-            entryPoints.http.address = "192.168.10.100:80";
+            log.level = "DEBUG";
+
+            # dashboard
+            api.dashboard = true;
+            api.insecure = false;
+
+            # HTTP
+            entryPoints.http = {
+              address = "192.168.10.100:80";
+              http.redirections.entryPoint = {
+                to = "https";
+                scheme = "https";
+              };
+            };
+
+            # HTTPS
             entryPoints.https.address = "192.168.10.100:443";
+
+            # ACME
             certificatesResolvers.myresolver.acme = {
               email = email;
               storage = "${config.services.traefik.dataDir}/acme.json";
@@ -92,19 +117,43 @@ let
             };
 
           };
+
+          # dynamic config
           dynamicConfigOptions = {
-            http.routers = mapAttrs' (
-              service: value:
-              nameValuePair service {
-                inherit service;
-                entryPoints = [ "https" ];
-                tls.certResolver = "myresolver";
-                rule = "Host(`${service}.${host}.${domain}`)";
 
-              }
+            # middlewares
+            http.middlewares.authelia.forwardAuth = {
+              address = "http://localhost:9091/api/authz/forward-auth";
+              trustForwardHeader = "true";
+              authResponseHeaders = "Remote-User,Remote-Groups,Remote-Email,Remote-Name";
+            };
 
-            ) cfg.services;
+            # router
+            http.routers =
+              (mapAttrs' (
+                service: value:
+                nameValuePair service {
+                  inherit service;
+                  entryPoints = [ "https" ];
+                  tls.certResolver = "myresolver";
+                  rule = "Host(`${service}.${host}.${domain}`)";
+                  middlewares = lib.mkIf value.enableAuthelia "authelia@file";
+                }
 
+              ) cfg.services)
+              // {
+                # Dashboard
+                dashboard = {
+                  rule = "Host(`traefik.${host}.${domain}`)";
+                  middlewares = "authelia@file";
+                  entryPoints = [ "https" ];
+                  service = "api@internal";
+                  tls.certResolver = "myresolver";
+                };
+
+              };
+
+            # services
             http.services = mapAttrs' (
               service: value:
               nameValuePair service {
