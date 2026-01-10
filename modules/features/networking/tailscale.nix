@@ -14,7 +14,11 @@
     };
 
   flake.modules.nixos.hyper = {
-    services.tailscale.useRoutingFeatures = "both";
     networking.firewall.allowedTCPPorts = [ 5432 ];
+    services.tailscale = {
+      useRoutingFeatures = "both";
+      extraUpFlags = [ "--ssh" ];
+      extraSetFlags = [ "--advertise-routes=192.168.10.0/24,192.168.21.0/24" ];
+    };
   };
 }
