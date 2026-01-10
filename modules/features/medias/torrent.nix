@@ -13,15 +13,12 @@
       virtualisation.oci-containers.containers = {
         gluetun = {
           image = "qmcgaw/gluetun";
-
           ports = [ "8080:8080" ];
-
+          environmentFiles = [ config.age.secrets."gluetun.env".path ];
           extraOptions = [
             "--cap-add=NET_ADMIN"
             "--device=/dev/net/tun:/dev/net/tun"
           ];
-
-          environmentFiles = [ config.age.secrets."gluetun.env".path ];
         };
 
         qbittorrent = {
@@ -30,7 +27,7 @@
           dependsOn = [ "gluetun" ];
           volumes = [
             "/mnt/ultra/qbittorrent:/config"
-            "/mnt/storage/medias/downloads:/mnt/storage/downloads"
+            "/mnt/storage/medias/downloads:/mnt/storage/medias/downloads"
           ];
           environment = {
             PUID = "1000";
