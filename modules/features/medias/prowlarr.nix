@@ -27,6 +27,7 @@
       };
 
       services.mytraefik.services.prowlarr.port = 9696;
+      services.mytraefik.services.prowlarr.enableAuthelia = true;
 
       services.prowlarr = {
         enable = true;

@@ -26,9 +26,11 @@
       };
 
       services.mytraefik.services.sonarr.port = 8989;
+      services.mytraefik.services.sonarr.enableAuthelia = true;
 
       services.sonarr = {
         enable = true;
+        group = "media";
         environmentFiles = [ sonarrEnv ];
         dataDir = "/mnt/ultra/sonarr";
       };

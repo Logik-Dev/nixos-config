@@ -27,9 +27,11 @@
       };
 
       services.mytraefik.services.radarr.port = 7878;
+      services.mytraefik.services.radarr.enableAuthelia = true;
 
       services.radarr = {
         enable = true;
+        group = "media";
         environmentFiles = [ radarrEnv ];
         dataDir = "/mnt/ultra/radarr";
       };
