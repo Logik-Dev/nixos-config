@@ -7,10 +7,9 @@ in
   flake.modules.nixos.hyper = {
 
     # home assistant
-    services.reverse-proxy.vhosts.hass = {
+    services.mytraefik.services.hass = {
       port = 8123;
       host = "192.168.21.181";
-      enableWebsockets = true;
     };
 
     users.users."${username}".extraGroups = [ "libvirtd" ];
