@@ -34,6 +34,7 @@ let
     "Vaultwarden" = hyper "vaultwarden";
     "Minio" = hyper "minio";
     "Adguard" = hyper "dns";
+    "Traefik" = "${hyper "traefik"}/dashboard/";
   };
 
   github = mkBookmarksFolder "Github" {
