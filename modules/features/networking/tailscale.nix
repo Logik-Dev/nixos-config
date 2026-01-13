@@ -21,4 +21,11 @@
       extraSetFlags = [ "--advertise-routes=192.168.10.0/24,192.168.21.0/24" ];
     };
   };
+
+  flake.modules.nixos.sonicmaster = {
+    services.tailscale = {
+      useRoutingFeatures = "client";
+      extraUpFlags = [ "--accept-routes" ];
+    };
+  };
 }
