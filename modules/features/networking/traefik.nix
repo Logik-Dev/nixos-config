@@ -91,6 +91,9 @@ let
             api.dashboard = true;
             api.insecure = false;
 
+            # skip cert verify
+            serversTransport.insecureSkipVerify = true;
+
             # HTTP
             entryPoints.http = {
               address = "192.168.10.100:80";
