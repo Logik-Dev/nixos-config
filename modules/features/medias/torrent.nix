@@ -6,14 +6,14 @@
 
       age.secrets."gluetun.env".rekeyFile = hostSecret "gluetun.env";
 
-      services.mytraefik.services.torrent.port = 8080;
+      services.mytraefik.services.torrent.port = 8081;
 
       systemd.tmpfiles.rules = [ "d /mnt/ultra/qbittorrent 775 logikdev media - -" ];
 
       virtualisation.oci-containers.containers = {
         gluetun = {
           image = "qmcgaw/gluetun";
-          ports = [ "8080:8080" ];
+          ports = [ "8081:8081" ];
           environmentFiles = [ config.age.secrets."gluetun.env".path ];
           extraOptions = [
             "--cap-add=NET_ADMIN"
@@ -33,7 +33,7 @@
             PUID = "1000";
             PGID = "991";
             TZ = "Europe/Paris";
-            WEBUI_PORT = "8080";
+            WEBUI_PORT = "8081";
           };
         };
       };
