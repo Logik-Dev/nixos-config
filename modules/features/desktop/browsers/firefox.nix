@@ -36,6 +36,7 @@ let
     "Minio" = hyper "minio";
     "Adguard" = hyper "dns";
     "Traefik" = "${hyper "traefik"}/dashboard/";
+    "Unifi" = hyper "unifi";
   };
 
   github = mkBookmarksFolder "Github" {

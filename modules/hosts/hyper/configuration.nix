@@ -17,7 +17,7 @@ let
     nvidia
     reverse-proxy
     seedbox
-    #unifi
+    unifi
     vaultwarden
   ];
 
