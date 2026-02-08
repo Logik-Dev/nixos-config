@@ -63,24 +63,6 @@ let
     panes.default.args = "repl";
   };
 
-  k8s =
-    let
-      cwd = "/home/logikdev/Homelab/k8s";
-    in
-    {
-      props.split_direction = "vertical";
-
-      panes.k9s = {
-        inherit cwd;
-        command = "k9s";
-      };
-
-      panes.k8s = {
-        inherit cwd;
-        size = "50%";
-      };
-    };
-
 in
 {
   flake.modules.homeManager.desktop = {
@@ -100,16 +82,6 @@ in
               vim
               nixrepl
               btop
-              hyper
-              ;
-          };
-        };
-        k8s = {
-          props.cwd = "/home/logikdev/Homelab/Nixos";
-          tabs = {
-            inherit
-              vim
-              k8s
               hyper
               ;
           };
