@@ -9,6 +9,7 @@
         dig
         btop
         fd
+        ncdu
         ripgrep
         sops
         wl-clipboard
