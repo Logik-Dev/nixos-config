@@ -1,19 +1,12 @@
-{ inputs, ... }:
+{ ... }:
 let
-  inherit (inputs.self.meta.owner) username;
 
   flake.modules.nixos.hyper = {
-    systemd.tmpfiles.settings = {
-      "20-snapraid-folders" = {
-        "/mnt/parity2" = {
-          d = {
-            group = "users";
-            mode = "750";
-            user = username;
-          };
-        };
-      };
-    };
+
+    systemd.tmpfiles.rules = [
+      "d /mnt/parity1 0755 root root -"
+      "d /mnt/parity2 0755 root root -"
+    ];
 
     services.snapraid = {
       enable = true;
@@ -21,6 +14,7 @@ let
         storage = "/mnt/storage";
       };
       parityFiles = [
+        "/mnt/parity1/snapraid.parity"
         "/mnt/parity2/snapraid.parity"
       ];
       contentFiles = [

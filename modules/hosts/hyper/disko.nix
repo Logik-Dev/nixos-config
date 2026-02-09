@@ -15,6 +15,14 @@ let
     "space_cache=v2"
     "commit=15"
   ];
+  xfsMountOptions = [
+    "nofail" # dont block system if failed
+    "defaults"
+    "noatime"
+    "nodiratime"
+    "largeio"
+    "inode64"
+  ];
 in
 {
   ### WARNING
@@ -24,6 +32,14 @@ in
     imports = [
       inputs.disko.nixosModules.default
     ];
+
+    systemd.tmpfiles.rules = [
+      "d /mnt/medias1 0755 root root -"
+      "d /mnt/medias2 0755 root root -"
+      "d /mnt/parity1 0755 root root -"
+      "d /mnt/parity2 0755 root root -"
+    ];
+
     disko.devices = {
       disk = {
 
@@ -69,51 +85,87 @@ in
           };
         };
 
-        # Backups (8Tb)
-        medias = {
-          device = "/dev/disk/by-uuid/255fc8ca-e257-4c57-a973-acc65ec81e6e";
+        # Medias1 is part of mergerfs (8Tb)
+        medias1 = {
+          device = "/dev/disk/by-uuid/c21a2c28-58eb-4ae2-9591-cfe8de518f2a";
           type = "disk";
           content = {
-            type = "filesystem";
-            format = "ext4";
-            mountpoint = "/mnt/backups";
-            inherit mountOptions;
+            type = "gpt";
+            partitions = {
+              data = {
+                size = "100%";
+                content = {
+                  type = "filesystem";
+                  format = "xfs";
+                  mountpoint = "/mnt/medias1";
+                  mountOptions = xfsMountOptions;
+                };
+              };
+            };
           };
         };
 
-        # Data1 (8Tb) will be merged to /mnt/storage
-        data1 = {
-          device = "/dev/disk/by-id/ata-ST8000DM004-2U9188_ZR14KLX2";
+        # Medias2 is part of mergerfs (8Tb)
+        medias2 = {
+          device = "/dev/disk/by-uuid/577774a9-36c8-4d06-87d5-69939fb9abb3";
           type = "disk";
           content = {
-            type = "lvm_pv";
-            vg = "vg_storage";
+            type = "gpt";
+            partitions = {
+              data = {
+                size = "100%";
+                content = {
+                  type = "filesystem";
+                  format = "xfs";
+                  mountpoint = "/mnt/medias2";
+                  mountOptions = xfsMountOptions;
+                };
+              };
+            };
           };
         };
 
-        # Data2 (8Tb) will be merged to /mnt/storage
-        data2 = {
-          device = "/dev/disk/by-id/ata-ST8000DM004-2CX188_ZR13TZTV";
-          type = "disk";
-          content = {
-            type = "lvm_pv";
-            vg = "vg_storage";
-          };
-        };
-
-        # Parity1 (8Tb) ONLY used by snapraid
+        # Parity1 for snapraid (8Tb)
         parity1 = {
-          device = "/dev/disk/by-uuid/6810c203-848a-451c-9fe0-8bbe7014e190";
+          device = "/dev/disk/by-uuid/4abb727c-73f5-42ab-bcb5-ad92a1077d1d";
           type = "disk";
           content = {
-            type = "btrfs";
-            mountpoint = "/mnt/parity2";
-            extraArgs = [ "-f" ];
-            mountOptions = btrfsMountOptions;
+            type = "gpt";
+            partitions = {
+              data = {
+                size = "100%";
+                content = {
+                  type = "filesystem";
+                  format = "xfs";
+                  mountpoint = "/mnt/parity1";
+                  mountOptions = xfsMountOptions;
+                };
+              };
+            };
           };
         };
 
-        # USB WD Drive (20Tb)
+        # Parity2 for snapraid (8Tb)
+        parity2 = {
+          device = "/dev/disk/by-uuid/af20cb71-b9f2-439e-95c5-311786a64543";
+          type = "disk";
+          content = {
+            type = "gpt";
+            partitions = {
+              data = {
+                size = "100%";
+                content = {
+                  type = "filesystem";
+                  format = "xfs";
+                  mountpoint = "/mnt/parity2";
+                  mountOptions = xfsMountOptions;
+                };
+              };
+            };
+          };
+        };
+
+        # USB WD Drive (2Tb)
         usb = {
           device = "/dev/disk/by-id/ata-WDC_WD20JDRW-11C7VS1_WD-WX22AC4KLCU0";
           type = "disk";
@@ -164,34 +216,6 @@ in
                 type = "filesystem";
                 format = "ext4";
                 mountpoint = "/mnt/ultra";
-                inherit mountOptions;
-              };
-            };
-          };
-        };
-
-        # Storage VG
-        vg_storage = {
-          type = "lvm_vg";
-          lvs = {
-
-            storage = {
-              size = "12T";
-              content = {
-                type = "filesystem";
-                format = "ext4";
-                mountpoint = "/mnt/storage";
-                inherit mountOptions;
-              };
-            };
-
-            # Snapshots
-            backups = {
-              size = "1T";
-              content = {
-                type = "filesystem";
-                format = "ext4";
-                mountpoint = "/mnt/storage-snapshots";
                 inherit mountOptions;
               };
             };
