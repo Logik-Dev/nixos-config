@@ -2,6 +2,7 @@
   flake.modules.nixos.seedbox =
     {
       pkgs,
+      config,
       ...
     }:
     {
@@ -28,6 +29,11 @@
         environment = {
           LD_LIBRARY_PATH = "/run/opengl-driver/lib";
         };
+      };
+
+      services.backups.sources.jellyfin = {
+        paths = [ config.services.jellyfin.dataDir ];
+        extraRepositories.local = "/mnt/local";
       };
     };
 }

@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.nixos.hyper =
-    { pkgs, lib, ... }:
+    { pkgs, config, ... }:
     let
       radarrEnv = pkgs.writeText "radarr.env" ''
         RADARR__POSTGRES__HOST=/var/run/postgresql
@@ -34,6 +34,11 @@
         group = "media";
         environmentFiles = [ radarrEnv ];
         dataDir = "/mnt/ultra/radarr";
+      };
+
+      services.backups.sources.radarr = {
+        paths = [ config.services.radarr.dataDir ];
+        extraRepositories.local = "/mnt/local";
       };
     };
 }

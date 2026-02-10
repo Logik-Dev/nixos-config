@@ -37,6 +37,12 @@
           };
         };
       };
+
+      services.backups.sources.torrent = {
+        paths = [ "/mnt/ultra/qbittorrent" ];
+        serviceName = "podman-qbittorrent";
+        extraRepositories.local = "/mnt/local";
+      };
     };
 
 }

@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.nixos.hyper =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     let
       sonarrEnv = pkgs.writeText "sonarr.env" ''
         SONARR__POSTGRES__HOST=/var/run/postgresql
@@ -33,6 +33,11 @@
         group = "media";
         environmentFiles = [ sonarrEnv ];
         dataDir = "/mnt/ultra/sonarr";
+      };
+
+      services.backups.sources.sonarr = {
+        paths = [ config.services.sonarr.dataDir ];
+        extraRepositories.local = "/mnt/local";
       };
     };
 }
