@@ -21,6 +21,7 @@ let
     users.users."${username}" = {
       openssh.authorizedKeys.keyFiles = [
         (inputs.self + "/secrets/yubikey.pub")
+        (inputs.self + "/secrets/m4.pub")
       ];
     };
   };
