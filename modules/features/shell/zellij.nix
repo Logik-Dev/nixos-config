@@ -67,7 +67,7 @@ in
 {
   flake.modules.homeManager.desktop = {
     programs.zellij = {
-      enable = true;
+      enable = false;
       enableFishIntegration = true;
       attachExistingSession = true;
       exitShellOnExit = true;

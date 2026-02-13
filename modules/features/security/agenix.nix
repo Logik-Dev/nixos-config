@@ -15,7 +15,10 @@ in
         inputs.agenix-rekey.nixosModules.default
       ];
       age.rekey = {
-        masterIdentities = [ "${inputs.self}/secrets/age-yubikey-identity.pub" ];
+        masterIdentities = [
+          "${inputs.self}/secrets/age-yubikey-identity.pub"
+          "/home/logikdev/.config/age/keys.txt"
+        ];
         storageMode = "local";
         hostPubkey = hostKeys.${config.networking.hostName};
         localStorageDir = inputs.self + "/secrets/rekeyed/${config.networking.hostName}";
