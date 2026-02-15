@@ -1,7 +1,10 @@
 { ... }:
 let
 
-  flake.modules.homeManager.nixvim.imports = [ blink ];
+  flake.modules.nixos.common.imports = [ blink ];
+
+  flake.modules.darwin.common.imports = [blink];
+
   blink = {
     programs.nixvim.plugins.blink-cmp = {
       enable = true;

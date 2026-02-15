@@ -65,14 +65,11 @@ let
     {
       config,
       pkgs,
-      commonSecret,
       ...
     }:
     {
       services.mytraefik.services.minio.port = 9001;
       services.mytraefik.services.s3.port = 9000;
-
-      age.secrets.minio.rekeyFile = commonSecret "minio";
 
       services.minio = {
         enable = true;

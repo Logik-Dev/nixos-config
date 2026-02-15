@@ -7,8 +7,10 @@ let
   flake.modules.nixos.sonicmaster.imports = [ home ];
 
   logikdevModules = with inputs.self.modules.homeManager; [
+    browsers
     desktop
     dev
+    gpg
     management
     passwords
     virtualization

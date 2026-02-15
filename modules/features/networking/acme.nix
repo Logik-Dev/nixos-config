@@ -6,7 +6,6 @@ let
     {
       lib,
       config,
-      commonSecret,
       ...
     }:
     let
@@ -19,8 +18,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        age.secrets.cloudflare.rekeyFile = commonSecret "cloudflare";
-
         security.acme = {
           acceptTerms = true;
           defaults.email = email;

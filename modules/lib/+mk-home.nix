@@ -1,6 +1,5 @@
 { inputs, ... }:
 let
-
   flake.lib.mk-home = {
     inherit userOnHost logikdevOnHost;
   };
@@ -8,23 +7,33 @@ let
   mkConfig =
     user: host: extraModules:
     let
-      modules = (mkDefaultHomeModules user) ++ extraModules;
+      isDarwin = inputs.self.darwinConfigurations ? ${host};
+      isNixOS = inputs.self.nixosConfigurations ? ${host};
+
+      systemConfig =
+        if isDarwin then
+          inputs.self.darwinConfigurations.${host}
+        else if isNixOS then
+          inputs.self.nixosConfigurations.${host}
+        else
+          throw "Host ${host} not found in nixosConfigurations or darwinConfigurations";
+
+      modules = (mkDefaultHomeModules user isDarwin) ++ extraModules;
 
       config = inputs.home-manager.lib.homeManagerConfiguration {
         inherit modules;
-        pkgs = inputs.self.nixosConfigurations.${host}.pkgs;
-        extraSpecialArgs.osConfig = [ inputs.self.nixosConfigurations.${host}.config ];
+        pkgs = systemConfig.pkgs;
       };
     in
     {
       inherit config modules;
     };
 
-  mkDefaultHomeModules = user: [
+  mkDefaultHomeModules = user: isDarwin: [
     inputs.self.modules.homeManager.common
     {
       home.username = user;
-      home.homeDirectory = "/home/${user}";
+      home.homeDirectory = if isDarwin then "/Users/${user}" else "/home/${user}";
       home.stateVersion = "25.05";
     }
   ];
@@ -34,7 +43,6 @@ let
     mkConfig user host modules;
 
   logikdevOnHost = host: modules: userOnHost "logikdev" host modules;
-
 in
 {
   inherit flake;

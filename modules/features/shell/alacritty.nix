@@ -1,15 +1,27 @@
+{ ... }:
 {
-  flake.modules.homeManager.desktop = {
-    programs.alacritty = {
-      enable = true;
-      theme = "tokyo_night";
-      settings = {
-        font.normal.family = "FiraCode Nerd Font";
-        window = {
-          decorations = "None";
-          startup_mode = "Fullscreen";
+  flake.modules.homeManager.desktop =
+    {
+      pkgs,
+      lib,
+      ...
+    }:
+    {
+      programs.alacritty = {
+        enable = true;
+        theme = "tokyo_night";
+        settings = {
+          font.normal.family = "FiraCode Nerd Font";
+          terminal.shell = "${pkgs.fish}/bin/fish";
+          window = {
+            padding.x = 5;
+            padding.y = 5;
+            startup_mode = "Maximized";
+            opacity = 0.9;
+            blur = true;
+          }
+          // lib.optionalAttrs pkgs.stdenv.isDarwin { option_as_alt = "OnlyLeft"; };
         };
       };
     };
-  };
 }

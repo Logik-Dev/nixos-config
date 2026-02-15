@@ -4,6 +4,11 @@
     inputs.home-manager.nixosModules.home-manager
   ];
 
+  flake.modules.darwin.darwin.imports = [
+    inputs.home-manager.darwinModules.home-manager
+    { home-manager.backupFileExtension = "bak"; }
+  ];
+
   flake.modules.nixos.sonicmaster = {
 
     nix.buildMachines = [

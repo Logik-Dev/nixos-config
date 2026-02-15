@@ -41,6 +41,7 @@ let
   mapLayouts = attrs: lib.mapAttrs (_: value: layout value) attrs;
 
   yazi.panes.default.command = "yazi";
+  yazi.props.cwd = "/Users/logikdev";
 
   btop = {
     panes.default.command = "btop";
@@ -65,28 +66,30 @@ let
 
 in
 {
-  flake.modules.homeManager.desktop = {
-    programs.zellij = {
-      enable = false;
-      enableFishIntegration = true;
-      attachExistingSession = true;
-      exitShellOnExit = true;
-      settings.theme = "cyber-dark";
-      settings.default_layout = "k8s";
-      layouts = mapLayouts {
-        nixos = {
-          props.cwd = "/home/logikdev/Homelab/Nixos";
-          tabs = {
-            inherit
-              yazi
-              vim
-              nixrepl
-              btop
-              hyper
-              ;
-          };
-        };
+  flake.modules.homeManager.desktop =
+    { pkgs, isDarwin, ... }:
+    {
+      programs.zellij = {
+        enable = false;
+        enableFishIntegration = true;
+        attachExistingSession = true;
+        exitShellOnExit = true;
+        settings.default_shell = "fish";
+        settings.theme = "cyber-dark";
+        # settings.default_layout = "nixos";
+        # layouts = mapLayouts {
+        #   nixos = {
+        #     props.cwd = "/Users/logikdev/Homelab/Nixos";
+        #     tabs = {
+        #       inherit
+        #         btop
+        #         yazi
+        #         vim
+        #         hyper
+        #         ;
+        #     };
+        #   };
+        # };
       };
     };
-  };
 }

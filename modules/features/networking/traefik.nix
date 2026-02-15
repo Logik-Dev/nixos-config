@@ -11,7 +11,6 @@ let
     {
       lib,
       config,
-      commonSecret,
       ...
     }:
     with lib;
@@ -73,8 +72,6 @@ let
           443
           80
         ];
-
-        age.secrets.cloudflare.rekeyFile = commonSecret "cloudflare";
 
         services.traefik = {
           enable = true;

@@ -1,5 +1,9 @@
 { ... }:
 let
+  
+  flake.modules.nixos.common.imports = [keymaps];
+
+  flake.modules.darwin.common.imports = [keymaps];
 
   keymap = mode: desc: key: action: {
     inherit action key mode;
@@ -26,7 +30,7 @@ let
     rebuild()
   '';
 
-  flake.modules.homeManager.nixvim = {
+  keymaps = {...}: {
     programs.nixvim.keymaps = [
       (normal "Toggle Neotree" "<leader>e" "<Cmd>Neotree toggle<CR>")
       (normal "Nixos rebuild and reload nvim" "<leader>nrs" rebuild)

@@ -1,6 +1,10 @@
 { ... }:
 let
-  flake.modules.homeManager.nixvim.imports = [
+  flake.modules.nixos.common.imports = lsp;
+
+  flake.modules.darwin.common.imports = lsp;
+
+  lsp = [
     bash
     common
     nix
@@ -40,13 +44,16 @@ let
           nixpkgs.expr = "import <nixpkgs> {}";
           options =
             let
-              flakeOptions = opts: ''(builtins.getFlake "/home/logikdev/Homelab/Nixos").${opts}'';
+              withSonicmaster = opts: ''(builtins.getFlake "/home/logikdev/Homelab/Nixos").${opts}'';
+              withM4 = opts: ''(builtins.getFlake "/Users/logikdev/Homelab/Nixos").${opts}'';
             in
             {
-              nixos.expr = flakeOptions "nixosConfigurations.sonicmaster.options";
-              homeManager.expr = flakeOptions ''homeConfigurations."logikdev@sonicmaster".options'';
-              nixvim.expr = flakeOptions ''homeConfigurations."logikdev@sonicmaster".options.programs.nixvim.type.getSubOptions []'';
-              flakeParts.expr = flakeOptions "debug.options";
+              #nixos.expr = withSonicmaster "nixosConfigurations.sonicmaster.options";
+              nixos.expr = withM4 "darwinConfigurations.m4.options";
+              homeManagerSonimaster.expr = withSonicmaster ''homeConfigurations."logikdev@sonicmaster".options'';
+              homeManagerM4.expr = withM4 ''homeConfigurations."logikdev@m4".options'';
+              nixvim.expr = withSonicmaster ''homeConfigurations."logikdev@sonicmaster".options.programs.nixvim.type.getSubOptions []'';
+              flakeParts.expr = withSonicmaster "debug.options";
             };
         };
       };

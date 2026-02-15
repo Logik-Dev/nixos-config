@@ -1,5 +1,10 @@
-{
-  flake.modules.homeManager.nixvim = {
+{...}: let
+
+  flake.modules.nixos.common.imports = [treesitter];
+
+  flake.modules.darwin.common.imports = [treesitter];
+
+  treesitter = {...}: {
     programs.nixvim.plugins = {
 
       treesitter = {
@@ -22,4 +27,6 @@
       hmts.enable = true;
     };
   };
-}
+
+  in {inherit flake;}
+

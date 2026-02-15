@@ -1,6 +1,9 @@
 {
   flake.modules.nixos.kde-desktop =
-    { pkgs, ... }:
+    {
+      pkgs,
+      ...
+    }:
     {
       services.displayManager.sddm = {
         enable = true;
@@ -15,7 +18,4 @@
       ];
     };
 
-  flake.modules.homeManager.desktop = {
-    xsession.numlock.enable = true;
-  };
 }

@@ -9,7 +9,6 @@ let
     {
       lib,
       config,
-      commonSecret,
       ...
     }:
 
@@ -62,7 +61,6 @@ let
       };
 
       config = mkIf cfg.enable {
-        age.secrets."restic.env".rekeyFile = commonSecret "restic.env";
         systemd.tmpfiles.rules = [ "d /mnt/usb/restic 0755 root root -" ];
 
         services.restic.backups = mkMerge (

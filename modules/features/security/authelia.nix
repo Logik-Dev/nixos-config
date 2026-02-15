@@ -1,10 +1,14 @@
 { inputs, ... }:
 let
   inherit (inputs.self.meta.owner) domain;
+  secretModeGroup = {
+    group = "authelia";
+    mode = "0440";
+  };
 in
 {
   flake.modules.nixos.hyper =
-    { config, hostSecret, ... }:
+    { config, ... }:
     {
       services.postgresql = {
         ensureDatabases = [ "authelia-main" ];
@@ -16,34 +20,12 @@ in
         ];
       };
 
-      age.secrets.authelia-storage-encryption-key = {
-        rekeyFile = hostSecret "authelia-storage-encryption-key";
-        group = "authelia";
-        mode = "0440";
-      };
-
-      age.secrets.authelia-jwt-secret = {
-        rekeyFile = hostSecret "authelia-jwt-secret";
-        group = "authelia";
-        mode = "0440";
-      };
-
-      age.secrets.authelia-users = {
-        rekeyFile = hostSecret "authelia-users.yaml";
-        group = "authelia";
-        mode = "0440";
-      };
-
-      age.secrets.authelia-session-secret = {
-        rekeyFile = hostSecret "authelia-session-secret";
-        group = "authelia";
-        mode = "0440";
-      };
-
-      age.secrets.authelia-notifier = {
-        rekeyFile = hostSecret "authelia-smtp.yaml";
-        group = "authelia";
-        mode = "0440";
+      age.secrets = {
+        "authelia-storage-encryption-key" = secretModeGroup;
+        "authelia-jwt-secret" = secretModeGroup;
+        "authelia-users.yaml" = secretModeGroup;
+        "authelia-session-secret" = secretModeGroup;
+        "authelia-smtp.yaml" = secretModeGroup;
       };
 
       # Extra group
@@ -55,7 +37,7 @@ in
       # Authelia main
       services.authelia.instances.main = {
         enable = true;
-        settingsFiles = [ config.age.secrets.authelia-notifier.path ];
+        settingsFiles = [ config.age.secrets."authelia-smtp.yaml".path ];
         secrets = {
           storageEncryptionKeyFile = config.age.secrets.authelia-storage-encryption-key.path;
           jwtSecretFile = config.age.secrets.authelia-jwt-secret.path;
@@ -64,7 +46,7 @@ in
         settings = {
           # Users file
           authentication_backend = {
-            file.path = config.age.secrets.authelia-users.path;
+            file.path = config.age.secrets."authelia-users.yaml".path;
           };
 
           # Session

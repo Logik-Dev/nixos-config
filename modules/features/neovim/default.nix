@@ -1,5 +1,19 @@
 { inputs, ... }:
-{
+let 
+  
+  flake.modules.nixos.common.imports = [linux];
 
-  flake.modules.homeManager.common.imports = with inputs.self.modules.homeManager; [ nixvim ];
+  flake.modules.darwin.common.imports = [darwin];
+
+  darwin = {...}:{
+    imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
+  };
+
+  linux = {...}: {
+    imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
+  };
+
+in
+{
+  inherit flake;
 }

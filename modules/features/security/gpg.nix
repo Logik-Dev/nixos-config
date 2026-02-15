@@ -1,7 +1,7 @@
 { inputs, ... }:
 let
 
-  flake.modules.homeManager.common.imports = [
+  flake.modules.homeManager.gpg.imports = [
     gpg
   ];
 

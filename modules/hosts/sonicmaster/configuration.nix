@@ -5,11 +5,11 @@
 }:
 let
   flake.modules.nixos.sonicmaster.imports = with inputs.self.modules.nixos; [
-    agenix
     audio
     common
     gnome
     kvm-intel
+    logikdev
     network
     yubikey
   ];

@@ -1,13 +1,9 @@
 { ... }:
 let
 
-  flake.modules.homeManager.nixvim.imports = [ conform ];
+  flake.modules.nixos.common.imports = [ conform ];
 
-  flake.modules.homeManager.common =
-    { pkgs, ... }:
-    {
-      home.packages = [ pkgs.prettier ];
-    };
+  flake.modules.darwin.common.imports = [ conform ];
 
   conform =
     { lib, pkgs, ... }:

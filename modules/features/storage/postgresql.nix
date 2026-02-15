@@ -4,7 +4,6 @@
   flake.modules.nixos.hyper =
     {
       pkgs,
-      commonSecret,
       config,
       ...
     }:
@@ -32,7 +31,6 @@
         };
       };
 
-      age.secrets."s3.env".rekeyFile = commonSecret "s3.env";
       systemd.services.postgresql.serviceConfig.EnvironmentFile = config.age.secrets."s3.env".path;
 
       systemd.services.postgresql-base-backup = {

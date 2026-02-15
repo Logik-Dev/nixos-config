@@ -2,7 +2,7 @@
 {
 
   flake.modules.nixos.vaultwarden =
-    { config, hostSecret, ... }:
+    { config, ... }:
     {
 
       services.postgresql = {
@@ -14,8 +14,6 @@
           }
         ];
       };
-
-      age.secrets."vaultwarden.env".rekeyFile = hostSecret "vaultwarden.env";
 
       services.mytraefik.services.vaultwarden.port = 8082;
 

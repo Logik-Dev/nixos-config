@@ -1,10 +1,8 @@
 { ... }:
 {
   flake.modules.nixos.hyper =
-    { hostSecret, config, ... }:
+    { config, ... }:
     {
-
-      age.secrets."gluetun.env".rekeyFile = hostSecret "gluetun.env";
 
       services.mytraefik.services.torrent.port = 8081;
 

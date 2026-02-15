@@ -3,7 +3,7 @@
     { pkgs, ... }:
     {
       home.packages = with pkgs; [
-        agenix-cli
+        #agenix-cli
         barman
         bat
         dig
@@ -12,7 +12,7 @@
         ncdu
         ripgrep
         sops
-        wl-clipboard
+        #wl-clipboard
       ];
 
       programs.fzf = {
