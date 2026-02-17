@@ -17,12 +17,6 @@ let
           type = lib.types.path;
           default = inputs.self.outPath + "/secrets/hosts";
         };
-
-        commonSecretsDir = lib.mkOption {
-          description = "Directory where common secrets are stored";
-          type = lib.types.path;
-          default = inputs.self.outPath + "/secrets/common";
-        };
       };
 
       config =
@@ -33,21 +27,12 @@ let
             lib.filterAttrs (n: v: v == "regular") (builtins.readDir hostDir)
           );
 
-          commonSecrets = lib.filterAttrs (k: v: v == "regular") (builtins.readDir cfg.commonSecretsDir);
-
           mkSecret =
-            k: v: dir:
-            lib.nameValuePair (lib.strings.removeSuffix ".age" k) { rekeyFile = "${dir}/${k}"; };
-
-          mkHostSecret = k: v: mkSecret k v hostDir;
-          mkCommonSecret = k: v: mkSecret k v cfg.commonSecretsDir;
+            k: v: lib.nameValuePair (lib.strings.removeSuffix ".age" k) { rekeyFile = "${hostDir}/${k}"; };
 
         in
         {
-          age.secrets = lib.mkMerge [
-            (lib.mapAttrs' mkHostSecret hostSecrets)
-            (lib.mapAttrs' mkCommonSecret commonSecrets)
-          ];
+          age.secrets = lib.mapAttrs' mkSecret hostSecrets;
         };
     };
 in

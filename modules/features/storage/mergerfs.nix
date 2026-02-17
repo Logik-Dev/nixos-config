@@ -28,25 +28,5 @@
           "/mnt/medias2"
         ];
       };
-
-      systemd.services.sync-storage-to-medias = {
-        description = "Sync /mnt/storage to /mnt/medias";
-
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.rsync}/bin/rsync -avh --progress /mnt/storage/ /mnt/medias/";
-        };
-
-      };
-
-      # Optionnel : timer pour exécution automatique (par exemple chaque nuit à 2h)
-      systemd.timers.sync-storage-to-medias = {
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnCalendar = "*-*-* 12:05:00"; # 2h du matin
-          Persistent = true; # Rattrape si le système était éteint
-        };
-      };
     };
-
 }

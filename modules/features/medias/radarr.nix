@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.radarr =
     { pkgs, config, ... }:
     let
       radarrEnv = pkgs.writeText "radarr.env" ''
@@ -26,8 +26,8 @@
         ];
       };
 
-      services.mytraefik.services.radarr.port = 7878;
-      services.mytraefik.services.radarr.enableAuthelia = true;
+      traefik.services.radarr.port = 7878;
+      traefik.services.radarr.enableAuthelia = true;
 
       services.radarr = {
         enable = true;
@@ -36,7 +36,7 @@
         dataDir = "/mnt/ultra/radarr";
       };
 
-      services.backups.sources.radarr = {
+      backups.sources.radarr = {
         paths = [ config.services.radarr.dataDir ];
         extraRepositories.local = "/mnt/local";
       };

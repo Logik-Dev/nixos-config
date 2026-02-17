@@ -9,7 +9,7 @@
     { home-manager.backupFileExtension = "bak"; }
   ];
 
-  flake.modules.nixos.sonicmaster = {
+  flake.modules.darwin.common = {
 
     nix.buildMachines = [
       {

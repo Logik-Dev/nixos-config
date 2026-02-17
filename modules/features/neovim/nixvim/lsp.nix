@@ -5,13 +5,23 @@ let
   flake.modules.darwin.common.imports = lsp;
 
   lsp = [
+    #asm
+    angular
     bash
     common
+    emmet
     nix
+    organizeImports
     rust
     ts
+    tailwind
     yaml
   ];
+
+  angular = {
+    programs.nixvim.lsp.servers.angularls.enable = true;
+
+  };
 
   common = {
     programs.nixvim.lsp.inlayHints.enable = true;
@@ -19,6 +29,10 @@ let
 
   bash = {
     programs.nixvim.lsp.servers.bashls.enable = true;
+  };
+
+  emmet = {
+    programs.nixvim.lsp.servers.emmet_ls.enable = true;
   };
 
   yaml = {
@@ -33,6 +47,34 @@ let
     programs.nixvim.lsp.servers.rust_analyzer.enable = true;
   };
 
+  tailwind = {
+    programs.nixvim.lsp.servers.tailwindcss.enable = true;
+
+  };
+  organizeImports = {
+    programs.nixvim.autoCmd = [
+      {
+        event = [ "BufWritePre" ];
+        pattern = [
+          "*.ts"
+          "*.rs"
+        ];
+        callback = {
+          __raw = ''
+            function()
+              local params = {
+                command = "_typescript.organizeImports",
+                arguments = {vim.api.nvim_buf_get_name(0)},
+                title = ""
+              }
+              vim.lsp.buf.execute_command(params)
+            end
+          '';
+        };
+      }
+    ];
+
+  };
   nix = {
     programs.nixvim.plugins.lspconfig.enable = true;
     programs.nixvim.lsp.servers = {

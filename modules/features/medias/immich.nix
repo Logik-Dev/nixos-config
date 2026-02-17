@@ -1,9 +1,9 @@
 { ... }:
 {
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.immich =
     { config, ... }:
     {
-      services.mytraefik.services.immich.port = 2283;
+      traefik.services.immich.port = 2283;
 
       services.immich = {
         enable = true;
@@ -23,7 +23,7 @@
         };
       };
 
-      services.backups.sources.immich = {
+      backups.sources.immich = {
         paths = [ config.services.immich.mediaLocation ];
         manageService = false;
       };

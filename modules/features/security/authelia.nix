@@ -1,13 +1,11 @@
-{ inputs, ... }:
 let
-  inherit (inputs.self.meta.owner) domain;
   secretModeGroup = {
     group = "authelia";
     mode = "0440";
   };
 in
 {
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.authelia =
     { config, ... }:
     {
       services.postgresql = {
@@ -32,7 +30,7 @@ in
       users.groups.authelia = { };
       systemd.services.authelia-main.serviceConfig.SupplementaryGroups = [ "authelia" ];
 
-      services.mytraefik.services.auth.port = 9091;
+      traefik.services.auth.port = 9091;
 
       # Authelia main
       services.authelia.instances.main = {
@@ -52,8 +50,8 @@ in
           # Session
           session.cookies = [
             {
-              domain = "hyper.${domain}";
-              authelia_url = "https://auth.hyper.${domain}";
+              domain = "hyper.${config.constants.domain}";
+              authelia_url = "https://auth.${config.networking.hostName}.${config.constants.domain}";
               expiration = "1d";
             }
           ];
@@ -65,14 +63,14 @@ in
 
               # Bypass for LAN
               {
-                domain = "*.${domain}";
+                domain = "*.${config.constants.domain}";
                 policy = "bypass";
                 networks = [ "192.168.10.0/24" ];
               }
 
               # Two Factor for others
               {
-                domain = "*.${domain}";
+                domain = "*.${config.constants.domain}";
                 policy = "two_factor";
               }
             ];

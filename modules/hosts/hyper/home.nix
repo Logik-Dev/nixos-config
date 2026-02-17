@@ -7,6 +7,7 @@ let
   flake.modules.nixos.hyper.imports = [ home ];
 
   logikdevModules = with inputs.self.modules.homeManager; [
+    jj
   ];
 
   logikdevConfigWithModules = logikdevOnHost "hyper" logikdevModules;

@@ -1,6 +1,5 @@
 { inputs, ... }:
 let
-  inherit (inputs.self.meta.owner) email fullname sshKey;
 
   jjStarship =
     { ... }:
@@ -15,30 +14,31 @@ in
     # Avoid warnings when using home-manager.useGlobalPkgs
     nixos.common.imports = [ jjStarship ];
     darwin.common.imports = [ jjStarship ];
+    homeManager.jj =
+      { config, ... }:
+      {
+        programs.jujutsu = {
+          enable = true;
+          settings = {
+            user = {
+              email = config.constants.users.logikdev.email;
+              name = config.constants.users.logikdev.fullname;
+            };
+            email = config.constants.users.logikdev.email;
+            signing.behavior = "own";
+            signing.backend = "ssh";
+            signing.key = config.constants.users.logikdev.sshKey;
 
-    homeManager.jj = {
-      programs.jujutsu = {
-        enable = true;
-        settings = {
-          user = {
-            inherit email;
-            name = fullname;
           };
-          inherit email;
-          signing.behavior = "own";
-          signing.backend = "ssh";
-          signing.key = sshKey;
+        };
 
+        programs.starship.settings = {
+          custom.jj = {
+            when = "jj-starship detect";
+            shell = [ "jj-starship" ];
+            format = "$output ";
+          };
         };
       };
-
-      programs.starship.settings = {
-        custom.jj = {
-          when = "jj-starship detect";
-          shell = [ "jj-starship" ];
-          format = "$output ";
-        };
-      };
-    };
   };
 }

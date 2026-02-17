@@ -1,12 +1,12 @@
 {
-  flake.modules.nixos.seedbox =
+  flake.modules.nixos.jellyfin =
     {
       pkgs,
       config,
       ...
     }:
     {
-      services.mytraefik.services.jellyfin.port = 8096;
+      traefik.services.jellyfin.port = 8096;
       users.users.jellyfin.extraGroups = [
         "video"
         "render"
@@ -31,7 +31,7 @@
         };
       };
 
-      services.backups.sources.jellyfin = {
+      backups.sources.jellyfin = {
         paths = [ config.services.jellyfin.dataDir ];
         extraRepositories.local = "/mnt/local";
       };

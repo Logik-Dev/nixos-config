@@ -7,10 +7,8 @@ let
   flake.modules.darwin.m4.imports = [ home ];
 
   logikdevModules = with inputs.self.modules.homeManager; [
-    common
     desktop
     dev
-    #management
     #passwords
     #virtualization
   ];

@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.common = {
+  flake.modules.homeManager.keyboard = {
     home.keyboard = {
       layout = "us";
       variant = "intl";

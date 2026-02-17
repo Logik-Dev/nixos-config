@@ -68,8 +68,8 @@ let
       ...
     }:
     {
-      services.mytraefik.services.minio.port = 9001;
-      services.mytraefik.services.s3.port = 9000;
+      traefik.services.minio.port = 9001;
+      traefik.services.s3.port = 9000;
 
       services.minio = {
         enable = true;
@@ -77,6 +77,26 @@ let
       };
 
       environment.systemPackages = [ pkgs.minio-client ];
+
+      backups.sources.minio = {
+        paths = [ "/mnt/snap-ultra/minio" ];
+        manageService = false;
+        defaultRepositories = {
+          usb = "/mnt/usb";
+        };
+        runBefore =
+          let
+            snap = pkgs.writeShellScriptBin "snap" ''
+              mkdir -p /mnt/snap-ultra
+              ${pkgs.util-linux}/bin/umount /mnt/snap-ultra || true
+              ${pkgs.lvm2.bin}/bin/lvremove -f /dev/vg_ultra/snap-ultra || true
+              ${pkgs.lvm2.bin}/bin/lvcreate -L 100G -n snap-ultra -s /dev/vg_ultra/ultra
+              ${pkgs.util-linux}/bin/mount /dev/vg_ultra/snap-ultra /mnt/snap-ultra
+            '';
+          in
+          "${snap}/bin/snap";
+      };
+
     };
 
 in

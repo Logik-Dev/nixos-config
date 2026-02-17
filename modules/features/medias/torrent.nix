@@ -1,10 +1,10 @@
 { ... }:
 {
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.torrent =
     { config, ... }:
     {
 
-      services.mytraefik.services.torrent.port = 8081;
+      traefik.services.torrent.port = 8081;
 
       systemd.tmpfiles.rules = [ "d /mnt/ultra/qbittorrent 775 logikdev media - -" ];
 
@@ -36,7 +36,7 @@
         };
       };
 
-      services.backups.sources.torrent = {
+      backups.sources.torrent = {
         paths = [ "/mnt/ultra/qbittorrent" ];
         serviceName = "podman-qbittorrent";
         extraRepositories.local = "/mnt/local";

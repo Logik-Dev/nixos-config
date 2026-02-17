@@ -1,7 +1,7 @@
 { ... }:
 {
 
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.postgresql =
     {
       pkgs,
       config,
@@ -10,19 +10,6 @@
     {
       services.postgresql = {
         enable = true;
-
-        initialScript = pkgs.writeText "ownership.sql" ''
-          ALTER DATABASE "sonarr-main" OWNER TO sonarr;
-          ALTER DATABASE "sonarr-logs" OWNER TO sonarr;
-          ALTER DATABASE "radarr-main" OWNER TO radarr;
-          ALTER DATABASE "radarr-logs" OWNER TO radarr;
-          ALTER DATABASE "prowlarr-main" OWNER TO prowlarr;
-          ALTER DATABASE "prowlarr-logs" OWNER TO prowlarr;
-          \c prowlarr-main
-          GRANT ALL ON SCHEMA public TO prowlarr;
-          \c prowlarr-logs
-          GRANT ALL ON SCHEMA public TO prowlarr;
-        '';
 
         # WAL archive
         settings = {
@@ -52,6 +39,8 @@
             s3://pg-backups \
             pg-16 # server-name
         '';
+
+        # TODO reduce and delete old backups
         startAt = "03:00"; # Tous les jours à 3h
       };
     };

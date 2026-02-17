@@ -1,20 +1,15 @@
-{ inputs, ... }:
 let
-  flake.modules.nixos.hyper = {
-    imports = [ inputs.self.modules.nixos.restic ];
-    services.backups.enable = true;
-  };
-
   flake.modules.nixos.restic =
     {
       lib,
       config,
+      pkgs,
       ...
     }:
 
     with lib;
     let
-      cfg = config.services.backups;
+      cfg = config.backups;
 
       source = types.submodule {
         options = {
@@ -46,13 +41,17 @@ let
             type = types.nullOr types.str;
             default = null;
           };
+          runBefore = mkOption {
+            description = "Command to run before backup";
+            type = types.nullOr types.str;
+            default = null;
+          };
 
         };
       };
     in
     {
-      options.services.backups = {
-        enable = mkEnableOption "Enable restic backups";
+      options.backups = {
         sources = mkOption {
           description = "Attribute set of sources";
           type = types.attrsOf source;
@@ -60,7 +59,10 @@ let
         };
       };
 
-      config = mkIf cfg.enable {
+      config = {
+
+        environment.systemPackages = [ pkgs.restic ];
+
         systemd.tmpfiles.rules = [ "d /mnt/usb/restic 0755 root root -" ];
 
         services.restic.backups = mkMerge (
@@ -94,6 +96,9 @@ let
                     // optionalAttrs sourceValue.manageService {
                       backupPrepareCommand = "systemctl stop ${serviceName}.service";
                       backupCleanupCommand = "systemctl start ${serviceName}.service";
+                    }
+                    // optionalAttrs (sourceValue.runBefore != null) {
+                      backupPrepareCommand = sourceValue.runBefore;
                     }
                   );
               }) (sourceValue.defaultRepositories // sourceValue.extraRepositories)

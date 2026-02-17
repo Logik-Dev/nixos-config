@@ -1,21 +1,18 @@
-{ inputs, ... }:
-let
-  inherit (inputs.self.meta.owner) username;
-
-in
 {
-  flake.modules.nixos.hyper = {
+  flake.modules.nixos.hyper =
+    { config, ... }:
+    {
 
-    # home assistant
-    services.mytraefik.services.hass = {
-      port = 8123;
-      host = "192.168.21.181";
+      # TODO move this home assistant
+      traefik.services.hass = {
+        port = 8123;
+        host = "192.168.21.181";
+      };
+
+      users.users."${config.constants.users.logikdev.username}".extraGroups = [ "libvirtd" ];
+
+      virtualisation.libvirtd.enable = true;
     };
-
-    users.users."${username}".extraGroups = [ "libvirtd" ];
-
-    virtualisation.libvirtd.enable = true;
-  };
 
   flake.modules.nixos.sonicmaster = {
     programs.virt-manager.enable = true;

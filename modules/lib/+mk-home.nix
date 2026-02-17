@@ -31,6 +31,7 @@ let
 
   mkDefaultHomeModules = user: isDarwin: [
     inputs.self.modules.homeManager.common
+    inputs.self.modules.homeManager.${user}
     {
       home.username = user;
       home.homeDirectory = if isDarwin then "/Users/${user}" else "/home/${user}";

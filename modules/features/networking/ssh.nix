@@ -1,8 +1,6 @@
 { inputs, ... }:
 let
 
-  inherit (inputs.self.meta.owner) username;
-
   flake.modules.darwin.common = {
     services.openssh.enable = true;
   };
@@ -13,12 +11,12 @@ let
       {
         programs.ssh = {
           enable = true;
+          enableDefaultConfig = false;
           matchBlocks.h.hostname = "192.168.10.100";
         };
       }
       (lib.mkIf (pkgs.stdenv.isDarwin) {
         programs.ssh = {
-          enableDefaultConfig = false;
           matchBlocks."*".identityAgent =
             "/Users/logikdev/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh";
         };
@@ -36,15 +34,17 @@ let
       };
     };
 
-  flake.modules.nixos.hyper = {
-    networking.firewall.allowedTCPPorts = [ 22 ];
-    users.users."${username}" = {
-      openssh.authorizedKeys.keyFiles = [
-        (inputs.self + "/secrets/yubikey.pub")
-        (inputs.self + "/secrets/m4.pub")
-      ];
+  flake.modules.nixos.hyper =
+    { config, ... }:
+    {
+      networking.firewall.allowedTCPPorts = [ 22 ];
+      users.users."${config.constants.users.logikdev.username}" = {
+        openssh.authorizedKeys.keyFiles = [
+          (inputs.self + "/secrets/yubikey.pub")
+          (inputs.self + "/secrets/m4.pub")
+        ];
+      };
     };
-  };
 in
 {
   inherit flake;

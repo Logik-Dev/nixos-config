@@ -6,12 +6,12 @@
     {
       imports =
         let
-          path = inputs.self + "/modules/hosts/${config.networking.hostName}/facter.json";
+          facterPath = inputs.self + "/modules/hosts/${config.networking.hostName}/facter.json";
         in
         [
           inputs.nixos-facter-modules.nixosModules.facter
           {
-            config.facter.reportPath = path;
+            config.facter.reportPath = facterPath;
           }
         ];
     };

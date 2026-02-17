@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.sonarr =
     { pkgs, config, ... }:
     let
       sonarrEnv = pkgs.writeText "sonarr.env" ''
@@ -25,8 +25,8 @@
         ];
       };
 
-      services.mytraefik.services.sonarr.port = 8989;
-      services.mytraefik.services.sonarr.enableAuthelia = true;
+      traefik.services.sonarr.port = 8989;
+      traefik.services.sonarr.enableAuthelia = true;
 
       services.sonarr = {
         enable = true;
@@ -35,7 +35,7 @@
         dataDir = "/mnt/ultra/sonarr";
       };
 
-      services.backups.sources.sonarr = {
+      backups.sources.sonarr = {
         paths = [ config.services.sonarr.dataDir ];
         extraRepositories.local = "/mnt/local";
       };

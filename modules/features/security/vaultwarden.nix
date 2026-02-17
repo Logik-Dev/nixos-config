@@ -1,4 +1,3 @@
-{ ... }:
 {
 
   flake.modules.nixos.vaultwarden =
@@ -15,7 +14,7 @@
         ];
       };
 
-      services.mytraefik.services.vaultwarden.port = 8082;
+      traefik.services.vaultwarden.port = 8082;
 
       services.vaultwarden = {
         enable = true;

@@ -10,13 +10,16 @@ let
     common
     disableNetworkManager
     ddns
+    immich
     kvm-intel
     logikdev
     #libvirt
     no-root-password
     nvidia
-    reverse-proxy
+    postgresql
+    restic
     seedbox
+    traefik
     unifi
     vaultwarden
   ];

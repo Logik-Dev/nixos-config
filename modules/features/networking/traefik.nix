@@ -1,12 +1,5 @@
 { inputs, ... }:
 let
-  inherit (inputs.self.meta.owner) email domain;
-
-  flake.modules.nixos.hyper = {
-    imports = [ inputs.self.modules.nixos.traefik ];
-    services.mytraefik.enable = true;
-  };
-
   flake.modules.nixos.traefik =
     {
       lib,
@@ -15,8 +8,10 @@ let
     }:
     with lib;
     let
-      cfg = config.services.mytraefik;
+      cfg = config.traefik;
       host = config.networking.hostName;
+      domain = config.constants.domain;
+      email = config.constants.users.logikdev.email;
 
       service = types.submodule {
         options = {
@@ -57,8 +52,7 @@ let
     in
     {
 
-      options.services.mytraefik = {
-        enable = mkEnableOption "Enable traefik reverse-proxy";
+      options.traefik = {
         services = mkOption {
           description = "Attribute set of services";
           type = types.attrsOf service;
@@ -66,7 +60,9 @@ let
         };
       };
 
-      config = mkIf cfg.enable {
+      imports = [ inputs.self.modules.nixos.authelia ];
+
+      config = {
 
         networking.firewall.allowedTCPPorts = [
           443

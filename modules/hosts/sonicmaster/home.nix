@@ -11,7 +11,7 @@ let
     desktop
     dev
     gpg
-    management
+    keyboard
     passwords
     virtualization
   ];

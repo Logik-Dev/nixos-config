@@ -1,6 +1,4 @@
-{ inputs, ... }:
 let
-  inherit (inputs.self.meta.owner) domain email;
 
   flake.modules.homeManager.passwords.imports = [
     passwordStore
@@ -15,12 +13,12 @@ let
   };
 
   vaultwardenClient =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     {
       programs.rbw = {
         enable = true;
-        settings.base_url = "https://vaultwarden.k8sp.home.${domain}";
-        settings.email = email;
+        settings.base_url = "https://vaultwarden.home.${config.constants.domain}";
+        settings.email = config.constants.users.logikdev.email;
         settings.pinentry = pkgs.pinentry-gnome3;
       };
     };

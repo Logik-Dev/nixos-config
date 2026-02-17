@@ -1,10 +1,8 @@
-{ inputs, ... }:
-let
-  inherit (inputs.self.meta.owner) username;
-in
 {
-  flake.modules.nixos.hyper = {
-    users.users.${username}.extraGroups = [ "docker" ];
-    virtualisation.docker.enable = true;
-  };
+  flake.modules.nixos.hyper =
+    { config, ... }:
+    {
+      users.users.${config.constants.users.logikdev.username}.extraGroups = [ "docker" ];
+      virtualisation.docker.enable = true;
+    };
 }

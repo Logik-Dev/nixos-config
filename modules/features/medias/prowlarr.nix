@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.hyper =
+  flake.modules.nixos.prowlarr =
     { pkgs, ... }:
     let
       prowlarrEnv = pkgs.writeText "prowlarr.env" ''
@@ -26,8 +26,8 @@
         ];
       };
 
-      services.mytraefik.services.prowlarr.port = 9696;
-      services.mytraefik.services.prowlarr.enableAuthelia = true;
+      traefik.services.prowlarr.port = 9696;
+      traefik.services.prowlarr.enableAuthelia = true;
 
       services.prowlarr = {
         enable = true;

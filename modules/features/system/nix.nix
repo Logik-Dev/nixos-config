@@ -9,6 +9,7 @@ let
         trusted-users = [
           "root"
           "@wheel"
+          "logikdev"
         ];
         experimental-features = [
           "nix-command"

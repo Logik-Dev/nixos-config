@@ -9,6 +9,7 @@ let
     { ... }:
     {
       programs.nixvim.plugins = {
+        emmet.enable = true;
         tiny-inline-diagnostic.enable = true;
         trouble.enable = true;
         nui.enable = true;
@@ -17,6 +18,7 @@ let
         neo-tree.enable = true;
         otter.enable = true;
         comment.enable = true;
+        nvim-autopairs.enable = true;
         neo-tree.settings = {
           window.mappings = {
             l = "open";
