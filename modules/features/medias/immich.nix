@@ -18,7 +18,6 @@
         ];
         database = {
           enable = true;
-          enableVectorChord = true;
           createDB = true;
         };
       };
@@ -38,6 +37,9 @@
       };
 
       hardware.nvidia-container-toolkit.enable = true;
+
+      # TODO fix it
+      systemd.services.nvidia-container-toolkit-cdi-generator.enable = false;
 
       virtualisation.oci-containers.containers = {
         immich-ml = {
