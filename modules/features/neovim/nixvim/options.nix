@@ -29,10 +29,11 @@ let
           number = true;
           relativenumber = true;
           mouse = "a";
-          shiftwidth = 4;
-          tabstop = 4;
           expandtab = true;
           autoindent = true;
+          smartindent = true;
+          shiftwidth = 2;
+          tabstop = 2;
           incsearch = true;
           ignorecase = true;
           smartcase = true;

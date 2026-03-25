@@ -1,4 +1,3 @@
-{ inputs, ... }:
 let
 
   flake.modules.nixos.common.imports = [ default ];
@@ -15,8 +14,18 @@ let
         viAlias = true;
         vimAlias = true;
         plugins.actions-preview.enable = true;
-        colorschemes.tokyonight.enable = true;
+
+        # tokyonight
+        colorschemes.tokyonight.enable = false;
         colorschemes.tokyonight.settings.light_style = "night";
+
+        # catppuccin
+        colorschemes.catppuccin.enable = false;
+        colorschemes.catppuccin.settings.flavour = "mocha";
+
+        # vscode
+        colorschemes.vscode.enable = true;
+
         autoCmd = [
           {
             event = [ "TextYankPost" ];
