@@ -34,5 +34,7 @@
         environmentFiles = [ prowlarrEnv ];
         dataDir = "/mnt/ultra/prowlarr";
       };
+
+      notify.services = [ "prowlarr" ];
     };
 }

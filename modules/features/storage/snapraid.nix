@@ -8,6 +8,8 @@ let
       "d /mnt/parity2 0755 root root -"
     ];
 
+    notify.services = [ "snapraid" ];
+
     services.snapraid = {
       enable = true;
       sync.interval = "10:30";

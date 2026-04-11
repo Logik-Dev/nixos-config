@@ -23,6 +23,9 @@
 
   flake.modules.nixos.hyper = {
     networking.firewall.allowedTCPPorts = [ 5432 ];
+
+    notify.services = [ "tailscale" ];
+
     services.tailscale = {
       useRoutingFeatures = "both";
       extraUpFlags = [ "--ssh" ];

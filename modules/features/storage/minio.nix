@@ -76,6 +76,8 @@ let
         rootCredentialsFile = config.age.secrets.minio.path;
       };
 
+      notify.services = [ "minio" ];
+
       environment.systemPackages = [ pkgs.minio-client ];
 
       backups.sources.minio = {

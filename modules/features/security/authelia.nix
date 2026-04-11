@@ -32,6 +32,8 @@ in
 
       traefik.services.auth.port = 9091;
 
+      notify.services = [ "authelia" ];
+
       # Authelia main
       services.authelia.instances.main = {
         enable = true;

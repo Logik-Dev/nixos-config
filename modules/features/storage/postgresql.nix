@@ -18,6 +18,8 @@
         };
       };
 
+      notify.services = [ "postgresql" ];
+
       systemd.services.postgresql.serviceConfig.EnvironmentFile = config.age.secrets."s3.env".path;
 
       systemd.services.postgresql-base-backup = {

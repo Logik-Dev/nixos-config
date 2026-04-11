@@ -16,6 +16,8 @@
 
       networking.firewall.allowedTCPPorts = [ 53 ];
 
+      notify.services = [ "adguardhome" ];
+
       services.adguardhome = {
         enable = true;
         mutableSettings = true;

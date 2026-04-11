@@ -16,6 +16,8 @@
 
       traefik.services.vaultwarden.port = 8082;
 
+      notify.services = [ "vaultwarden" ];
+
       services.vaultwarden = {
         enable = true;
         dbBackend = "postgresql";

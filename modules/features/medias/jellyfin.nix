@@ -31,6 +31,8 @@
         };
       };
 
+      notify.services = [ "jellyfin" ];
+
       backups.sources.jellyfin = {
         paths = [ config.services.jellyfin.dataDir ];
         extraRepositories.local = "/mnt/local";

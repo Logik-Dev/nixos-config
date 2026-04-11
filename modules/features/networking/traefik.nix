@@ -69,6 +69,8 @@ let
           80
         ];
 
+        notify.services = [ "traefik" ];
+
         services.traefik = {
           enable = true;
           environmentFiles = [

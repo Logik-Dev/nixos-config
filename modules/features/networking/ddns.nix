@@ -15,6 +15,8 @@
         environmentFile = config.age.secrets."ddns.env".path;
       };
 
+      notify.services = [ "cf-ddns" ];
+
       systemd.timers."cf-ddns" = {
         wantedBy = [ "timers.target" ];
         timerConfig = {

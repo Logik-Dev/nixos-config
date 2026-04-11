@@ -28,6 +28,8 @@
       traefik.services.sonarr.port = 8989;
       traefik.services.sonarr.enableAuthelia = true;
 
+      notify.services = [ "sonarr" ];
+
       services.sonarr = {
         enable = true;
         group = "media";

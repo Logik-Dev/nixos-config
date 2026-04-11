@@ -5,6 +5,8 @@
 
     services.jellyseerr.enable = true;
 
+    notify.services = [ "jellyseerr" ];
+
     backups.sources.jellyseerr = {
       paths = [ "/var/lib/jellyseerr" ];
       extraRepositories.local = "/mnt/local";

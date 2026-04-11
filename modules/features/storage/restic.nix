@@ -65,6 +65,8 @@ let
 
         systemd.tmpfiles.rules = [ "d /mnt/usb/restic 0755 root root -" ];
 
+        notify.services = [ "restic" ];
+
         services.restic.backups = mkMerge (
           flatten (
             mapAttrsToList (

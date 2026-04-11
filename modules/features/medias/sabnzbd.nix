@@ -10,6 +10,8 @@
         mode = "0440";
       };
 
+      notify.services = [ "sabnzbd" ];
+
       services.sabnzbd = {
         enable = true;
         group = "media";

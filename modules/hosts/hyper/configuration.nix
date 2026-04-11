@@ -13,6 +13,7 @@ let
     immich
     kvm-intel
     logikdev
+    monitoring
     #libvirt
     no-root-password
     nvidia

@@ -7,8 +7,12 @@
         10001
         3478
       ];
+
       services.unifi.enable = true;
       services.unifi.mongodbPackage = pkgs.mongodb-ce;
+
+      notify.services = [ "unifi" ];
+
       traefik.services.unifi = {
         port = 8443;
         protocol = "https";

@@ -51,5 +51,10 @@
         };
       };
 
+      notify.services = [
+        "podman-immich-ml"
+        "immich"
+      ];
+
     };
 }
