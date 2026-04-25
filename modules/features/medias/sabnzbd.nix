@@ -30,13 +30,6 @@
             movies.dir = "movies";
             tv.dir = "series";
           };
-          servers.eweka = {
-            port = 563;
-            name = "eweka";
-            host = "news.eweka.nl";
-            connections = 20;
-            displayname = "eweka";
-          };
         };
       };
     };
