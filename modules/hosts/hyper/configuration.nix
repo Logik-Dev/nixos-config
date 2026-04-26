@@ -10,6 +10,7 @@ let
     common
     disableNetworkManager
     ddns
+    home
     immich
     kvm-intel
     logikdev
