@@ -16,7 +16,6 @@
           upgrade = true;
         };
         casks = [
-          "alacritty"
           "audacity"
           "discord"
           "gitify"

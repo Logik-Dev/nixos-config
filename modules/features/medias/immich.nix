@@ -39,11 +39,11 @@
       hardware.nvidia-container-toolkit.enable = true;
 
       # TODO fix it
-      systemd.services.nvidia-container-toolkit-cdi-generator.enable = false;
+      systemd.services.nvidia-container-toolkit-cdi-generator.enable = true;
 
       virtualisation.oci-containers.containers = {
         immich-ml = {
-          image = "ghcr.io/immich-app/immich-machine-learning:v2.4.1-cuda";
+          image = "ghcr.io/immich-app/immich-machine-learning:v2.7.5-cuda";
           autoStart = true;
           extraOptions = [ "--gpus=all" ];
           ports = [ "3003:3003" ];

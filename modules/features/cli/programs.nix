@@ -9,7 +9,7 @@
       linuxPackages = if pkgs.stdenv.isLinux then [ pkgs.wl-clipboard ] else [ ];
       os = if pkgs.stdenv.isLinux then "os" else "darwin";
       rebuildHyper = pkgs.writeShellScriptBin "nrt" ''
-        rsync -r --delete "$HOME/Homelab/Nixos/" hyper:/home/logikdev/Homelab/Nixos  
+        rsync -r --exclude '.jj' --exclude '.direnv' --delete "$HOME/Homelab/Nixos/" hyper:/home/logikdev/Homelab/Nixos  
         ssh hyper -- 'nh os switch'
       '';
     in

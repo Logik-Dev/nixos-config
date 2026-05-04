@@ -1,4 +1,4 @@
-{ ... }:
+{ inputs, ... }:
 let
 
   flake.modules.nixos.hyper.imports = [
@@ -68,6 +68,8 @@ let
       ...
     }:
     {
+      # TODO migration to garage
+      nixpkgs.config.permittedInsecurePackages = [ "minio-2025-10-15T17-29-55Z" ];
       traefik.services.minio.port = 9001;
       traefik.services.s3.port = 9000;
 

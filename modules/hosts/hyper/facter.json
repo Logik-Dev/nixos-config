@@ -1559,9 +1559,9 @@
         "model": "Ethernet controller",
         "sysfs_id": "/devices/pci0000:00/0000:00:1c.7/0000:04:00.0",
         "sysfs_bus_id": "0000:04:00.0",
-        "unix_device_name": "enp4s0",
+        "unix_device_name": "management",
         "unix_device_names": [
-          "enp4s0"
+          "management"
         ],
         "resources": [
           {
@@ -1662,11 +1662,11 @@
           "value": 1
         },
         "model": "Ethernet network interface",
-        "sysfs_id": "/class/net/enp4s0",
+        "sysfs_id": "/class/net/management",
         "sysfs_device_link": "/devices/pci0000:00/0000:00:1c.7/0000:04:00.0",
-        "unix_device_name": "enp4s0",
+        "unix_device_name": "management",
         "unix_device_names": [
-          "enp4s0"
+          "management"
         ],
         "resources": [
           {
