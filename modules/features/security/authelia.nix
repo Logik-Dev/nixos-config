@@ -67,7 +67,10 @@ in
               {
                 domain = "*.${config.constants.domain}";
                 policy = "bypass";
-                networks = [ "192.168.10.0/24" ];
+                networks = [
+                  "192.168.10.0/24"
+                  "100.76.159.66/32"
+                ];
               }
 
               # Two Factor for others
