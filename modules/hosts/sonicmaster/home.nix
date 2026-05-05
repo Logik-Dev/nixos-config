@@ -21,6 +21,7 @@ let
   # Home manager in nixos
   home = {
     home-manager.users.logikdev.imports = logikdevConfigWithModules.modules;
+    home-manager.useGlobalPkgs = true;
   };
 
 in

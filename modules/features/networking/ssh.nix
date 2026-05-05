@@ -19,6 +19,10 @@ let
         programs.ssh = {
           matchBlocks."*".identityAgent =
             "/Users/logikdev/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh";
+          matchBlocks.h.extraOptions = {
+            RequestTTY = "yes";
+            RemoteCommand = "zellij attach ssh || zellij -s ssh";
+          };
         };
       })
     ];

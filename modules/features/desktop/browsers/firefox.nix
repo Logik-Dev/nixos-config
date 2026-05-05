@@ -1,9 +1,5 @@
 { inputs, lib, ... }:
 let
-  inherit (inputs.self.meta.owner) domain;
-
-  hyper = app: "https://${app}.hyper.${domain}";
-
   mkBookmarksFolder = folder: bms: {
     name = folder;
     bookmarks = lib.mapAttrsToList (name: url: { inherit name url; }) bms;
@@ -21,24 +17,6 @@ let
     "NUR" = "https://nur.nix-community.org/";
   };
 
-  seedbox = mkBookmarksFolder "Seedbox" {
-    "Jellyseerr" = hyper "jellyseerr";
-    "Jellyfin" = hyper "jellyfin";
-    "Radarr" = hyper "radarr";
-    "Sonarr" = hyper "sonarr";
-    "Prowlarr" = hyper "prowlarr";
-    "Torrent" = hyper "torrent";
-    "Jackett" = hyper "jackett";
-  };
-
-  infra = mkBookmarksFolder "Infra" {
-    "Vaultwarden" = hyper "vaultwarden";
-    "Minio" = hyper "minio";
-    "Adguard" = hyper "dns";
-    "Traefik" = "${hyper "traefik"}/dashboard/";
-    "Unifi" = hyper "unifi";
-  };
-
   github = mkBookmarksFolder "Github" {
     "Logikdev" = "https://github.com/Logik-Dev";
     "Niki modules" = "https://github.com/niki-on-github/nixos-modules";
@@ -52,40 +30,62 @@ let
   linux = mkBookmarksFolder "Linux" {
     "Systemd tmpfiles" = "https://www.freedesktop.org/software/systemd/man/latest/tmpfiles.d.html";
   };
-
-  home = mkBookmarksFolder "Home" {
-    HomeAssistant = hyper "hass";
-    Immich = hyper "immich";
-    N8N = hyper "n8n";
-  };
-
-  toolbar = {
-    name = toolbar;
-    toolbar = true;
-    bookmarks = [
-      nixFolder
-      separator
-      seedbox
-      separator
-      infra
-      separator
-      github
-      separator
-      blogs
-      separator
-      linux
-      separator
-      home
-    ];
-  };
-
 in
 {
   flake.modules.homeManager.browsers =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
+    let
+      domain = config.constants.domain;
+      hyper = app: "https://${app}.hyper.${domain}";
+
+      seedbox = mkBookmarksFolder "Seedbox" {
+        "Jellyseerr" = hyper "jellyseerr";
+        "Jellyfin" = hyper "jellyfin";
+        "Radarr" = hyper "radarr";
+        "Sonarr" = hyper "sonarr";
+        "Prowlarr" = hyper "prowlarr";
+        "Torrent" = hyper "torrent";
+        "Jackett" = hyper "jackett";
+      };
+
+      infra = mkBookmarksFolder "Infra" {
+        "Vaultwarden" = hyper "vaultwarden";
+        "Minio" = hyper "minio";
+        "Adguard" = hyper "dns";
+        "Traefik" = "${hyper "traefik"}/dashboard/";
+        "Unifi" = hyper "unifi";
+      };
+
+      home = mkBookmarksFolder "Home" {
+        HomeAssistant = hyper "hass";
+        Immich = hyper "immich";
+        N8N = hyper "n8n";
+      };
+
+      toolbar = {
+        name = toolbar;
+        toolbar = true;
+        bookmarks = [
+          nixFolder
+          separator
+          seedbox
+          separator
+          infra
+          separator
+          github
+          separator
+          blogs
+          separator
+          linux
+          separator
+          home
+        ];
+      };
+    in
     {
       programs.firefox = {
         enable = true;
+        configPath = "${config.xdg.configHome}/mozilla/firefox";
 
         profiles.logikdev = {
           bookmarks.force = true;

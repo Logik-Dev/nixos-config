@@ -3,7 +3,7 @@
   flake.modules.nixos.jellyseerr = {
     traefik.services.jellyseerr.port = 5055;
 
-    services.jellyseerr.enable = true;
+    services.seerr.enable = true;
 
     notify.services = [ "jellyseerr" ];
 
