@@ -15,12 +15,15 @@ let
     kvm-intel
     logikdev
     monitoring
+    mosquitto
     #libvirt
     no-root-password
     nvidia
     postgresql
     restic
+    rustfs
     seedbox
+    syncthing
     traefik
     unifi
     vaultwarden
