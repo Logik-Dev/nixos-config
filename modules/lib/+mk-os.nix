@@ -17,6 +17,7 @@ let
       inherit system;
 
       modules = [
+        { nixpkgs.config.allowUnfree = true; }
         inputs.self.modules.nixos.${cls}
         inputs.self.modules.nixos.${host}
         {

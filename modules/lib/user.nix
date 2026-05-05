@@ -31,6 +31,7 @@
             hashedPasswordFile = config.age.secrets."${username}-pw".path;
             extraGroups = lib.optionals isAdmin [
               "wheel"
+              "media"
               "networkmanager"
             ];
           };
