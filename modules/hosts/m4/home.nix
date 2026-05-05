@@ -7,6 +7,7 @@ let
   flake.modules.darwin.m4.imports = [ home ];
 
   logikdevModules = with inputs.self.modules.homeManager; [
+    ai-agent
     desktop
     dev
     #passwords

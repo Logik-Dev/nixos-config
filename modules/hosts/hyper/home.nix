@@ -8,6 +8,7 @@ let
 
   logikdevModules = with inputs.self.modules.homeManager; [
     jj
+    dev
   ];
 
   logikdevConfigWithModules = logikdevOnHost "hyper" logikdevModules;

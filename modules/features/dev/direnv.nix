@@ -1,8 +1,12 @@
 {
-  flake.modules.homeManager.dev = {
-    programs.direnv = {
-      enable = true;
-      nix-direnv.enable = true;
+  flake.modules.homeManager.dev =
+    { pkgs, ... }:
+    {
+      programs.direnv = {
+        enable = true;
+        nix-direnv.enable = true;
+      };
+
+      home.packages = [ pkgs.devenv ];
     };
-  };
 }
