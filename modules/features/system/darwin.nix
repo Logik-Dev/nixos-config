@@ -47,7 +47,12 @@
       ...
     }:
     {
-      environment.systemPackages = [ pkgs.mkalias ];
+      environment.systemPackages = [
+        pkgs.mkalias
+        pkgs.neovim
+        pkgs.nixd
+        pkgs.nixfmt
+      ];
 
       system.activationScripts.applications.text = lib.mkForce ''
         echo "Setting up /Applications/Nix Apps..." >&2

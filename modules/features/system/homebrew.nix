@@ -15,17 +15,21 @@
           cleanup = "zap";
           upgrade = true;
         };
+        taps = [
+          "anomalyco/homebrew-tap"
+        ];
+        brews = [ "opencode" ];
         casks = [
           "audacity"
           "discord"
           "gitify"
-          "jellyfin"
           "lm-studio"
           "secretive"
           "slack"
           "sonos"
           "spotify"
           "steam"
+          "syncthing"
           "utm"
           "visual-studio-code"
         ];

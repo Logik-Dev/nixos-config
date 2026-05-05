@@ -17,8 +17,9 @@
             padding.x = 5;
             padding.y = 5;
             startup_mode = "Maximized";
-            opacity = 0.9;
+            opacity = 0.7;
             blur = true;
+            decorations = "Buttonless";
           }
           // lib.optionalAttrs pkgs.stdenv.isDarwin { option_as_alt = "OnlyLeft"; };
         };
