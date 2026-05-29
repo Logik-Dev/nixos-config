@@ -1,17 +1,21 @@
 { inputs, ... }:
-let 
-  
-  flake.modules.nixos.common.imports = [linux];
+let
 
-  flake.modules.darwin.common.imports = [darwin];
+  flake.modules.nixos.common.imports = [ linux ];
 
-  darwin = {...}:{
-    imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
-  };
+  flake.modules.darwin.common.imports = [ darwin ];
 
-  linux = {...}: {
-    imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
-  };
+  darwin =
+    { ... }:
+    {
+      imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
+    };
+
+  linux =
+    { ... }:
+    {
+      imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
+    };
 
 in
 {
