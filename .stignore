@@ -1,0 +1,9 @@
+// jj VCS data — machine-specific operation log, don't sync
+.jj/
+
+// nix direnv cached environments — machine-specific
+.direnv/
+
+// nix build symlinks — ephemeral, recreated locally
+result
+result-*
