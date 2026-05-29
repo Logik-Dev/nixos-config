@@ -12,7 +12,7 @@
 | Action | Command |
 |---|---|
 | Build/check all | `nix flake check` |
-| Format | `nix fmt` (uses nixfmt via treefmt-nix) |
+| Format | `nix fmt` (auto via jj pre-commit hook) |
 | Deploy to hyper | `nix run .#hyper -- switch` |
 | Deploy to m4 | `nix run .#m4 -- switch` |
 | Deploy to sonicmaster | `nix run .#sonicmaster -- switch` |
@@ -47,3 +47,4 @@ Always run `nix flake check` before committing.
 - nixd uses `nixpkgs=${inputs.nixpkgs}` nixPath (`modules/features/system/nix.nix:7`).
 - git repos track both `.jj/` (Jujutsu) and `.git/`. Don't assume `git` is the only VCS.
 - CI: none (no `.github/workflows`). Relies on local `nix flake check`.
+- Formatting is automatic: jj pre-commit hook runs `nix fmt` on every commit.
