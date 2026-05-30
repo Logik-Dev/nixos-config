@@ -5,7 +5,7 @@
 - **flake-parts** + **import-tree** — modules are auto-discovered from `modules/`. No `default.nix` import files needed; just drop a `.nix` anywhere and set `flake.modules.{nixos,darwin,homeManager}.<name>.imports`.
 - **Dendritic pattern**: every module file writes into `flake.modules.*.<name>.imports` instead of using traditional `imports = [ ./... ]`. Host configs compose by appending to those named lists.
 - Three hosts: `hyper` (x86_64-linux, production server), `sonicmaster` (x86_64-linux, media server), `m4` (aarch64-darwin, laptop).
-- User config constants at `modules/features/system/constants.nix:20-31` (domain, email, GPG/SSH keys). **Bug**: line 25 uses `/home/logikev` (missing `d`).
+- User config constants at `modules/features/system/constants.nix:20-31` (domain, email, GPG/SSH keys).
 
 ## Commands
 
