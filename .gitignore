@@ -5,6 +5,7 @@ result-*
 *.swp
 *.swo
 .stfolder/
+.claude/
 *.qcow2
 **/.terraform/*
 **/generated/**
