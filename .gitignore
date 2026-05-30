@@ -1,5 +1,10 @@
 .direnv
 result
+result-*
+.DS_Store
+*.swp
+*.swo
+.stfolder/
 *.qcow2
 **/.terraform/*
 **/generated/**
