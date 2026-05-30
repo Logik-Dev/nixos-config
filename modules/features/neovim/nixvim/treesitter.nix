@@ -1,9 +1,9 @@
 { ... }:
 let
 
-  flake.modules.nixos.common.imports = [ treesitter ];
+  flake.modules.nixos.neovim.imports = [ treesitter ];
 
-  flake.modules.darwin.common.imports = [ treesitter ];
+  flake.modules.darwin.neovim.imports = [ treesitter ];
 
   treesitter =
     { ... }:

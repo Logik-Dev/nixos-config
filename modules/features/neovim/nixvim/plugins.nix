@@ -1,9 +1,9 @@
 { ... }:
 let
 
-  flake.modules.nixos.common.imports = [ plugins ];
+  flake.modules.nixos.neovim.imports = [ plugins ];
 
-  flake.modules.darwin.common.imports = [ plugins ];
+  flake.modules.darwin.neovim.imports = [ plugins ];
 
   plugins =
     { ... }:

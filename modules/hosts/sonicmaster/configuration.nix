@@ -10,6 +10,7 @@ let
     gnome
     kvm-intel
     logikdev
+    neovim
     network
     yubikey
   ];

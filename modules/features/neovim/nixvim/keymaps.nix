@@ -1,9 +1,9 @@
 { ... }:
 let
 
-  flake.modules.nixos.common.imports = [ keymaps ];
+  flake.modules.nixos.neovim.imports = [ keymaps ];
 
-  flake.modules.darwin.common.imports = [ keymaps ];
+  flake.modules.darwin.neovim.imports = [ keymaps ];
 
   keymap = mode: desc: key: action: {
     inherit action key mode;

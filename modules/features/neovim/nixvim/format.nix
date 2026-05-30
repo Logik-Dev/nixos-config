@@ -1,9 +1,9 @@
 { ... }:
 let
 
-  flake.modules.nixos.common.imports = [ conform ];
+  flake.modules.nixos.neovim.imports = [ conform ];
 
-  flake.modules.darwin.common.imports = [ conform ];
+  flake.modules.darwin.neovim.imports = [ conform ];
 
   conform =
     { lib, pkgs, ... }:

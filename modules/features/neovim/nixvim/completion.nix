@@ -1,9 +1,9 @@
 { ... }:
 let
 
-  flake.modules.nixos.common.imports = [ blink ];
+  flake.modules.nixos.neovim.imports = [ blink ];
 
-  flake.modules.darwin.common.imports = [ blink ];
+  flake.modules.darwin.neovim.imports = [ blink ];
 
   blink = {
     programs.nixvim.plugins.blink-cmp = {

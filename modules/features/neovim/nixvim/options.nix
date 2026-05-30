@@ -1,9 +1,9 @@
 { ... }:
 let
 
-  flake.modules.nixos.common.imports = [ options ];
+  flake.modules.nixos.neovim.imports = [ options ];
 
-  flake.modules.darwin.common.imports = [ options ];
+  flake.modules.darwin.neovim.imports = [ options ];
 
   options =
     { pkgs, lib, ... }:

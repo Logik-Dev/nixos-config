@@ -1,9 +1,9 @@
 { inputs, ... }:
 let
 
-  flake.modules.nixos.common.imports = [ linux ];
+  flake.modules.nixos.neovim.imports = [ linux ];
 
-  flake.modules.darwin.common.imports = [ darwin ];
+  flake.modules.darwin.neovim.imports = [ darwin ];
 
   darwin =
     { ... }:

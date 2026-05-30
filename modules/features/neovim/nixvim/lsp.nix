@@ -1,8 +1,8 @@
 { ... }:
 let
-  flake.modules.nixos.common.imports = lsp;
+  flake.modules.nixos.neovim.imports = lsp;
 
-  flake.modules.darwin.common.imports = lsp;
+  flake.modules.darwin.neovim.imports = lsp;
 
   lsp = [
     #asm
