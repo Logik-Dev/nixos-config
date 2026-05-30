@@ -38,7 +38,6 @@
 
       hardware.nvidia-container-toolkit.enable = true;
 
-      # TODO fix it
       systemd.services.nvidia-container-toolkit-cdi-generator.enable = true;
 
       virtualisation.oci-containers.containers = {

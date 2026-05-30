@@ -28,7 +28,7 @@ let
           };
         };
 
-        hmts.enable = false; # TODO enable when fixed
+        hmts.enable = true;
       };
     };
 

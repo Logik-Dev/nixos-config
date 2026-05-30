@@ -2,7 +2,6 @@
   flake.modules.nixos.hyper =
     { config, ... }:
     {
-      # TODO move this home assistant
       traefik.services.hass = {
         port = 8123;
         host = "192.168.21.181";

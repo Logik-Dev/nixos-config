@@ -19,7 +19,6 @@ let
       monitoring
       mosquitto
       neovim
-      #libvirt
       no-root-password
       nvidia
       postgresql
