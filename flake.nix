@@ -26,13 +26,6 @@
       url = "github:Logik-Dev/cf-ddns";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    pushr = {
-      url = "github:Logik-Dev/pushr";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    allfollow = {
-      url = "github:spikespaz/allfollow";
-    };
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
     };
@@ -64,6 +57,11 @@
       url = "github:nix-community/NUR";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    rankoder = {
+      url = "github:Logik-Dev/rankoder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     rustfs = {
       url = "github:rustfs/rustfs-flake";
       inputs.nixpkgs.follows = "nixpkgs";
