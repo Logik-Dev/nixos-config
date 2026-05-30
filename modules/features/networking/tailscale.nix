@@ -1,6 +1,6 @@
 {
 
-  flake.modules.darwin.common = {
+  flake.modules.darwin.tailscale = {
     # Must be set to configure DNS
     networking.knownNetworkServices = [
       "Thunderbolt Bridge"
@@ -12,7 +12,7 @@
     };
   };
 
-  flake.modules.nixos.common =
+  flake.modules.nixos.tailscale =
     { config, ... }:
     {
       services.tailscale = {
@@ -21,22 +21,4 @@
       };
     };
 
-  flake.modules.nixos.hyper = {
-    networking.firewall.allowedTCPPorts = [ 5432 ];
-
-    notify.services = [ "tailscale" ];
-
-    services.tailscale = {
-      useRoutingFeatures = "both";
-      extraUpFlags = [ "--ssh" ];
-      extraSetFlags = [ "--advertise-routes=192.168.10.0/24,192.168.21.0/24" ];
-    };
-  };
-
-  flake.modules.nixos.sonicmaster = {
-    services.tailscale = {
-      useRoutingFeatures = "client";
-      extraUpFlags = [ "--accept-routes" ];
-    };
-  };
 }

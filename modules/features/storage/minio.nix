@@ -1,15 +1,6 @@
 { inputs, ... }:
 let
 
-  flake.modules.nixos.hyper.imports = [
-    minio
-    {
-      services.minio.dataDir = [
-        "/mnt/ultra/minio"
-      ];
-    }
-  ];
-
   flake.modules.darwin.common =
     { pkgs, ... }:
     {
@@ -67,12 +58,8 @@ let
       ];
     };
 
-  minio =
-    {
-      config,
-      pkgs,
-      ...
-    }:
+  flake.modules.nixos.minio =
+    { config, pkgs, ... }:
     {
       # TODO migration to garage
       nixpkgs.config.permittedInsecurePackages = [ "minio-2025-10-15T17-29-55Z" ];

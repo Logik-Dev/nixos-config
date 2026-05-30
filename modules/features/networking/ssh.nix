@@ -38,17 +38,6 @@ let
       };
     };
 
-  flake.modules.nixos.hyper =
-    { config, ... }:
-    {
-      networking.firewall.allowedTCPPorts = [ 22 ];
-      users.users."${config.constants.users.logikdev.username}" = {
-        openssh.authorizedKeys.keyFiles = [
-          (inputs.self + "/secrets/yubikey.pub")
-          (inputs.self + "/secrets/m4.pub")
-        ];
-      };
-    };
 in
 {
   inherit flake;

@@ -3,10 +3,13 @@
   ...
 }:
 let
-  flake.modules.darwin.m4.imports = with inputs.self.modules.darwin; [
-    common
-    logikdev
-  ];
+  flake.modules.darwin.m4.imports =
+    (with inputs.self.modules.darwin; [
+      common
+      logikdev
+      tailscale
+    ])
+    ++ [ ];
 
 in
 {
