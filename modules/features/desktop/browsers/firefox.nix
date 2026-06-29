@@ -50,7 +50,7 @@ in
 
       infra = mkBookmarksFolder "Infra" {
         "Vaultwarden" = hyper "vaultwarden";
-        "Minio" = hyper "minio";
+        "RustFS" = hyper "rustfs";
         "Adguard" = hyper "dns";
         "Traefik" = "${hyper "traefik"}/dashboard/";
         "Unifi" = hyper "unifi";
