@@ -94,13 +94,14 @@ let
                         "--keep-yearly 2"
                       ];
                     }
-                    # Stop service before and restart it after
-                    // optionalAttrs sourceValue.manageService {
-                      backupPrepareCommand = "systemctl stop ${serviceName}.service";
-                      backupCleanupCommand = "systemctl start ${serviceName}.service";
+                    // optionalAttrs (sourceValue.manageService || sourceValue.runBefore != null) {
+                      backupPrepareCommand = lib.concatStringsSep "\n" (
+                        lib.optional sourceValue.manageService "systemctl stop ${serviceName}.service"
+                        ++ lib.optional (sourceValue.runBefore != null) sourceValue.runBefore
+                      );
                     }
-                    // optionalAttrs (sourceValue.runBefore != null) {
-                      backupPrepareCommand = sourceValue.runBefore;
+                    // optionalAttrs sourceValue.manageService {
+                      backupCleanupCommand = "systemctl start ${serviceName}.service";
                     }
                   );
               }) (sourceValue.defaultRepositories // sourceValue.extraRepositories)
