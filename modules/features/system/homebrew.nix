@@ -12,7 +12,7 @@
         global.autoUpdate = true;
         onActivation = {
           autoUpdate = true;
-          cleanup = "zap";
+          #cleanup = "uninstall";
           upgrade = true;
         };
         taps = [
@@ -29,7 +29,7 @@
           "sonos"
           "spotify"
           "steam"
-          "syncthing"
+          "syncthing-app"
           "utm"
           "visual-studio-code"
         ];
