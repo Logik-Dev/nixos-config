@@ -22,12 +22,6 @@
         enable = true;
         mutableSettings = true;
         settings = {
-          users = [
-            {
-              name = config.constants.users.logikdev.username;
-              password = "$2y$05$wzc0PDmM39F1IIQQwNtMt.Rmc0.M7MIo9TpNeVZrJqhemcbrbmXIG";
-            }
-          ];
           dns = {
             upstream_dns = [
               "9.9.9.9"
@@ -46,6 +40,11 @@
             }
           ];
         };
+      };
+
+      backups.sources.adguard = {
+        paths = [ "/var/lib/AdGuardHome" ];
+        extraRepositories.local = "/mnt/local";
       };
     };
 }
