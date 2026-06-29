@@ -15,16 +15,17 @@ let
       immich
       kvm-intel
       logikdev
-      minio
       monitoring
-      mosquitto
+      mqtt
       neovim
-      no-root-password
+      hardening
       nvidia
       postgresql
+      rankoder
       restic
       rustfs
       seedbox
+      smartd
       syncthing
       tailscale
       traefik
@@ -53,11 +54,8 @@ let
         users.users.logikdev.openssh.authorizedKeys.keyFiles = [
           (inputs.self + "/secrets/yubikey.pub")
           (inputs.self + "/secrets/m4.pub")
+          (inputs.self + "/secrets/id_ed25519.pub")
         ];
-      }
-      # minio data directory
-      {
-        services.minio.dataDir = [ "/mnt/ultra/minio" ];
       }
     ];
 
