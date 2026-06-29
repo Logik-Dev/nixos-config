@@ -17,7 +17,7 @@ let
     {
       programs.rbw = {
         enable = true;
-        settings.base_url = "https://vaultwarden.home.${config.constants.domain}";
+        settings.base_url = "https://vaultwarden.hyper.${config.constants.domain}";
         settings.email = config.constants.users.logikdev.email;
         settings.pinentry = pkgs.pinentry-gnome3;
       };
