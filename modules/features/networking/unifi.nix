@@ -16,6 +16,7 @@
       traefik.services.unifi = {
         port = 8443;
         protocol = "https";
+        insecureSkipVerify = true;
       };
     };
 }

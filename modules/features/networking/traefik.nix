@@ -47,6 +47,12 @@ let
             type = types.bool;
             default = false;
           };
+
+          insecureSkipVerify = mkOption {
+            description = "Skip TLS certificate verification for this backend (e.g. self-signed certs)";
+            type = types.bool;
+            default = false;
+          };
         };
       };
     in
@@ -86,9 +92,6 @@ let
             api.dashboard = true;
             api.insecure = false;
 
-            # skip cert verify
-            serversTransport.insecureSkipVerify = true;
-
             # HTTP
             entryPoints.http = {
               address = "192.168.10.100:80";
@@ -126,6 +129,9 @@ let
               authResponseHeaders = "Remote-User,Remote-Groups,Remote-Email,Remote-Name";
             };
 
+            # transport for backends with self-signed certs (e.g. UniFi)
+            http.serversTransports.insecure.insecureSkipVerify = true;
+
             # router
             http.routers =
               (mapAttrs' (
@@ -155,11 +161,14 @@ let
             http.services = mapAttrs' (
               service: value:
               nameValuePair service {
-                loadBalancer.servers = [
-                  {
-                    url = "${value.protocol}://${value.host}:${toString value.port}";
-                  }
-                ];
+                loadBalancer = {
+                  servers = [
+                    {
+                      url = "${value.protocol}://${value.host}:${toString value.port}";
+                    }
+                  ];
+                  serversTransport = lib.mkIf value.insecureSkipVerify "insecure@file";
+                };
               }
             ) cfg.services;
 
