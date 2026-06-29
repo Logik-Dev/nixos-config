@@ -6,20 +6,36 @@ let
   };
 
   flake.modules.homeManager.common =
-    { lib, pkgs, ... }:
+    {
+      lib,
+      pkgs,
+      config,
+      ...
+    }:
     lib.mkMerge [
       {
         programs.ssh = {
           enable = true;
           enableDefaultConfig = false;
-          matchBlocks.h.hostname = "192.168.10.100";
+          settings = {
+            h.HostName = "192.168.10.100";
+            ogms.HostName = "46.62.144.160";
+          };
         };
       }
       (lib.mkIf (pkgs.stdenv.isDarwin) {
-        programs.ssh = {
-          matchBlocks."*".identityAgent =
-            "/Users/logikdev/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh";
-          matchBlocks.h.extraOptions = {
+        home.file.".ssh/controlmasters/.keep".text = "";
+        programs.ssh.settings = {
+          "*" = {
+            #identityAgent = "/Users/logikdev/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh";
+            AddKeysToAgent = "yes";
+            UseKeychain = "yes";
+            ControlMaster = "auto";
+            ControlPersist = "60m";
+            ControlPath = "${config.home.homeDirectory}/.ssh/controlmasters/%r@%h:%p";
+
+          };
+          h = {
             RequestTTY = "yes";
             RemoteCommand = "zellij attach ssh || zellij -s ssh";
           };
