@@ -14,7 +14,7 @@ let
   linux =
     { ... }:
     {
-      imports = [ inputs.nixvim.nixDarwinModules.nixvim ];
+      imports = [ inputs.nixvim.nixosModules.nixvim ];
     };
 
 in

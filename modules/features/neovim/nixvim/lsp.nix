@@ -75,32 +75,39 @@ let
     ];
 
   };
-  nix = {
-    programs.nixvim.plugins.lspconfig.enable = true;
-    programs.nixvim.lsp.servers = {
-      nil_ls.enable = true;
-      nixd = {
-        enable = true;
+  nix =
+    { pkgs, ... }:
+    let
+      isDarwin = pkgs.stdenv.isDarwin;
+      flakePath = if isDarwin then "/Users/logikdev/Homelab/Nixos" else "/home/logikdev/Homelab/Nixos";
+      withHost = opts: ''(builtins.getFlake "${flakePath}").${opts}'';
+      osConfig =
+        if isDarwin then "darwinConfigurations.m4.options" else "nixosConfigurations.sonicmaster.options";
+      homeManagerConfig =
+        if isDarwin then
+          ''homeConfigurations."logikdev@m4".options''
+        else
+          ''homeConfigurations."logikdev@sonicmaster".options'';
+    in
+    {
+      programs.nixvim.plugins.lspconfig.enable = true;
+      programs.nixvim.lsp.servers = {
+        nil_ls.enable = true;
+        nixd = {
+          enable = true;
 
-        config.settings.nixd = {
-          nixpkgs.expr = "import <nixpkgs> {}";
-          options =
-            let
-              withSonicmaster = opts: ''(builtins.getFlake "/home/logikdev/Homelab/Nixos").${opts}'';
-              withM4 = opts: ''(builtins.getFlake "/Users/logikdev/Homelab/Nixos").${opts}'';
-            in
-            {
-              #nixos.expr = withSonicmaster "nixosConfigurations.sonicmaster.options";
-              nixos.expr = withM4 "darwinConfigurations.m4.options";
-              homeManagerSonimaster.expr = withSonicmaster ''homeConfigurations."logikdev@sonicmaster".options'';
-              homeManagerM4.expr = withM4 ''homeConfigurations."logikdev@m4".options'';
-              nixvim.expr = withSonicmaster ''homeConfigurations."logikdev@sonicmaster".options.programs.nixvim.type.getSubOptions []'';
-              flakeParts.expr = withSonicmaster "debug.options";
+          config.settings.nixd = {
+            nixpkgs.expr = "import <nixpkgs> {}";
+            options = {
+              nixos.expr = withHost osConfig;
+              homeManager.expr = withHost homeManagerConfig;
+              nixvim.expr = withHost ''homeConfigurations."logikdev@sonicmaster".options.programs.nixvim.type.getSubOptions []'';
+              flakeParts.expr = withHost "debug.options";
             };
+          };
         };
       };
     };
-  };
 
 in
 {
