@@ -5,12 +5,13 @@
         EDITOR = "nvim";
       };
     };
-    homeManager.common = {
+    homeManager.common = { pkgs, ... }: {
       home.sessionVariables = {
         EDITOR = "nvim";
         LAB = "$HOME/Homelab";
         FLAKE = "$HOME/Homelab/Nixos";
-        SSH_AUTH_SOCK = "$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh";
+        SECRETSPEC_PROVIDER = if pkgs.stdenv.hostPlatform.isDarwin then "keyring" else "dotenv";
+        #SSH_AUTH_SOCK = "$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh";
       };
     };
   };
