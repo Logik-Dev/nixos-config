@@ -7,6 +7,7 @@
     { pkgs, config, ... }:
     let
       linuxPackages = if pkgs.stdenv.isLinux then [ pkgs.wl-clipboard ] else [ ];
+      darwinPackages = if pkgs.stdenv.isDarwin then [ pkgs.brave ] else [ ];
       os = if pkgs.stdenv.isLinux then "os" else "darwin";
       rebuildHyper = pkgs.writeShellScriptBin "nrt" ''
         ssh hyper -- 'nh os switch'
@@ -14,8 +15,7 @@
     in
     {
       home.packages = [
-        pkgs.barman
-        pkgs.brave
+        #pkgs.barman TODO only on nixos
         pkgs.bat
         pkgs.dig
         pkgs.dust
@@ -28,7 +28,8 @@
         pkgs.ttyper
         rebuildHyper
       ]
-      ++ linuxPackages;
+      ++ linuxPackages
+      ++ darwinPackages;
 
       programs.nh = {
         enable = true;
