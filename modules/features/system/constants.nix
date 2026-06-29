@@ -27,6 +27,7 @@
             email = "logikdevfr@gmail.com";
             gpg = "F5A34D392D22853E7EB1FA85AC259B4007CB7CE9";
             sshKey = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBKu/AimR2iGXlkfsUyzMuSg/ytgeNqTAeJZNcABv6kKwDngRojJDotsXbfRUZPOnsEyi0ZlwAaAtuVv3Caj7ePY=";
+            sshKeyMac = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOvOpCZkkrtpmyjeYoHG9YacwW1uy4tvQ3PXjjy05CU7 logikdev@m4";
           };
         };
       };
