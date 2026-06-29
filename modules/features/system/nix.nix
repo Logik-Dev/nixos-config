@@ -16,6 +16,7 @@ let
           "flakes"
           "pipe-operators"
         ];
+        auto-optimise-store = true;
       };
     };
   };
@@ -24,11 +25,13 @@ in
   flake.modules = {
     darwin.common = {
       imports = [ nixCommon ];
+      nix.gc.automatic = true;
       nix.gc.interval = "weekly";
     };
 
     nixos.common = {
       imports = [ nixCommon ];
+      nix.gc.automatic = true;
       nix.gc.dates = "weekly";
     };
 
