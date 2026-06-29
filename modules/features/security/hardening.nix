@@ -1,6 +1,7 @@
 {
-  flake.modules.nixos.no-root-password = {
+  flake.modules.nixos.hardening = {
     security.sudo.wheelNeedsPassword = false;
+    users.users.root.hashedPassword = "!";
   };
 
   flake.modules.darwin.common = {
