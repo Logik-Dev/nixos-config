@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.nixos.sabnzbd =
-    { config, ... }:
+    { lib, config, ... }:
     {
       traefik.services.sabnzbd.port = 8088;
 
@@ -11,6 +11,8 @@
       };
 
       notify.services = [ "sabnzbd" ];
+
+      systemd.services.sabnzbd.serviceConfig.UMask = lib.mkForce "0002";
 
       services.sabnzbd = {
         enable = true;

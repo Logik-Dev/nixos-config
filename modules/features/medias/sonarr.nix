@@ -1,7 +1,12 @@
 { ... }:
 {
   flake.modules.nixos.sonarr =
-    { pkgs, config, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     let
       sonarrEnv = pkgs.writeText "sonarr.env" ''
         SONARR__POSTGRES__HOST=/var/run/postgresql
@@ -29,6 +34,8 @@
       traefik.services.sonarr.enableAuthelia = true;
 
       notify.services = [ "sonarr" ];
+
+      systemd.services.sonarr.serviceConfig.UMask = lib.mkForce "0002";
 
       services.sonarr = {
         enable = true;

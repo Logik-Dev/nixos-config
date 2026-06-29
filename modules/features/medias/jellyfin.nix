@@ -2,6 +2,7 @@
   flake.modules.nixos.jellyfin =
     {
       pkgs,
+      lib,
       config,
       ...
     }:
@@ -11,6 +12,8 @@
         "video"
         "render"
       ];
+
+      systemd.services.jellyfin.serviceConfig.UMask = lib.mkForce "0002";
 
       services.jellyfin = {
         enable = true;

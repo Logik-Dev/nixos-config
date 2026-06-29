@@ -1,7 +1,12 @@
 { ... }:
 {
   flake.modules.nixos.radarr =
-    { pkgs, config, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     let
       radarrEnv = pkgs.writeText "radarr.env" ''
         RADARR__POSTGRES__HOST=/var/run/postgresql
@@ -29,6 +34,7 @@
       traefik.services.radarr.port = 7878;
       traefik.services.radarr.enableAuthelia = true;
 
+      systemd.services.radarr.serviceConfig.UMask = lib.mkForce "0002";
       services.radarr = {
         enable = true;
         group = "media";
