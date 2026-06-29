@@ -14,7 +14,7 @@ let
         trouble.enable = true;
         nui.enable = true;
         web-devicons.enable = true;
-        web-devicons.autoload = true;
+        web-devicons.autoLoad = true;
         neo-tree.enable = true;
         otter.enable = true;
         comment.enable = true;
