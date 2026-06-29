@@ -43,7 +43,7 @@ let
           yubikeyIdentity
           {
             pubkey = "age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h";
-            identity = "${config.constants.users.logikdev.homeDir}/.config/age/keys.txt";
+            identity = "/Users/logikdev/.config/age/keys.txt";
           }
         ];
 
