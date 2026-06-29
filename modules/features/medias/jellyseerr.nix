@@ -1,14 +1,14 @@
 { ... }:
 {
-  flake.modules.nixos.jellyseerr = {
-    traefik.services.jellyseerr.port = 5055;
+  flake.modules.nixos.seerr = {
+    traefik.services.seerr.port = 5055;
 
     services.seerr.enable = true;
 
-    notify.services = [ "jellyseerr" ];
+    notify.services = [ "seerr" ];
 
-    backups.sources.jellyseerr = {
-      paths = [ "/var/lib/jellyseerr" ];
+    backups.sources.seerr = {
+      paths = [ "/var/lib/seerr" ];
       extraRepositories.local = "/mnt/local";
     };
 

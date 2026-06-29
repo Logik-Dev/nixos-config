@@ -24,7 +24,7 @@
       imports = with inputs.self.modules.nixos; [
         #jackett
         jellyfin
-        jellyseerr
+        seerr
         prowlarr
         radarr
         sabnzbd
