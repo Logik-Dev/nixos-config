@@ -27,7 +27,7 @@ in
             email = config.constants.users.logikdev.email;
             signing.behavior = "own";
             signing.backend = "ssh";
-            signing.key = config.constants.users.logikdev.sshKey;
+            signing.key = config.constants.users.logikdev.sshKeyMac;
 
           };
         };

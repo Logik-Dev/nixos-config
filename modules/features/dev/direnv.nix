@@ -8,5 +8,7 @@
       };
 
       home.packages = [ pkgs.devenv ];
+
+      programs.fish.shellInitLast = "devenv hook fish | source";
     };
 }
