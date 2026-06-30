@@ -15,6 +15,7 @@ let
       immich
       kvm-intel
       logikdev
+      blackbox
       monitoring
       mqtt
       neovim
