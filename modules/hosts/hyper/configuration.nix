@@ -17,6 +17,7 @@ let
       logikdev
       blackbox
       alertmanager
+      loki
       monitoring
       mqtt
       neovim
