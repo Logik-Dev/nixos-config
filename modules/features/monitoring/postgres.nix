@@ -6,7 +6,7 @@
       listenAddress = "127.0.0.1";
       port = 9187;
       runAsLocalSuperUser = true;
-      dataSource = "host=/run/postgresql dbname=postgres user=postgres sslmode=disable";
+      dataSourceName = "host=/run/postgresql dbname=postgres user=postgres sslmode=disable";
       extraFlags = [
         "--collector.database"
         "--collector.replication_slot"
@@ -15,11 +15,12 @@
       ];
     };
 
-    services.postgresql.users.prometheus = {
-      name = "prometheus";
-      ensureDBOwnership = false;
-      superuser = true;
-    };
+    services.postgresql.ensureUsers = [
+      {
+        name = "prometheus";
+        ensureClauses.SUPERUSER = true;
+      }
+    ];
 
     notify.services = [ "prometheus-postgres-exporter" ];
   };

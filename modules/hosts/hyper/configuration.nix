@@ -18,6 +18,7 @@ let
       monitoring
       mqtt
       neovim
+      gpu
       hardening
       node
       nvidia
