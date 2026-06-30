@@ -15,7 +15,7 @@
           };
           security = {
             admin_password = "$__file{${config.age.secrets."grafana-admin-pw".path}}";
-            secret_key = "SW2YcwTIb9zpOOhoPsMm";
+            secret_key = "$__file{${config.age.secrets."grafana-admin-pw".path}}";
             disable_gravatar = true;
           };
           auth.anonymous_enabled = false;
