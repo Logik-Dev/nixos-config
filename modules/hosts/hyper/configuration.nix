@@ -19,6 +19,7 @@ let
       mqtt
       neovim
       hardening
+      node
       nvidia
       postgresql
       rankoder
