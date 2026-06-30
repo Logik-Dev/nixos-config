@@ -21,6 +21,7 @@ let
       hardening
       node
       nvidia
+      postgres
       postgresql
       rankoder
       restic
