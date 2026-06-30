@@ -8,6 +8,8 @@
     {
       networking.firewall.allowedTCPPorts = [ 1883 ];
 
+      age.secrets.mqtt.owner = "zigbee2mqtt";
+
       services.mosquitto = {
         enable = true;
         listeners = [
@@ -18,11 +20,11 @@
             settings.allow_anonymous = true; # IoT devices without auth
             users.zigbee2mqtt = {
               passwordFile = config.age.secrets."mqtt".path;
-              acl = [ "topic readwrite zigbee2mqtt/#" ];
+              acl = [ "readwrite zigbee2mqtt/#" ];
             };
             users.homeassistant = {
               passwordFile = config.age.secrets."mqtt".path;
-              acl = [ "topic readwrite #" ];
+              acl = [ "readwrite #" ];
             };
           }
         ];
@@ -87,7 +89,7 @@
       systemd.services.zigbee2mqtt.preStart = ''
         umask 077
         printf "mqtt_password: %s\n" "$(cat ${config.age.secrets."mqtt".path})" \
-          > ${config.services.zigbee2mqtt.dataDir}/secrets.yaml
+          > ${config.services.zigbee2mqtt.dataDir}/secret.yaml
       '';
     };
 }
