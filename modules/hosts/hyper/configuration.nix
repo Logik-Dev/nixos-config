@@ -27,6 +27,7 @@ let
       postgresql
       rankoder
       restic
+      resticExporter
       rustfs
       seedbox
       smartd
