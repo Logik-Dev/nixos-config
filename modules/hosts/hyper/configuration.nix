@@ -16,6 +16,7 @@ let
       kvm-intel
       logikdev
       blackbox
+      alertmanager
       monitoring
       mqtt
       neovim
