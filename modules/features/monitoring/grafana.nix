@@ -1,4 +1,4 @@
-{ config, ... }:
+{ ... }:
 {
   flake.modules.nixos.grafana =
     { config, ... }:
@@ -15,7 +15,7 @@
           };
           security = {
             admin_password = "$__file{${config.age.secrets."grafana-admin-pw".path}}";
-            secret_key = "$__file{${config.age.secrets."grafana-admin-pw".path}}";
+            secret_key = "$__file{${config.age.secrets."grafana-secret-key".path}}";
             disable_gravatar = true;
           };
           auth.anonymous_enabled = false;

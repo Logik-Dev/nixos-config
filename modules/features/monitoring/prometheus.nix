@@ -109,7 +109,7 @@
                   }
                   {
                     alert = "HighDiskUsage";
-                    expr = "(node_filesystem_size_bytes{{mountpoint!~\".*(.gvfs|dock.*|containerd.*)\"}} - node_filesystem_avail_bytes{{mountpoint!~\".*(.gvfs|dock.*|containerd.*)\"}}) / node_filesystem_size_bytes{{mountpoint!~\".*(.gvfs|dock.*|containerd.*)\"}} > 0.80";
+                    expr = ''(node_filesystem_size_bytes{mountpoint!~".*(.gvfs|dock.*|containerd.*)"} - node_filesystem_avail_bytes{mountpoint!~".*(.gvfs|dock.*|containerd.*)"}) / node_filesystem_size_bytes{mountpoint!~".*(.gvfs|dock.*|containerd.*)"} > 0.80'';
                     for = "5m";
                     labels.severity = "warning";
                     annotations = {
