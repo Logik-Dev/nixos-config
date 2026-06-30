@@ -8,7 +8,7 @@
     notify.services = [ "seerr" ];
 
     backups.sources.seerr = {
-      paths = [ "/var/lib/seerr" ];
+      paths = [ "/var/lib/jellyseerr" ];
       extraRepositories.local = "/mnt/local";
     };
 
