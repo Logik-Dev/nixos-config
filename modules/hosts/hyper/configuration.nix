@@ -28,6 +28,7 @@ let
       postgres
       postgresql
       prometheus
+      promtail
       rankoder
       restic
       resticExporter
