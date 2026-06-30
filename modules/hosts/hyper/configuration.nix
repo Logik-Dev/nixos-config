@@ -34,6 +34,7 @@ let
       restic
       resticExporter
       rustfs
+      uptimeKuma
       seedbox
       smartd
       syncthing
