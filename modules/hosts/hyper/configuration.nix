@@ -17,6 +17,7 @@ let
       logikdev
       blackbox
       alertmanager
+      grafana
       loki
       monitoring
       mqtt

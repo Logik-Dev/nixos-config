@@ -1,0 +1,53 @@
+{
+  "annotations": { "list": [] },
+  "title": "PostgreSQL Overview",
+  "uid": "postgres-overview",
+  "version": 1,
+  "schemaVersion": 39,
+  "tags": ["postgres", "database"],
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Connections",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "expr": "pg_stat_activity_count{state=\"active\"}", "legendFormat": "{{datname}}" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Database Size",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "expr": "pg_database_size_bytes{datname!=\"template0\",datname!=\"template1\"}", "legendFormat": "{{datname}}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "type": "stat",
+      "title": "Transactions/sec",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "expr": "rate(pg_stat_database_xact_commit[5m]) + rate(pg_stat_database_xact_rollback[5m])", "legendFormat": "{{datname}}" } ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Connections by State",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "expr": "pg_stat_activity_count", "legendFormat": "{{state}} {{datname}}" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Transaction Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "rate(pg_stat_database_xact_commit[5m])", "legendFormat": "committed {{datname}}" },
+        { "expr": "rate(pg_stat_database_xact_rollback[5m])", "legendFormat": "rolled back {{datname}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    }
+  ]
+}

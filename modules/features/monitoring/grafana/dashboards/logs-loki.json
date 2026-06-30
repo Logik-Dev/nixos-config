@@ -1,0 +1,35 @@
+{
+  "annotations": { "list": [] },
+  "title": "Logs (Loki)",
+  "uid": "logs-loki",
+  "version": 1,
+  "schemaVersion": 39,
+  "tags": ["logs", "loki"],
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "logs",
+      "title": "Systemd Journal",
+      "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "{job=\"systemd-journal\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showLogContextToggle": true,
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}
