@@ -25,6 +25,7 @@ let
       nvidia
       postgres
       postgresql
+      prometheus
       rankoder
       restic
       resticExporter
