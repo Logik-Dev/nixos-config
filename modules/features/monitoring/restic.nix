@@ -23,6 +23,9 @@
           description = "Prometheus restic exporter for ${name}";
           wantedBy = [ "multi-user.target" ];
           after = [ "network.target" ];
+          # sftp repos (Hetzner Storage Box) need the ssh client on PATH: the
+          # exporter shells out to restic which shells out to ssh.
+          path = lib.optionals (lib.hasPrefix "sftp:" repository) [ pkgs.openssh ];
           serviceConfig = {
             Type = "simple";
             DynamicUser = dynamicUser;
@@ -105,9 +108,7 @@
         resticExporters = instances;
 
         systemd.services = lib.listToAttrs (
-          map (
-            inst: lib.nameValuePair "prometheus-restic-exporter-${inst.name}" (mkExporter inst)
-          ) instances
+          map (inst: lib.nameValuePair "prometheus-restic-exporter-${inst.name}" (mkExporter inst)) instances
         );
 
         notify.services = map (inst: "prometheus-restic-exporter-${inst.name}") instances;
