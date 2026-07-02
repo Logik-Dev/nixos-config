@@ -11,6 +11,22 @@
         level = "info"
       }
 
+      loki.relabel "journal" {
+        forward_to = []
+        rule {
+          source_labels = ["__journal__systemd_unit"]
+          target_label = "unit"
+        }
+        rule {
+          source_labels = ["__journal__priority"]
+          target_label = "priority"
+        }
+        rule {
+          source_labels = ["__journal__transport"]
+          target_label = "transport"
+        }
+      }
+
       loki.source.journal "systemd" {
         max_age = "12h"
         path = "/var/log/journal"
@@ -18,20 +34,7 @@
           job = "systemd-journal",
           host = "hyper",
         }
-        relabel_rules = <<-EOF
-          rule {
-            source_labels = ["__journal__systemd_unit"]
-            target_label = "unit"
-          }
-          rule {
-            source_labels = ["__journal__priority"]
-            target_label = "priority"
-          }
-          rule {
-            source_labels = ["__journal__transport"]
-            target_label = "transport"
-          }
-        EOF
+        relabel_rules = loki.relabel.journal.rules
         forward_to = [loki.write.local.receiver]
       }
 

@@ -14,11 +14,10 @@
           path_prefix = "/var/lib/loki";
           replication_factor = 1;
           ring.kvstore.store = "inmemory";
-        };
-
-        storage = {
-          type = "filesystem";
-          filesystem.directory = "/var/lib/loki/chunks";
+          storage.filesystem = {
+            chunks_directory = "/var/lib/loki/chunks";
+            rules_directory = "/var/lib/loki/rules";
+          };
         };
 
         schema_config.configs = [

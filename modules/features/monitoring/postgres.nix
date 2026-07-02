@@ -10,8 +10,8 @@
       extraFlags = [
         "--collector.database"
         "--collector.replication_slot"
-        "--collector.pg_long_running_transactions"
-        "--collector.pg_stat_activity"
+        "--collector.long_running_transactions"
+        "--collector.stat_activity_autovacuum"
       ];
     };
 

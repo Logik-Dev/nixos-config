@@ -3,12 +3,15 @@
   flake.modules.nixos.grafana =
     { config, ... }:
     {
+      age.secrets."grafana-admin-pw".owner = "grafana";
+      age.secrets."grafana-secret-key".owner = "grafana";
+
       services.grafana = {
         enable = true;
         settings = {
           server = {
             http_addr = "127.0.0.1";
-            http_port = 3000;
+            http_port = 3002;
             domain = "grafana.${config.networking.hostName}.${config.constants.domain}";
             root_url = "https://%(domain)s/";
             serve_from_sub_path = false;
@@ -52,7 +55,7 @@
       };
 
       traefik.services.grafana = {
-        port = 3000;
+        port = 3002;
         enableAuthelia = true;
       };
 
