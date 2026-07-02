@@ -11,6 +11,7 @@ let
       common
       disableNetworkManager
       ddns
+      fail2ban
       hetznerStoragebox
       home
       immich
@@ -47,11 +48,10 @@ let
     ++ [
       # host-specific tailscale config
       {
+        # Only SSH needs a hole here. Postgres (5432) listens on localhost
+        # only, and 3333/11434 (dead ollama) had no listener — all removed.
         networking.firewall.allowedTCPPorts = [
           22
-          5432
-          3333
-          11434
         ];
         notify.services = [ "tailscale" ];
         services.tailscale = {
@@ -59,7 +59,6 @@ let
           extraUpFlags = [ "--ssh" ];
           extraSetFlags = [ "--advertise-routes=192.168.10.0/24,192.168.21.0/24" ];
         };
-        traefik.services.ollama.port = 11434;
       }
       # host-specific SSH authorized keys
       {
