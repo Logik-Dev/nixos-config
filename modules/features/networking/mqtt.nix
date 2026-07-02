@@ -9,6 +9,7 @@
       networking.firewall.allowedTCPPorts = [ 1883 ];
 
       age.secrets.mqtt.owner = "zigbee2mqtt";
+      age.secrets."zigbee2mqtt-network-key".owner = "zigbee2mqtt";
 
       services.mosquitto = {
         enable = true;
@@ -68,32 +69,21 @@
               82
               215
             ]; # 7a8db05ba2a352d7
-            network_key = [
-              87
-              199
-              73
-              118
-              235
-              218
-              34
-              79
-              127
-              69
-              213
-              177
-              157
-              120
-              54
-              193
-            ]; # 57c74976ebda224f7f45d5b19d7836c1
+            # Rotated 2026-07-02: the old key was committed in plaintext to this
+            # PUBLIC repo. New key lives in agenix (zigbee2mqtt-network-key) and
+            # is injected into secret.yaml by the preStart below. Changing it
+            # re-forms the Zigbee network → all devices must be re-paired.
+            network_key = "!secret network_key";
           };
         };
       };
 
       systemd.services.zigbee2mqtt.preStart = ''
         umask 077
-        printf "mqtt_password: %s\n" "$(cat ${config.age.secrets."mqtt".path})" \
-          > ${config.services.zigbee2mqtt.dataDir}/secret.yaml
+        {
+          printf "mqtt_password: %s\n" "$(cat ${config.age.secrets."mqtt".path})"
+          printf "network_key: %s\n" "$(cat ${config.age.secrets."zigbee2mqtt-network-key".path})"
+        } > ${config.services.zigbee2mqtt.dataDir}/secret.yaml
       '';
 
       # database.db (device state) + coordinator_backup.json — the Zigbee
