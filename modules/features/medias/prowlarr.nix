@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.nixos.prowlarr =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     let
       prowlarrEnv = pkgs.writeText "prowlarr.env" ''
         PROWLARR__POSTGRES__HOST=/var/run/postgresql
@@ -36,5 +36,11 @@
       };
 
       notify.services = [ "prowlarr" ];
+
+      # Indexer configs + API key (config.xml); the DB itself is in postgres.
+      backups.sources.prowlarr = {
+        paths = [ config.services.prowlarr.dataDir ];
+        extraRepositories.local = "/mnt/local";
+      };
     };
 }

@@ -60,5 +60,12 @@
       };
 
       notify.services = [ "grafana" ];
+
+      # grafana.db (SQLite): users, API keys, annotations, dashboard state not
+      # covered by Nix provisioning. Stopped during backup for a consistent copy.
+      backups.sources.grafana = {
+        paths = [ "/var/lib/grafana" ];
+        extraRepositories.local = "/mnt/local";
+      };
     };
 }

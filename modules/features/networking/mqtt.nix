@@ -91,5 +91,12 @@
         printf "mqtt_password: %s\n" "$(cat ${config.age.secrets."mqtt".path})" \
           > ${config.services.zigbee2mqtt.dataDir}/secret.yaml
       '';
+
+      # database.db (device state) + coordinator_backup.json — the Zigbee
+      # network pairings. Stopped during backup for a consistent snapshot.
+      backups.sources.zigbee2mqtt = {
+        paths = [ config.services.zigbee2mqtt.dataDir ];
+        extraRepositories.local = "/mnt/local";
+      };
     };
 }

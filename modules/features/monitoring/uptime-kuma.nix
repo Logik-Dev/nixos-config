@@ -14,5 +14,12 @@
     };
 
     notify.services = [ "uptime-kuma" ];
+
+    # DynamicUser service: real state lives under /var/lib/private. Stop it
+    # during backup (default) so the SQLite monitor DB is consistent.
+    backups.sources.uptime-kuma = {
+      paths = [ "/var/lib/private/uptime-kuma" ];
+      extraRepositories.local = "/mnt/local";
+    };
   };
 }

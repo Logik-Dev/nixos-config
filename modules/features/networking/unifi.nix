@@ -13,6 +13,15 @@
 
       notify.services = [ "unifi" ];
 
+      # UniFi writes self-consistent .unf backups here; grab those live instead
+      # of stopping the slow controller + embedded mongo (raw mongo files would
+      # be inconsistent anyway). Restore via the controller's "Restore" UI.
+      backups.sources.unifi = {
+        paths = [ "/var/lib/unifi/data/backup/autobackup" ];
+        manageService = false;
+        extraRepositories.local = "/mnt/local";
+      };
+
       traefik.services.unifi = {
         port = 8443;
         protocol = "https";
