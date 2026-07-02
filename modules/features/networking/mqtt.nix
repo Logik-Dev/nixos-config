@@ -13,11 +13,15 @@
       services.mosquitto = {
         enable = true;
         listeners = [
+          # Single listener, authentication required (no anonymous). z2m connects
+          # over loopback and Home Assistant (192.168.21.181) over the LAN, both
+          # with the credentials below. Closing anonymous is the whole point:
+          # previously anyone on the LAN/Tailscale could read and publish.
           {
             address = "0.0.0.0";
             port = 1883;
             omitPasswordAuth = false;
-            settings.allow_anonymous = true; # IoT devices without auth
+            settings.allow_anonymous = false;
             users.zigbee2mqtt = {
               passwordFile = config.age.secrets."mqtt".path;
               acl = [ "readwrite zigbee2mqtt/#" ];
@@ -35,7 +39,7 @@
         enable = true;
         settings = {
           homeassistant = lib.mkForce true;
-          permit_join = true; # à désactiver après appairage
+          permit_join = false; # ré-activer via l'UI z2m uniquement pour appairer
           serial.port = "/dev/ttyUSB0";
           mqtt = {
             server = "mqtt://localhost:1883";
