@@ -45,6 +45,11 @@
       backups.sources.adguard = {
         paths = [ "/var/lib/AdGuardHome" ];
         extraRepositories.local = "/mnt/local";
+        # AdGuard Home is the host's DNS resolver (nameservers = 127.0.0.1,
+        # resolved disabled). The default manageService stops it during the
+        # backup, which kills DNS resolution and makes the S3 backup fail to
+        # resolve s3.hyper.logikdev.fr. Back it up live instead.
+        manageService = false;
       };
     };
 }

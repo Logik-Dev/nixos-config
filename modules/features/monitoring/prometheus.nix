@@ -1,7 +1,7 @@
 { config, ... }:
 {
   flake.modules.nixos.prometheus =
-    { config, ... }:
+    { config, lib, ... }:
     let
       host = config.networking.hostName;
       domain = config.constants.domain;
@@ -32,28 +32,14 @@
             static_configs = [ { targets = [ "127.0.0.1:9835" ]; } ];
           }
           {
-            job_name = "restic-s3";
+            job_name = "restic";
             scrape_interval = "60s";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9753" ];
-                labels = {
-                  repository = "s3";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "restic-usb";
-            scrape_interval = "60s";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9754" ];
-                labels = {
-                  repository = "usb";
-                };
-              }
-            ];
+            static_configs = map (inst: {
+              targets = [ "127.0.0.1:${toString inst.port}" ];
+              labels = {
+                repository = inst.name;
+              };
+            }) config.resticExporters;
           }
           {
             job_name = "blackbox_http";
