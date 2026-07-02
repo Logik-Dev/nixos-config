@@ -7,7 +7,7 @@
         signing.key = config.constants.users.logikdev.sshKeyMac;
         signing.signByDefault = true;
         settings.user.email = config.constants.users.logikdev.email;
-        extraConfig.gpg.format = "ssh";
+        settings.gpg.format = "ssh";
       };
     };
 }

@@ -26,7 +26,6 @@ in
     darwin.common = {
       imports = [ nixCommon ];
       nix.gc.automatic = true;
-      nix.gc.interval = "weekly";
     };
 
     nixos.common = {
