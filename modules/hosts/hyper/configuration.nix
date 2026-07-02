@@ -11,6 +11,7 @@ let
       common
       disableNetworkManager
       ddns
+      hetznerStoragebox
       home
       immich
       kvm-intel

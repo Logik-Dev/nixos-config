@@ -24,6 +24,13 @@ let
             default = {
               s3 = "s3:https://s3.hyper.logikdev.fr";
               usb = "/mnt/usb";
+              # Offsite copy on the Hetzner Storage Box (SFTP backend). SSH
+              # client config + pinned host key live in
+              # modules/features/storage/hetzner-storagebox.nix.
+              # The box's writable storage is exposed at /home (real "/" is
+              # read-only), so the base must be /home; yields repository
+              # sftp:...:/home/restic/<source> per source.
+              hetzner = "sftp:u625917@u625917.your-storagebox.de:/home";
             };
           };
           extraRepositories = mkOption {
