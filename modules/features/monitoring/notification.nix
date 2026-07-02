@@ -27,6 +27,11 @@
             listen-http = ":2586";
             behind-proxy = true;
             auth-file = "/var/lib/ntfy-sh/auth.db";
+            # Deny everything by default; grants are provisioned by the
+            # ntfy-setup oneshot below (anonymous write-only on the alert
+            # topics, read-only for the phone). Closes anonymous READ of the
+            # alert topics, which carry system log excerpts.
+            auth-default-access = "deny-all";
             cache-file = "/var/lib/ntfy-sh/cache.db";
             upstream-base-url = "https://ntfy.sh";
           };
@@ -66,6 +71,40 @@
                   ExecStart = "${script} %i";
                 };
 
+              };
+
+            # Provision ntfy access control on top of auth-default-access=deny-all.
+            ntfy-setup =
+              let
+                ntfy = "${config.services.ntfy-sh.package}/bin/ntfy";
+              in
+              {
+                description = "Provision ntfy access control (grants)";
+                after = [ "ntfy-sh.service" ];
+                requires = [ "ntfy-sh.service" ];
+                wantedBy = [ "multi-user.target" ];
+                serviceConfig = {
+                  Type = "oneshot";
+                  RemainAfterExit = true;
+                };
+                environment = {
+                  NTFY_AUTH_FILE = config.services.ntfy-sh.settings.auth-file;
+                  NTFY_AUTH_DEFAULT_ACCESS = "deny-all";
+                };
+                script = ''
+                  set -eu
+                  # Publishers (alertmanager-ntfy, notify-failure) post from
+                  # localhost; anonymous write-only lets them publish without
+                  # credentials while anonymous READ stays denied.
+                  ${ntfy} access everyone homelab-alerts write-only
+                  ${ntfy} access everyone service-failure write-only
+
+                  # Read-only account for the phone (password from agenix).
+                  # Change later with: ntfy user change-pass reader
+                  NTFY_PASSWORD="$(cat ${config.age.secrets."ntfy-reader-pw".path})" \
+                    ${ntfy} user add reader 2>/dev/null || true
+                  ${ntfy} access reader '*' read-only
+                '';
               };
           }
 
