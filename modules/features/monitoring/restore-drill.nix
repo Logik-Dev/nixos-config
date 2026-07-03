@@ -11,9 +11,10 @@
 
       # One line per (source × repository), space-separated: "<name> <repo> <mode>".
       # immich (~440 GB) and rustfs (~485 GB — it holds every s3 restic repo,
-      # incl. immich-s3) are verified structurally only for now; a full
-      # --read-data on them is too heavy to run weekly. Deferred — see the
-      # restore-drill notes. Everything else is small, so full --read-data is cheap.
+      # incl. immich-s3) are too large for a weekly full --read-data. In the
+      # weekly restic-check they get a structural `restic check` only; their
+      # blob-level verification is done incrementally by restic-read-data below
+      # (a rotating slice). Everything else is small, so full --read-data is cheap.
       bigSources = [
         "immich"
         "rustfs"
@@ -29,6 +30,11 @@
         ) config.backups.sources
       );
       repoLines = lib.concatMapStringsSep "\n" (r: "${r.name} ${r.repository} ${r.mode}") resticRepos;
+
+      # The big repos, for restic-read-data's rotating slice check.
+      bigRepoLines = lib.concatMapStringsSep "\n" (r: "${r.name} ${r.repository}") (
+        lib.filter (r: r.mode == "struct") resticRepos
+      );
 
       # Sourced by every drill: accumulates a human-readable body with add(),
       # then posts ONE formatted message to the dedicated backup-verify topic on
@@ -68,7 +74,8 @@
       systemd.services = {
         # 1. Integrity of every restic repo. `restic check` (structure) always;
         #    `--read-data` (re-decrypts real blobs, catches silent corruption)
-        #    for everything except immich (too large, deferred).
+        #    for everything except the big repos (immich/rustfs), which are
+        #    covered incrementally by restic-read-data.
         restic-check = {
           description = "Weekly integrity check of all restic repositories";
           startAt = "Sun 05:00";
@@ -100,7 +107,7 @@
             ${repoLines}
             REPOS
             add "repos OK: $OK — KO: $KO"
-            add "(immich = structurel seul, read-data différé)"
+            add "(immich/rustfs = structurel seul ici, read-data via restic-read-data)"
             exit $FAILED
           '';
         };
@@ -206,6 +213,50 @@
             [ "$st" = f ] || exit 1
             case "$VW" in "" | *[!0-9]*) exit 1 ;; esac
             case "$PW" in "" | *[!0-9]*) exit 1 ;; esac
+          '';
+        };
+
+        # 4. Blob-level read-data for the big repos (immich ×3, rustfs-usb),
+        #    too large for a weekly full read. Each week reads one rotating
+        #    slice N/13 (derived from the ISO week), so the whole repo is
+        #    re-decrypted over ~13 weeks. Hetzner traffic is free; the cost is
+        #    home bandwidth (~1/13 of ~430 GB) + local disk I/O.
+        restic-read-data = {
+          description = "Weekly rotating read-data verification of big repos (immich, rustfs)";
+          startAt = "Sun 08:00";
+          path = [
+            pkgs.restic
+            pkgs.openssh
+          ]
+          ++ commonPath;
+          serviceConfig = {
+            Type = "oneshot";
+            EnvironmentFile = config.age.secrets."restic.env".path;
+            # Downloads a slice from Hetzner + reads slices from USB — can be long.
+            TimeoutStartSec = "6h";
+          };
+          script = ''
+            source ${reportLib}
+            TITLE="restic-read-data (slice tournante)"
+            SLICES=13
+            N=$(( 10#$(date +%V) % SLICES + 1 ))
+            add "slice $N/$SLICES (semaine ISO $(date +%V))"
+            OK=0; KO=0; FAILED=0
+            LOG="$(mktemp)"
+            while read -r name repo; do
+              [ -z "$name" ] && continue
+              if restic -r "$repo" check --read-data-subset="$N/$SLICES" >"$LOG" 2>&1; then
+                OK=$((OK + 1)); add "✓ $name"
+              else
+                KO=$((KO + 1)); FAILED=1
+                add "✗ $name"
+                add "$(tail -n 3 "$LOG")"
+              fi
+            done <<'REPOS'
+            ${bigRepoLines}
+            REPOS
+            add "OK: $OK — KO: $KO — couverture complète tous les $SLICES cycles"
+            exit $FAILED
           '';
         };
       };

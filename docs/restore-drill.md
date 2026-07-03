@@ -25,9 +25,10 @@ Module : `modules/features/monitoring/restore-drill.nix`. Résultats postés (su
 
 | Service systemd | Quand | Ce qu'il prouve |
 |---|---|---|
-| `restic-check` | dim. 05:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`/`rustfs` (trop gros, différé) |
+| `restic-check` | dim. 05:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`/`rustfs` (couverts par `restic-read-data`) |
 | `restore-canary` | dim. 06:00 | Restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` |
 | `postgres-restore-drill` | dim. 07:00 | Restore barman réel → instance jetable → requêtes sur vaultwarden/prowlarr |
+| `restic-read-data` | dim. 08:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur les gros repos immich ×3 + rustfs-usb → couverture complète tous les ~13 cycles |
 
 Lancer un drill à la main :
 
@@ -36,9 +37,11 @@ systemctl start postgres-restore-drill.service
 journalctl -u postgres-restore-drill.service -f
 ```
 
-> **Différé** : le `--read-data` complet sur `immich` (~440 Go) et `rustfs` (~485 Go,
-> il contient les repos s3 dont immich-s3) est volontairement exclu (voir `bigSources`
-> dans le module). À réactiver plus tard, une fois le seed offsite d'Immich terminé.
+> **Gros repos (`immich` ~440 Go, `rustfs` ~485 Go)** : trop volumineux pour un
+> `--read-data` complet hebdo. `restic-check` ne fait qu'un contrôle structurel dessus ;
+> la vérification des blobs est faite par `restic-read-data` en **slice tournante `N/13`**
+> (restic impose `t ≤ 256`), soit ~1/13 relu chaque semaine → couverture totale par
+> trimestre. Trafic Hetzner gratuit ; coût = ~1/13 de la bande passante + I/O disque local.
 
 ---
 
