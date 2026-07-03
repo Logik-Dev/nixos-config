@@ -129,6 +129,21 @@ rm -rf /mnt/ultra/restore-test
 dans le vrai `PGDATA` (`/var/lib/postgresql/16`), **garder** `archive_mode` et enlever le
 `port`/`socket` override, puis `systemctl start postgresql`.
 
+### 2b-bis. Restore Postgres depuis le dump offsite (désastre, sans S3)
+
+Quand rustfs/barman ne sont plus disponibles (maison brûlée), restaurer depuis le
+`pg_dumpall` logique offsite — aucune infra S3 requise :
+
+```sh
+set -a; . /run/agenix/restic.env; set +a
+REPO=sftp:u625917@u625917.your-storagebox.de:/home/restic/pg-dump
+restic -r "$REPO" restore latest --target /mnt/ultra/restore-test
+# Recharger le cluster complet (rôles + toutes les bases) :
+sudo -u postgres "$PG"/psql -f /mnt/ultra/restore-test/mnt/ultra/pg-dump/pg-dumpall.sql
+```
+
+Le dump est fait avec `--clean --if-exists`, donc rejouable sur une instance vierge.
+
 ### 2c. Bare-metal / disaster recovery
 
 1. Réinstaller NixOS, cloner le repo, restaurer les identités agenix master.

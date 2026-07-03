@@ -63,6 +63,31 @@
 
         startAt = "Sun 03:00";
       };
+
+      # OFFSITE logical backup of the whole cluster (roles + every DB).
+      # barman above is the on-site PITR primary, but its store lives in rustfs
+      # (on-site only), so postgres had no offsite copy — yet the crown jewels
+      # (vaultwarden vault, prowlarr, immich metadata) all live here. This
+      # pg_dumpall is small and trivially restorable (pg_restore/psql, no S3
+      # needed) and is shipped to Hetzner + usb, closing the 3-2-1 gap.
+      # The dump is written to a fixed filename (overwritten each run) so the
+      # staging dir never accumulates; restic retention bounds the repo history.
+      backups.sources.pg-dump = {
+        paths = [ "/mnt/ultra/pg-dump" ];
+        manageService = false;
+        defaultRepositories = {
+          hetzner = "sftp:u625917@u625917.your-storagebox.de:/home";
+          usb = "/mnt/usb";
+        };
+        runBefore = "${pkgs.writeShellScript "pg-dumpall" ''
+          set -euo pipefail
+          mkdir -p /mnt/ultra/pg-dump
+          ${pkgs.util-linux}/bin/runuser -u postgres -- \
+            ${config.services.postgresql.finalPackage}/bin/pg_dumpall --clean --if-exists \
+            > /mnt/ultra/pg-dump/pg-dumpall.sql.tmp
+          mv -f /mnt/ultra/pg-dump/pg-dumpall.sql.tmp /mnt/ultra/pg-dump/pg-dumpall.sql
+        ''}";
+      };
     };
 
 }
