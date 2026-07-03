@@ -12,7 +12,7 @@
       settings = {
         server = {
           host = "127.0.0.1";
-          port = 3003;
+          port = 3004;
         };
 
         branding.custom-footer = "Homelab hyper";
@@ -204,7 +204,7 @@
     };
 
     traefik.services.home = {
-      port = 3003;
+      port = 3004;
       enableAuthelia = true;
     };
 
