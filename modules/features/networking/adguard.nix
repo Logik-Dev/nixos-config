@@ -5,6 +5,7 @@
     {
 
       traefik.services.dns.port = 3000;
+      traefik.services.dns.enableAuthelia = true;
 
       # resolved conflicts with adguard port
       services.resolved.enable = false;

@@ -2,6 +2,7 @@
 {
   flake.modules.nixos.seerr = {
     traefik.services.seerr.port = 5055;
+    traefik.services.seerr.enableAuthelia = true;
 
     services.seerr.enable = true;
 

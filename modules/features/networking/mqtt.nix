@@ -36,6 +36,7 @@
       };
 
       traefik.services.zigbee.port = 8788;
+      traefik.services.zigbee.enableAuthelia = true;
       services.zigbee2mqtt = {
         enable = true;
         settings = {

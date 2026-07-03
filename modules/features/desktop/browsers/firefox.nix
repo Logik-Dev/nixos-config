@@ -44,8 +44,6 @@ in
         "Radarr" = hyper "radarr";
         "Sonarr" = hyper "sonarr";
         "Prowlarr" = hyper "prowlarr";
-        "Torrent" = hyper "torrent";
-        "Jackett" = hyper "jackett";
       };
 
       infra = mkBookmarksFolder "Infra" {

@@ -8,6 +8,7 @@
       ];
 
       traefik.services.rustfs.port = 9001;
+      traefik.services.rustfs.enableAuthelia = true;
       traefik.services.s3.port = 9000;
 
       notify.services = [ "rustfs" ];

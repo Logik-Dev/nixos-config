@@ -26,6 +26,7 @@
         port = 8443;
         protocol = "https";
         insecureSkipVerify = true;
+        enableAuthelia = true;
       };
     };
 }

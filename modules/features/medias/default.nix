@@ -22,14 +22,12 @@
       ];
 
       imports = with inputs.self.modules.nixos; [
-        #jackett
         jellyfin
         seerr
         prowlarr
         radarr
         sabnzbd
         sonarr
-        #torrent
       ];
     };
 }

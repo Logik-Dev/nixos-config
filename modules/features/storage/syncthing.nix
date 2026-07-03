@@ -20,6 +20,7 @@ in
       {
         imports = [ secretsOwner ];
         traefik.services.syncthing.port = 8384;
+        traefik.services.syncthing.enableAuthelia = true;
         networking.firewall.allowedTCPPorts = [ 22000 ];
         networking.firewall.allowedUDPPorts = [ 22000 ];
         services.syncthing = {

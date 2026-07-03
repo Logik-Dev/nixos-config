@@ -4,6 +4,7 @@
     { lib, config, ... }:
     {
       traefik.services.sabnzbd.port = 8088;
+      traefik.services.sabnzbd.enableAuthelia = true;
 
       age.secrets."sabnzbd-credentials.ini" = {
         group = "media";

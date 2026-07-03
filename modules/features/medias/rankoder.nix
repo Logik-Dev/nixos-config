@@ -13,6 +13,7 @@
     ];
 
     traefik.services.rankoder.port = 8765;
+    traefik.services.rankoder.enableAuthelia = true;
 
     services.rankoder = {
       enable = true;
