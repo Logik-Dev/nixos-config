@@ -98,6 +98,8 @@
                   # credentials while anonymous READ stays denied.
                   ${ntfy} access everyone homelab-alerts write-only
                   ${ntfy} access everyone service-failure write-only
+                  # Restore-drill heartbeat/results (formatted, success + failure).
+                  ${ntfy} access everyone backup-verify write-only
 
                   # Read-only account for the phone (password from agenix).
                   # Change later with: ntfy user change-pass reader

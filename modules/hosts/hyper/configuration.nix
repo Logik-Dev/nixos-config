@@ -35,6 +35,7 @@ let
       rankoder
       restic
       resticExporter
+      restoreDrill
       rustfs
       uptimeKuma
       seedbox
