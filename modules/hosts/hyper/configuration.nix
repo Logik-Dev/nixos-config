@@ -19,6 +19,7 @@ let
       logikdev
       blackbox
       alertmanager
+      glance
       grafana
       loki
       monitoring
