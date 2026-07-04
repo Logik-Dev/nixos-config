@@ -38,6 +38,15 @@
             # restic.env only ships RESTIC_PASSWORD. Materialize the password
             # into a runtime file before launching the exporter.
             ExecStart = pkgs.writeShellScript "restic-exporter-${name}-start" ''
+              ${lib.optionalString (lib.hasPrefix "sftp:" repository) ''
+                # Stagger sftp exporters: on a deploy they all restart at once,
+                # and a dozen simultaneous sftp sessions trips the Storage
+                # Box's per-IP connection limit, which temp-bans the home IP
+                # (~25 min, ports 22/23 refused) — re-triggered forever by
+                # tight restart loops. The sleep runs inside the main process
+                # (Type=simple) so it never delays the nixos switch.
+                sleep "$((RANDOM % 300))"
+              ''}
               umask 0077
               printf '%s' "$RESTIC_PASSWORD" > "$RUNTIME_DIRECTORY/password"
               export RESTIC_PASSWORD_FILE="$RUNTIME_DIRECTORY/password"
@@ -45,6 +54,10 @@
               exec ${pkgs.prometheus-restic-exporter}/bin/restic-exporter.py
             '';
             EnvironmentFile = config.age.secrets."restic.env".path;
+            # Slow the restart loop for remote repos: hammering a refused
+            # connection every few seconds is exactly what keeps the Storage
+            # Box ban alive.
+            RestartSec = lib.mkIf (lib.hasPrefix "sftp:" repository) 300;
             Environment = [
               "LISTEN_ADDRESS=127.0.0.1"
               "LISTEN_PORT=${toString port}"

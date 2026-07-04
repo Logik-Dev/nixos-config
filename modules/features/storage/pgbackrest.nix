@@ -43,6 +43,14 @@
           spool-path = "/var/spool/pgbackrest";
           compress-type = "zst";
           process-max = 4;
+
+          # The default lock-path is /tmp/pgbackrest — but postgresql.service
+          # has PrivateTmp, so a `pgbackrest stop` issued from a shell writes
+          # its stop file in a /tmp the in-service archive-push NEVER sees
+          # (learned 2026-07-04: the "stopped" archiver kept hammering the
+          # banned Storage Box for hours). /run is shared across the sandbox
+          # boundary, so stop/start actually reach every pgbackrest process.
+          lock-path = "/run/pgbackrest";
         };
 
         # Keep WAL pushes gentle on the Storage Box: it enforces a connection
@@ -148,6 +156,7 @@
         "/var/spool/pgbackrest"
         "/var/log/pgbackrest"
         "/mnt/usb/pgbackrest"
+        "/run/pgbackrest"
       ];
 
       # libssh2 reads the sftp private key directly as the running user
@@ -166,6 +175,7 @@
       systemd.tmpfiles.rules = [
         "d /mnt/usb/pgbackrest 0750 postgres postgres -"
         "d /var/spool/pgbackrest 0750 postgres postgres -"
+        "d /run/pgbackrest 0750 postgres postgres -"
         # The async archive-push process unconditionally writes its own log
         # under log-path (default /var/log/pgbackrest) even with
         # log-level-file=off, and aborts with [082] if the dir is missing —
