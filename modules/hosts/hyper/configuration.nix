@@ -38,7 +38,6 @@ let
       restic
       resticExporter
       restoreDrill
-      rustfs
       uptimeKuma
       seedbox
       smartd

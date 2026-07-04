@@ -62,11 +62,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    rustfs = {
-      url = "github:rustfs/rustfs-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     jj-starship.url = "github:dmmulroy/jj-starship";
   };
 }

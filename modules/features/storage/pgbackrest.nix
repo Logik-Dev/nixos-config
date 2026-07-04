@@ -45,6 +45,14 @@
           process-max = 4;
         };
 
+        # Keep WAL pushes gentle on the Storage Box: it enforces a connection
+        # limit per IP and temporarily BANS the home IP when exceeded (learned
+        # the hard way on 2026-07-04 — a retry storm during initial debugging
+        # got port 22/23 refused for the whole house). 4 parallel pushers, each
+        # with its own sftp session plus built-in retries, is storm fuel; one
+        # is plenty for a homelab's WAL rate. Full backups keep process-max=4.
+        commands.archive-push.process-max = 1;
+
         repos = {
           # repo1 — USB disk. The name "localhost" is magic in the nixpkgs
           # module: any other name would be treated as a remote repo-host.
@@ -96,6 +104,14 @@
           User = lib.mkForce "postgres";
           Group = lib.mkForce "postgres";
           EnvironmentFile = config.age.secrets."pgbackrest.env".path;
+          # The module's ExecStart runs `backup` with no --repo, which only
+          # backs up the FIRST repository — repo2 (Hetzner) would receive WAL
+          # but never a base backup, i.e. no offsite PITR at all. Back up both
+          # repos explicitly, sequentially.
+          ExecStart = lib.mkForce [
+            "${lib.getExe pkgs.pgbackrest} --stanza=default --repo=1 backup --type=full"
+            "${lib.getExe pkgs.pgbackrest} --stanza=default --repo=2 backup --type=full"
+          ];
         };
       };
 
@@ -123,6 +139,17 @@
         };
       };
 
+      # archive-push runs INSIDE postgresql.service, which is sandboxed with
+      # ProtectSystem=strict — everything is read-only except PGDATA. Without
+      # these, the async spool/log writes and the repo1 (USB) archive writes
+      # fail with [082] and ALL WAL archiving stalls (barman included, since
+      # the wrapper fails as a whole). repo2 (sftp) needs no path: network only.
+      systemd.services.postgresql.serviceConfig.ReadWritePaths = [
+        "/var/spool/pgbackrest"
+        "/var/log/pgbackrest"
+        "/mnt/usb/pgbackrest"
+      ];
+
       # libssh2 reads the sftp private key directly as the running user
       # (postgres), unlike restic where root reads it. Group-readable for
       # postgres; root (restic) is unaffected.
@@ -139,6 +166,11 @@
       systemd.tmpfiles.rules = [
         "d /mnt/usb/pgbackrest 0750 postgres postgres -"
         "d /var/spool/pgbackrest 0750 postgres postgres -"
+        # The async archive-push process unconditionally writes its own log
+        # under log-path (default /var/log/pgbackrest) even with
+        # log-level-file=off, and aborts with [082] if the dir is missing —
+        # which blocks ALL WAL archiving (barman included, via the wrapper).
+        "d /var/log/pgbackrest 0750 postgres postgres -"
         # restore lock dir, used by the (future) pgbackrest restore drill; the
         # nixpkgs module sets commands.restore.lock-path here but never
         # creates it.

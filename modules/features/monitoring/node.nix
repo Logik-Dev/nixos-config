@@ -12,7 +12,7 @@
         "filesystem"
       ];
       extraFlags = [
-        "--collector.systemd.unit-include=(traefik|prometheus|grafana|alertmanager|loki|promtail|mosquitto|zigbee2mqtt|ntfy|smartd|nginx|postgresql|adguardhome|authelia|cloudflared|cf-ddns|vaultwarden|jellyfin|seerr|radarr|sonarr|prowlarr|sabnzbd|immich|rustfs|restic).*"
+        "--collector.systemd.unit-include=(traefik|prometheus|grafana|alertmanager|loki|promtail|mosquitto|zigbee2mqtt|ntfy|smartd|nginx|postgresql|adguardhome|authelia|cloudflared|cf-ddns|vaultwarden|jellyfin|seerr|radarr|sonarr|prowlarr|sabnzbd|immich|restic).*"
         "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|run|var/lib/docker/.+|var/lib/containers/storage/.+)(/|$)"
         "--collector.netclass.ignored-devices=^(veth|br-|docker|virbr|tun|tap).*"
       ];

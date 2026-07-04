@@ -5,9 +5,10 @@ procédures **manuelles** de restauration. Objectif : prouver que les backups so
 réellement restaurables, pas seulement qu'ils tournent.
 
 Architecture backup : chaque source restic est sauvegardée vers plusieurs cibles
-(`s3`/rustfs, `usb`, `hetzner` offsite, parfois `local`). Postgres est sauvegardé
-à part par **barman** (base backup hebdo + archivage WAL continu) vers
-`s3://pg-backups/pg-16` (rustfs).
+(`usb`, `hetzner` offsite, parfois `local`). Postgres est sauvegardé à part par
+**pgBackRest** (base backup hebdo + archivage WAL continu, PITR) vers deux repos
+chiffrés : `/mnt/usb/pgbackrest` (repo1) et la Storage Box Hetzner en sftp
+(repo2, **PITR offsite**).
 
 ## Ordre de priorité (joyaux)
 
@@ -27,7 +28,7 @@ Module : `modules/features/monitoring/restore-drill.nix`. Résultats postés (su
 |---|---|---|
 | `restic-check` | dim. 05:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`/`rustfs` (couverts par `restic-read-data`) |
 | `restore-canary` | dim. 06:00 | Restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` |
-| `postgres-restore-drill` | dim. 07:00 | Restore barman réel → instance jetable → requêtes sur vaultwarden/prowlarr |
+| `postgres-restore-drill` | dim. 07:00 | Restore pgBackRest réel **depuis Hetzner (repo2)** → instance jetable → requêtes sur vaultwarden/prowlarr — prouve la chaîne PITR offsite chaque semaine |
 | `restic-read-data` | dim. 08:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur les gros repos immich ×3 + rustfs-usb → couverture complète tous les ~13 cycles |
 
 Lancer un drill à la main :
@@ -47,18 +48,17 @@ journalctl -u postgres-restore-drill.service -f
 
 ## 2. Procédures manuelles
 
-Les binaires ne sont pas dans le PATH système (chemins nix store). Récupérer les
-chemins courants :
+`restic` et `pgbackrest` sont dans le PATH système. Les binaires serveur postgres
+non (chemins nix store) — récupérer le chemin courant :
 
 ```sh
-BARMAN=$(dirname "$(systemctl cat postgresql-base-backup.service \
-  | grep -o '/nix/store/[^ ]*barman[^ ]*/bin/barman-cloud-backup' | head -1)")
 PG=$(dirname "$(readlink -f "$(systemctl show postgresql.service -p ExecStart --value \
   | grep -o '/nix/store/[^ ]*/bin/postgres' | head -1)")")
 ```
 
-`restic` est dans le PATH système. Les creds sont dans agenix (`root` uniquement) :
-`/run/agenix/restic.env` (restic + S3) et `/run/agenix/s3.env` (barman).
+Les creds sont dans agenix (`root` uniquement) : `/run/agenix/restic.env` (restic)
+et `/run/agenix/pgbackrest.env` (passphrases de chiffrement des repos pgBackRest —
+**copie de secours dans Vaultwarden**).
 
 ### 2a. Restore fichier restic (n'importe quelle source / cible)
 
@@ -87,36 +87,31 @@ restic -r "$REPO" restore latest --target /            # restaure les chemins ab
 systemctl start vaultwarden
 ```
 
-### 2b. Restore Postgres (barman → instance jetable, non destructif)
+### 2b. Restore Postgres (pgBackRest → instance jetable, non destructif)
 
 Procédure validée par `postgres-restore-drill`. Restaure vers un `PGDATA` scratch et
 démarre une instance **isolée** (port 5433, socket dédiée, archivage coupé) — ne touche
-jamais l'instance live.
+jamais l'instance live. `--repo=1` = USB, `--repo=2` = Hetzner offsite.
 
 ```sh
-set -a; . /run/agenix/s3.env; set +a
-EP=http://localhost:9000; S3=s3://pg-backups; SRV=pg-16
+set -a; . /run/agenix/pgbackrest.env; set +a
 RDIR=/mnt/ultra/restore-test/pg; SOCK=/mnt/ultra/restore-test/sock
 rm -rf "$RDIR" "$SOCK"; mkdir -p "$RDIR" "$SOCK"
+chown postgres:postgres "$RDIR" "$SOCK"; chmod 700 "$RDIR"
 
-# Dernier base backup (ou choisir un ID précis dans la liste) :
-"$BARMAN"/barman-cloud-backup-list --cloud-provider aws-s3 --endpoint-url "$EP" "$S3" "$SRV"
-BID=$("$BARMAN"/barman-cloud-backup-list --cloud-provider aws-s3 --endpoint-url "$EP" "$S3" "$SRV" | tail -1 | awk '{print $1}')
+# Lister les backups disponibles :
+runuser -u postgres --whitelist-environment=PGBACKREST_REPO1_CIPHER_PASS,PGBACKREST_REPO2_CIPHER_PASS -- \
+  pgbackrest --stanza=default info
 
-"$BARMAN"/barman-cloud-restore --cloud-provider aws-s3 --endpoint-url "$EP" "$S3" "$SRV" "$BID" "$RDIR"
+# Restore du dernier backup (recovery jusqu'à cohérence, puis promotion) :
+runuser -u postgres --whitelist-environment=PGBACKREST_REPO1_CIPHER_PASS,PGBACKREST_REPO2_CIPHER_PASS -- \
+  pgbackrest --stanza=default --repo=2 restore --pg1-path="$RDIR" \
+    --type=immediate --target-action=promote --archive-mode=off
 
-cat >> "$RDIR/postgresql.auto.conf" <<CONF
-restore_command = '$BARMAN/barman-cloud-wal-restore --cloud-provider aws-s3 --endpoint-url $EP $S3 $SRV %f %p'
-recovery_target = 'immediate'
-recovery_target_action = 'promote'
-archive_mode = off
-hot_standby = on
-port = 5433
-unix_socket_directories = '$SOCK'
-CONF
-touch "$RDIR/recovery.signal"; chown -R postgres:postgres /mnt/ultra/restore-test; chmod 700 "$RDIR"
+printf "port = 5433\nunix_socket_directories = '%s'\n" "$SOCK" >> "$RDIR/postgresql.auto.conf"
 
-sudo -u postgres env AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+sudo -u postgres env PGBACKREST_REPO1_CIPHER_PASS="$PGBACKREST_REPO1_CIPHER_PASS" \
+  PGBACKREST_REPO2_CIPHER_PASS="$PGBACKREST_REPO2_CIPHER_PASS" \
   "$PG"/pg_ctl -D "$RDIR" -w -t 600 -l "$RDIR/startup.log" start
 
 sudo -u postgres "$PG"/psql -h "$SOCK" -p 5433 -d vaultwarden -tAc 'select count(*) from users'
@@ -125,17 +120,17 @@ sudo -u postgres "$PG"/pg_ctl -D "$RDIR" stop
 rm -rf /mnt/ultra/restore-test
 ```
 
-**PITR (point-in-time)** : pour rejouer au-delà de la cohérence minimale, remplacer
-`recovery_target = 'immediate'` par `recovery_target_time = '2026-07-01 12:00:00'`.
+**PITR (point-in-time)** : remplacer `--type=immediate` par
+`--type=time --target='2026-07-01 12:00:00+02'` (rejeu des WAL jusqu'à cet instant).
 
 **Restore réel sur l'instance live** (sinistre) : `systemctl stop postgresql`, restaurer
-dans le vrai `PGDATA` (`/var/lib/postgresql/16`), **garder** `archive_mode` et enlever le
-`port`/`socket` override, puis `systemctl start postgresql`.
+dans le vrai `PGDATA` (`/var/lib/postgresql/16`) avec `--pg1-path=/var/lib/postgresql/16`
+**sans** `--archive-mode=off` ni override port/socket, puis `systemctl start postgresql`.
 
-### 2b-bis. Restore Postgres depuis le dump offsite (désastre, sans S3)
+### 2b-bis. Restore Postgres depuis le dump offsite (désastre, dernier recours)
 
-Quand rustfs/barman ne sont plus disponibles (maison brûlée), restaurer depuis le
-`pg_dumpall` logique offsite — aucune infra S3 requise :
+Quand pgBackRest n'est pas utilisable (passphrase perdue, repos corrompus…),
+restaurer depuis le `pg_dumpall` logique offsite — il ne demande que restic + psql :
 
 ```sh
 set -a; . /run/agenix/restic.env; set +a

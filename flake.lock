@@ -620,7 +620,6 @@
         "nixvim": "nixvim",
         "nur": "nur",
         "rankoder": "rankoder",
-        "rustfs": "rustfs",
         "treefmt-nix": "treefmt-nix_2"
       }
     },
@@ -642,26 +641,6 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "rustfs": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1781317333,
-        "narHash": "sha256-qnjeFFELEyOO0vkubMB96WCuFzkvftTZ/LE/VctU+SE=",
-        "owner": "rustfs",
-        "repo": "rustfs-flake",
-        "rev": "1d3ef7296a7b22b4b9849d0766f53a0300bce893",
-        "type": "github"
-      },
-      "original": {
-        "owner": "rustfs",
-        "repo": "rustfs-flake",
         "type": "github"
       }
     },

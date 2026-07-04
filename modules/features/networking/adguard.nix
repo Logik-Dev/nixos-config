@@ -48,8 +48,8 @@
         extraRepositories.local = "/mnt/local";
         # AdGuard Home is the host's DNS resolver (nameservers = 127.0.0.1,
         # resolved disabled). The default manageService stops it during the
-        # backup, which kills DNS resolution and makes the S3 backup fail to
-        # resolve s3.hyper.logikdev.fr. Back it up live instead.
+        # backup, which kills DNS resolution and breaks any backup target that
+        # needs a lookup (the Hetzner sftp host). Back it up live instead.
         manageService = false;
       };
     };

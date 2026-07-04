@@ -14,8 +14,8 @@
       # weekly restic-check it gets a structural `restic check` only; its
       # blob-level verification is done incrementally by restic-read-data below
       # (a rotating slice). Everything else is small, so full --read-data is cheap.
-      # (rustfs used to be here too, but the wholesale rustfs-usb backup was
-      # dropped — it just duplicated immich; see rustfs.nix / postgresql.nix.)
+      # (rustfs used to be here too, until the wholesale rustfs-usb backup and
+      # then rustfs itself were dropped — see docs/backups.md.)
       bigSources = [
         "immich"
       ];
@@ -151,46 +151,36 @@
           '';
         };
 
-        # 3. The big one: real barman restore of postgres into a throwaway
+        # 3. The big one: real pgBackRest restore of postgres into a throwaway
         #    instance (isolated: alt socket, archiving off, recovery_target
         #    immediate), then query real tables. Covers vaultwarden + prowlarr +
-        #    immich metadata, which all live in postgres.
+        #    immich metadata, which all live in postgres. Restores from repo2
+        #    (Hetzner) ON PURPOSE: every Sunday this proves the OFFSITE PITR
+        #    chain end-to-end — sftp + decryption + WAL replay.
         postgres-restore-drill = {
-          description = "Weekly postgres restore drill (barman → throwaway instance)";
+          description = "Weekly postgres restore drill (pgBackRest ← Hetzner → throwaway instance)";
           startAt = "Sun 07:00";
           path = commonPath;
           serviceConfig = {
             Type = "oneshot";
             User = "postgres";
             Group = "postgres";
-            EnvironmentFile = config.age.secrets."s3.env".path;
+            EnvironmentFile = config.age.secrets."pgbackrest.env".path;
             TimeoutStartSec = "20min";
           };
           script = ''
             source ${reportLib}
-            TITLE="postgres-restore-drill"
-            B=${pkgs.barman}/bin
+            TITLE="postgres-restore-drill (pgBackRest ← Hetzner)"
             P=${pg}/bin
-            EP=http://localhost:9000; S3=s3://pg-backups; SRV=pg-16
+            PGB=${lib.getExe pkgs.pgbackrest}
             ROOT=/mnt/ultra/restore-test; RDIR=$ROOT/pg; SOCK=$ROOT/sock
-            rm -rf "$RDIR" "$SOCK"; mkdir -p "$RDIR" "$SOCK"
+            rm -rf "$RDIR" "$SOCK"; mkdir -p "$RDIR" "$SOCK"; chmod 700 "$RDIR"
 
-            BID="$("$B"/barman-cloud-backup-list --cloud-provider aws-s3 --endpoint-url "$EP" "$S3" "$SRV" | tail -1 | awk '{print $1}')"
-            add "base backup: $BID"
+            "$PGB" --stanza=default --repo=2 restore --pg1-path="$RDIR" \
+              --type=immediate --target-action=promote --archive-mode=off
+            add "restore complet depuis repo2 (Hetzner) ✓"
 
-            "$B"/barman-cloud-restore --cloud-provider aws-s3 --endpoint-url "$EP" "$S3" "$SRV" "$BID" "$RDIR"
-
-            cat >> "$RDIR/postgresql.auto.conf" <<CONF
-            restore_command = '$B/barman-cloud-wal-restore --cloud-provider aws-s3 --endpoint-url $EP $S3 $SRV %f %p'
-            recovery_target = 'immediate'
-            recovery_target_action = 'promote'
-            archive_mode = off
-            hot_standby = on
-            port = 5433
-            unix_socket_directories = '$SOCK'
-            CONF
-            touch "$RDIR/recovery.signal"
-            chmod 700 "$RDIR"
+            printf "port = 5433\nunix_socket_directories = '%s'\n" "$SOCK" >> "$RDIR/postgresql.auto.conf"
 
             "$P"/pg_ctl -D "$RDIR" -w -t 600 -l "$RDIR/startup.log" start
 
@@ -216,7 +206,7 @@
           '';
         };
 
-        # 4. Blob-level read-data for the big immich repos (×3: s3/usb/hetzner),
+        # 4. Blob-level read-data for the big immich repos (×2: usb/hetzner),
         #    too large for a weekly full read. Each week reads one rotating
         #    slice N/13 (derived from the ISO week), so the whole repo is
         #    re-decrypted over ~13 weeks. Hetzner traffic is free; the cost is

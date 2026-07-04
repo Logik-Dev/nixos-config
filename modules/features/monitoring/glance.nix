@@ -163,11 +163,6 @@
                         check-url = "http://localhost:8384";
                         icon = "di:syncthing";
                       }
-                      {
-                        title = "RustFS";
-                        url = "https://rustfs.hyper.logikdev.fr";
-                        check-url = "http://localhost:9001";
-                      }
                     ];
                   }
                   {
