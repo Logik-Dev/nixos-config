@@ -159,12 +159,19 @@
         "/run/pgbackrest"
       ];
 
-      # libssh2 reads the sftp private key directly as the running user
-      # (postgres), unlike restic where root reads it. Group-readable for
-      # postgres; root (restic) is unaffected.
+      # libssh2 (pgbackrest, as postgres) reads the sftp private key directly,
+      # so postgres must own it. Mode is 0400 and NOT group-readable: OpenSSH
+      # refuses any private key with group/other permission bits when the
+      # caller owns the file — the earlier root:postgres 0440 made every
+      # root-run ssh client (restic backups, exporters) fail auth with
+      # "UNPROTECTED PRIVATE KEY FILE", and those failed logins are precisely
+      # what kept tripping Hetzner's fail2ban on the whole egress IP
+      # (2026-07-04/05 incident). With owner=postgres: pgbackrest reads it as
+      # owner; root-run ssh reads it via DAC override and SKIPS the permission
+      # check because the file belongs to someone else.
       age.secrets."hetzner-storagebox" = {
-        group = "postgres";
-        mode = "0440";
+        owner = "postgres";
+        mode = "0400";
       };
 
       # The nixpkgs module points the pgbackrest user's home at
