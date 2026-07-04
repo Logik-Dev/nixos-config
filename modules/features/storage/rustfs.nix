@@ -24,24 +24,12 @@
         consoleAddress = "127.0.0.1:9001";
       };
 
-      backups.sources.rustfs = {
-        paths = [ "/mnt/snap-ultra/rustfs" ];
-        manageService = false;
-        defaultRepositories = {
-          usb = "/mnt/usb";
-        };
-        runBefore =
-          let
-            snap = pkgs.writeShellScriptBin "snap" ''
-              mkdir -p /mnt/snap-ultra
-              ${pkgs.util-linux}/bin/umount /mnt/snap-ultra || true
-              ${pkgs.lvm2.bin}/bin/lvremove -f /dev/vg_ultra/snap-ultra || true
-              ${pkgs.lvm2.bin}/bin/lvcreate -L 100G -n snap-ultra -s /dev/vg_ultra/ultra
-              ${pkgs.util-linux}/bin/mount /dev/vg_ultra/snap-ultra /mnt/snap-ultra
-            '';
-          in
-          "${snap}/bin/snap";
-      };
-
+      # The rustfs blob store is deliberately NOT backed up wholesale: it holds
+      # every *-s3 restic repo (dominated by immich-s3 ~440 GB), all of which
+      # already have their own -usb/-hetzner copies, so a rustfs-usb backup was
+      # ~860 GB of duplicated immich on one disk. Immich is protected directly
+      # via backups.sources.immich (usb + hetzner). The one thing living only in
+      # rustfs — barman's pg-backups store — is backed up on its own, small,
+      # see backups.sources.pg-barman in postgresql.nix.
     };
 }

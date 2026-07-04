@@ -29,11 +29,14 @@ Secrets : `restic.env` (mot de passe restic + creds S3), clé SSH Hetzner dans a
 Source `immich` → `s3 + usb + hetzner`. Les photos ont donc une **copie offsite
 directe** (`immich-hetzner`). C'est le gros volume de la box Hetzner.
 
-### rustfs (~485 Go) — **usb uniquement, PAS hetzner**
-Le volume rustfs contient tous les repos `*-s3` (dont `immich-s3` ≈ 439 Go) **et**
-`pg-backups`. Source `rustfs` → **usb seulement** (snapshot LVM `/mnt/snap-ultra/rustfs`
-pour la cohérence). On ne l'envoie **pas** à Hetzner : ça dupliquerait Immich offsite
-(≈ 880 Go sur une box de 1 To). Le blob-store est ainsi protégé localement sur usb.
+### rustfs (~470 Go) — **non sauvegardé en bloc (volontaire)**
+Le volume rustfs est le blob-store S3 : il contient tous les repos `*-s3` (dont
+`immich-s3` ≈ 440 Go) **et** `pg-backups` (barman, ≈ 24 Go). On **ne le sauvegarde
+plus intégralement** : chaque repo `*-s3` a déjà sa propre copie `-usb`/`-hetzner`
+directe, donc un backup `rustfs-usb` revenait à stocker ~440 Go d'Immich en double
+sur le même disque USB (≈ 860 Go d'Immich sur l'USB). Immich est protégé en direct
+via `backups.sources.immich` (usb + hetzner). La **seule** donnée qui ne vivait que
+dans rustfs — le store barman — est sauvegardée à part, cf. ci-dessous.
 
 ### PostgreSQL — deux mécanismes complémentaires
 Postgres porte les joyaux (coffre **Vaultwarden**, prowlarr, métadonnées Immich,
@@ -49,6 +52,11 @@ authelia, *arr). Deux backups distincts :
    Défini dans `postgresql.nix` via `backups.sources.pg-dump` (runBefore = le dump).
    Restauration triviale (`psql`/`pg_restore`), **sans avoir à remonter un S3** —
    idéal en désastre. C'est ce qui donne le vrai 3-2-1 aux bases.
+3. **pg-barman — copie USB du store PITR.** Le store barman (`/mnt/ultra/rustfs/pg-backups`,
+   ≈ 24 Go) ne vit que dans rustfs. Depuis l'abandon du backup `rustfs-usb` en bloc,
+   une mini-source `backups.sources.pg-barman` (usb only, `postgresql.nix`) sauvegarde
+   *juste* ce store → la capacité PITR survit à une perte du disque rustfs, sans traîner
+   les ~440 Go d'Immich. Lecture live (pas de snapshot) : objets barman write-once.
 
 ## Résumé 3-2-1
 
@@ -56,8 +64,8 @@ authelia, *arr). Deux backups distincts :
 |---|---|---|
 | Configs services (vaultwarden files, *arr, zigbee, grafana, adguard, unifi…) | s3 + usb (+local) | ✅ |
 | Immich (médias) | s3 (rustfs) + usb | ✅ direct |
-| rustfs (blob-store = s3 repos + pg-backups) | usb | ❌ (volontaire, cf. above) |
-| Postgres (bases) | barman (rustfs, PITR) | ✅ dump logique |
+| rustfs (blob-store = s3 repos + pg-backups) | — (non sauvé en bloc, cf. above) | ❌ (volontaire) |
+| Postgres (bases) | barman (rustfs, PITR) + `pg-barman` (usb) | ✅ dump logique |
 
 ## Supervision & vérification
 

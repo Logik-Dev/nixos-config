@@ -10,14 +10,14 @@
       pg = config.services.postgresql.finalPackage;
 
       # One line per (source × repository), space-separated: "<name> <repo> <mode>".
-      # immich (~440 GB) and rustfs (~485 GB — it holds every s3 restic repo,
-      # incl. immich-s3) are too large for a weekly full --read-data. In the
-      # weekly restic-check they get a structural `restic check` only; their
+      # immich (~440 GB) is too large for a weekly full --read-data. In the
+      # weekly restic-check it gets a structural `restic check` only; its
       # blob-level verification is done incrementally by restic-read-data below
       # (a rotating slice). Everything else is small, so full --read-data is cheap.
+      # (rustfs used to be here too, but the wholesale rustfs-usb backup was
+      # dropped — it just duplicated immich; see rustfs.nix / postgresql.nix.)
       bigSources = [
         "immich"
-        "rustfs"
       ];
       resticRepos = lib.flatten (
         lib.mapAttrsToList (
@@ -74,8 +74,8 @@
       systemd.services = {
         # 1. Integrity of every restic repo. `restic check` (structure) always;
         #    `--read-data` (re-decrypts real blobs, catches silent corruption)
-        #    for everything except the big repos (immich/rustfs), which are
-        #    covered incrementally by restic-read-data.
+        #    for everything except the big repo (immich), covered incrementally
+        #    by restic-read-data.
         restic-check = {
           description = "Weekly integrity check of all restic repositories";
           startAt = "Sun 05:00";
@@ -107,7 +107,7 @@
             ${repoLines}
             REPOS
             add "repos OK: $OK — KO: $KO"
-            add "(immich/rustfs = structurel seul ici, read-data via restic-read-data)"
+            add "(immich = structurel seul ici, read-data via restic-read-data)"
             exit $FAILED
           '';
         };
@@ -216,13 +216,13 @@
           '';
         };
 
-        # 4. Blob-level read-data for the big repos (immich ×3, rustfs-usb),
+        # 4. Blob-level read-data for the big immich repos (×3: s3/usb/hetzner),
         #    too large for a weekly full read. Each week reads one rotating
         #    slice N/13 (derived from the ISO week), so the whole repo is
         #    re-decrypted over ~13 weeks. Hetzner traffic is free; the cost is
         #    home bandwidth (~1/13 of ~430 GB) + local disk I/O.
         restic-read-data = {
-          description = "Weekly rotating read-data verification of big repos (immich, rustfs)";
+          description = "Weekly rotating read-data verification of big repos (immich)";
           startAt = "Sun 08:00";
           path = [
             pkgs.restic

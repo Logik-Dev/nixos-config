@@ -29,6 +29,7 @@ let
       hardening
       node
       nvidia
+      pgbackrest
       postgres
       postgresql
       prometheus
