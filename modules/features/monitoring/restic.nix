@@ -124,7 +124,11 @@
           map (inst: lib.nameValuePair "prometheus-restic-exporter-${inst.name}" (mkExporter inst)) instances
         );
 
-        notify.services = map (inst: "prometheus-restic-exporter-${inst.name}") instances;
+        # Deliberately NOT in notify.services: exporters restart in a loop
+        # while their repo is unreachable, and a per-failure push turns any
+        # Storage Box outage into an ntfy flood. Exporter health is alerted
+        # once, calmly, by the ResticExporterDown Prometheus rule
+        # (up{job="restic"} == 0 for 30m) in prometheus.nix.
       };
     };
 }

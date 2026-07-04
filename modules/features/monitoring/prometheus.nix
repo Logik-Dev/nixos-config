@@ -143,6 +143,24 @@
                       description = "Restic repository check failed for {{ $labels.repository }}.";
                     };
                   }
+                  {
+                    # A dead exporter silently disables ResticBackupStale /
+                    # ResticCheckFailed (absent metrics never fire), so target
+                    # health needs its own alert. This replaces the old
+                    # notify-failure hook on the exporter units, which fired a
+                    # push on EVERY crash-restart cycle — a dozen sftp
+                    # exporters in a restart loop during a Storage Box outage
+                    # flooded ntfy. Alertmanager groups this into one
+                    # notification instead.
+                    alert = "ResticExporterDown";
+                    expr = ''up{job="restic"} == 0'';
+                    for = "30m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "Restic exporter down: {{ $labels.repository }}";
+                      description = "The restic exporter for {{ $labels.repository }} has been unreachable for 30 minutes — its staleness/check alerts are blind until it returns.";
+                    };
+                  }
                 ];
               }
             ];
