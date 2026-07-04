@@ -40,12 +40,13 @@
             ExecStart = pkgs.writeShellScript "restic-exporter-${name}-start" ''
               ${lib.optionalString (lib.hasPrefix "sftp:" repository) ''
                 # Stagger sftp exporters: on a deploy they all restart at once,
-                # and a dozen simultaneous sftp sessions trips the Storage
-                # Box's per-IP connection limit, which temp-bans the home IP
-                # (~25 min, ports 22/23 refused) — re-triggered forever by
-                # tight restart loops. The sleep runs inside the main process
-                # (Type=simple) so it never delays the nixos switch.
-                sleep "$((RANDOM % 300))"
+                # and a dozen near-simultaneous sftp sessions arms the Storage
+                # Box's per-IP rate-limiter, which then refuses ports 22/23
+                # for the whole egress IP until ~25 min of complete silence.
+                # 0-900s spreads 13 exporters to <1 connection/min. The sleep
+                # runs inside the main process (Type=simple) so it never
+                # delays the nixos switch.
+                sleep "$((RANDOM % 900))"
               ''}
               umask 0077
               printf '%s' "$RESTIC_PASSWORD" > "$RUNTIME_DIRECTORY/password"
@@ -55,9 +56,12 @@
             '';
             EnvironmentFile = config.age.secrets."restic.env".path;
             # Slow the restart loop for remote repos: hammering a refused
-            # connection every few seconds is exactly what keeps the Storage
-            # Box ban alive.
-            RestartSec = lib.mkIf (lib.hasPrefix "sftp:" repository) 300;
+            # connection is exactly what keeps the Storage Box rate-limiter
+            # armed. 15 min: 13 exporters retrying at 5 min (≈2.6 conn/min
+            # sustained) proved enough to re-trigger the block on 2026-07-04;
+            # at 15 min it's <1/min. An exporter staying down longer is
+            # covered by the ResticExporterDown alert.
+            RestartSec = lib.mkIf (lib.hasPrefix "sftp:" repository) 900;
             Environment = [
               "LISTEN_ADDRESS=127.0.0.1"
               "LISTEN_PORT=${toString port}"
