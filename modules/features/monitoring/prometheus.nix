@@ -105,7 +105,12 @@
                   }
                   {
                     alert = "HighCpuLoad";
-                    expr = ''node_load1 / count(node_cpu_info{mode="idle"}) > 4'';
+                    # node_cpu_info has no "mode" label — the previous selector
+                    # matched nothing, so the division was empty and the alert
+                    # could never fire. Count cores from node_cpu_seconds_total;
+                    # scalar() is required because count() drops the instance/job
+                    # labels that vector division would otherwise match on.
+                    expr = ''node_load1 / scalar(count(count by (cpu) (node_cpu_seconds_total{mode="idle"}))) > 4'';
                     for = "10m";
                     labels.severity = "warning";
                     annotations = {

@@ -28,10 +28,28 @@
           enable = true;
           datasources.settings = {
             apiVersion = 1;
+            # Assigning a uid to an already-provisioned datasource breaks the
+            # update path: Grafana looks the datasource up by the NEW uid,
+            # finds nothing, and the whole service fails to start ("data
+            # source not found"). Deleting by name first makes provisioning
+            # idempotent whatever the previous state.
+            deleteDatasources = [
+              {
+                name = "Prometheus";
+                orgId = 1;
+              }
+              {
+                name = "Loki";
+                orgId = 1;
+              }
+            ];
             datasources = [
               {
                 name = "Prometheus";
                 type = "prometheus";
+                # Fixed uid so provisioned dashboard JSON can reference the
+                # datasource without depending on a generated identifier.
+                uid = "prometheus";
                 url = "http://127.0.0.1:9090";
                 access = "proxy";
                 isDefault = true;
@@ -39,6 +57,7 @@
               {
                 name = "Loki";
                 type = "loki";
+                uid = "loki";
                 url = "http://127.0.0.1:3100";
                 access = "proxy";
               }
