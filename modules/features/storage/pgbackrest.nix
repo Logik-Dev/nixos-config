@@ -82,7 +82,7 @@
             block = true;
             sftp-host-user = "u625917";
             sftp-host-port = 23;
-            sftp-private-key-file = config.age.secrets."hetzner-storagebox".path;
+            sftp-private-key-file = config.age.secrets."hetzner-storagebox-pg".path;
             sftp-host-key-check-type = "strict";
             sftp-host-key-hash-type = "sha256";
             sftp-known-host = "/etc/ssh/ssh_known_hosts";
@@ -159,17 +159,22 @@
         "/run/pgbackrest"
       ];
 
-      # libssh2 (pgbackrest, as postgres) reads the sftp private key directly,
-      # so postgres must own it. Mode is 0400 and NOT group-readable: OpenSSH
-      # refuses any private key with group/other permission bits when the
-      # caller owns the file — the earlier root:postgres 0440 made every
-      # root-run ssh client (restic backups, exporters) fail auth with
-      # "UNPROTECTED PRIVATE KEY FILE", and those failed logins are precisely
-      # what kept tripping Hetzner's fail2ban on the whole egress IP
-      # (2026-07-04/05 incident). With owner=postgres: pgbackrest reads it as
-      # owner; root-run ssh reads it via DAC override and SKIPS the permission
-      # check because the file belongs to someone else.
-      age.secrets."hetzner-storagebox" = {
+      # pgbackrest (libssh2, runs as postgres) gets its OWN decrypted copy of
+      # the Storage Box key, from the same .age file. Hard-earned lesson
+      # (2026-07-04/05, two days of Hetzner fail2ban bans): this one key file
+      # has THREE kinds of readers with incompatible constraints —
+      #   1. restic backup units & drills: full root, read anything;
+      #   2. restic exporters: uid 0 but CapabilityBoundingSet="" strips
+      #      CAP_DAC_OVERRIDE, so they can ONLY read root-owned perm bits;
+      #   3. pgbackrest: plain postgres user.
+      # Any single file satisfying 2 and 3 needs group perms — and OpenSSH
+      # refuses a group-readable key when the caller owns it ("UNPROTECTED
+      # PRIVATE KEY FILE"), which silently turned every restic connection into
+      # failed logins that fed Hetzner's fail2ban. Two tight copies, zero
+      # cleverness: the base secret stays root:0400 for all ssh clients, this
+      # one is postgres:0400 for libssh2.
+      age.secrets."hetzner-storagebox-pg" = {
+        rekeyFile = config.age.secrets."hetzner-storagebox".rekeyFile;
         owner = "postgres";
         mode = "0400";
       };
