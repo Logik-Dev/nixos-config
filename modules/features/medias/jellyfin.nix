@@ -1,9 +1,9 @@
 {
   flake.modules.nixos.jellyfin =
     {
-      pkgs,
-      lib,
       config,
+      lib,
+      pkgs,
       ...
     }:
     {

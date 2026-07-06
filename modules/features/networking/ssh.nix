@@ -7,9 +7,9 @@ let
 
   flake.modules.homeManager.common =
     {
+      config,
       lib,
       pkgs,
-      config,
       ...
     }:
     lib.mkMerge [

@@ -4,7 +4,7 @@
   flake.modules.homeManager.logikdev.imports = [ inputs.self.modules.homeManager.cli ];
 
   flake.modules.homeManager.cli =
-    { pkgs, config, ... }:
+    { config, pkgs, ... }:
     let
       linuxPackages = if pkgs.stdenv.isLinux then [ pkgs.wl-clipboard ] else [ ];
       darwinPackages = if pkgs.stdenv.isDarwin then [ pkgs.brave ] else [ ];

@@ -1,27 +1,25 @@
 let
   flake.modules.nixos.restic =
     {
-      lib,
       config,
+      lib,
       pkgs,
       ...
     }:
-
-    with lib;
     let
       cfg = config.backups;
       sb = config.constants.hosts.hyper.storageBox;
 
-      source = types.submodule {
+      source = lib.types.submodule {
         options = {
-          paths = mkOption {
+          paths = lib.mkOption {
             description = "List of paths to backup";
-            type = types.listOf types.str;
+            type = lib.types.listOf lib.types.str;
             default = [ ];
           };
-          defaultRepositories = mkOption {
+          defaultRepositories = lib.mkOption {
             description = "Default repositories";
-            type = types.attrs;
+            type = lib.types.attrs;
             default = {
               # No on-site object-store target anymore: the old `s3` (rustfs)
               # repo lived on the same disk as the sources, so it only ever
@@ -37,24 +35,24 @@ let
               hetzner = "sftp:${sb.user}@${sb.host}:/home";
             };
           };
-          extraRepositories = mkOption {
+          extraRepositories = lib.mkOption {
             description = "Extra repositories";
-            type = types.attrs;
+            type = lib.types.attrs;
             default = { };
           };
-          manageService = mkOption {
+          manageService = lib.mkOption {
             description = "Stop and restart the service";
-            type = types.bool;
+            type = lib.types.bool;
             default = true;
           };
-          serviceName = mkOption {
+          serviceName = lib.mkOption {
             description = "Optional service name, if null default to source name";
-            type = types.nullOr types.str;
+            type = lib.types.nullOr lib.types.str;
             default = null;
           };
-          runBefore = mkOption {
+          runBefore = lib.mkOption {
             description = "Command to run before backup";
-            type = types.nullOr types.str;
+            type = lib.types.nullOr lib.types.str;
             default = null;
           };
 
@@ -63,9 +61,9 @@ let
     in
     {
       options.backups = {
-        sources = mkOption {
+        sources = lib.mkOption {
           description = "Attribute set of sources";
-          type = types.attrsOf source;
+          type = lib.types.attrsOf source;
           default = { };
         };
       };
@@ -78,14 +76,15 @@ let
 
         notify.services = [ "restic" ];
 
-        services.restic.backups = mkMerge (
-          flatten (
-            mapAttrsToList (
+        services.restic.backups = lib.mkMerge (
+          lib.flatten (
+            lib.mapAttrsToList (
               sourceName: sourceValue:
-              mapAttrsToList (targetName: targetPath: {
+              lib.mapAttrsToList (targetName: targetPath: {
                 "${sourceName}-${targetName}" =
                   let
-                    serviceName = if (isString sourceValue.serviceName) then sourceValue.serviceName else sourceName;
+                    serviceName =
+                      if (lib.isString sourceValue.serviceName) then sourceValue.serviceName else sourceName;
                   in
                   (
                     {
@@ -105,13 +104,13 @@ let
                         "--keep-yearly 2"
                       ];
                     }
-                    // optionalAttrs (sourceValue.manageService || sourceValue.runBefore != null) {
+                    // lib.optionalAttrs (sourceValue.manageService || sourceValue.runBefore != null) {
                       backupPrepareCommand = lib.concatStringsSep "\n" (
                         lib.optional sourceValue.manageService "systemctl stop ${serviceName}.service"
                         ++ lib.optional (sourceValue.runBefore != null) sourceValue.runBefore
                       );
                     }
-                    // optionalAttrs sourceValue.manageService {
+                    // lib.optionalAttrs sourceValue.manageService {
                       backupCleanupCommand = "systemctl start ${serviceName}.service";
                     }
                   );

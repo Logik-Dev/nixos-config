@@ -2,9 +2,9 @@
 {
   flake.modules.nixos.monitoring =
     {
-      pkgs,
       config,
       lib,
+      pkgs,
       ...
     }:
     let

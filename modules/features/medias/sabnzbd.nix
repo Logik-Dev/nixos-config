@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.nixos.sabnzbd =
-    { lib, config, ... }:
+    { config, lib, ... }:
     {
       traefik.services.sabnzbd = {
         port = 8088;

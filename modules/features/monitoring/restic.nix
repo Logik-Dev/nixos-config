@@ -2,8 +2,8 @@
   flake.modules.nixos.resticExporter =
     {
       config,
-      pkgs,
       lib,
+      pkgs,
       ...
     }:
     let

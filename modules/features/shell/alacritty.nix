@@ -2,8 +2,8 @@
 {
   flake.modules.homeManager.desktop =
     {
-      pkgs,
       lib,
+      pkgs,
       ...
     }:
     {

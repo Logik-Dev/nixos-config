@@ -2,8 +2,8 @@
 let
   module =
     {
-      lib,
       config,
+      lib,
       ...
     }:
     let

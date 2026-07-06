@@ -33,7 +33,7 @@ let
 in
 {
   flake.modules.homeManager.browsers =
-    { pkgs, config, ... }:
+    { config, pkgs, ... }:
     let
       domain = config.constants.domain;
       hyper = app: "https://${app}.hyper.${domain}";

@@ -3,8 +3,8 @@
 {
   flake.modules.homeManager.common =
     {
-      pkgs,
       lib,
+      pkgs,
       ...
     }:
     {
@@ -42,8 +42,8 @@
 
   flake.modules.darwin.common =
     {
-      pkgs,
       lib,
+      pkgs,
       ...
     }:
     {

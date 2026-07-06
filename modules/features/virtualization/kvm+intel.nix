@@ -1,8 +1,8 @@
 {
   flake.modules.nixos.kvm-intel =
     {
-      lib,
       config,
+      lib,
       ...
     }:
     {

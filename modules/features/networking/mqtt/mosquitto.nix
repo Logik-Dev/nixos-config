@@ -2,8 +2,8 @@
 let
   mosquittoModule =
     {
-      lib,
       config,
+      lib,
       ...
     }:
     {

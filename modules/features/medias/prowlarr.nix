@@ -1,7 +1,7 @@
 { ... }:
 {
   flake.modules.nixos.prowlarr =
-    { pkgs, config, ... }:
+    { config, pkgs, ... }:
     let
       prowlarrEnv = pkgs.writeText "prowlarr.env" ''
         PROWLARR__POSTGRES__HOST=/var/run/postgresql

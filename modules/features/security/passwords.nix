@@ -13,7 +13,7 @@ let
   };
 
   vaultwardenClient =
-    { pkgs, config, ... }:
+    { config, pkgs, ... }:
     {
       programs.rbw = {
         enable = true;

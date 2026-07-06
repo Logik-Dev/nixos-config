@@ -2,9 +2,9 @@
 {
   flake.modules.nixos.sonarr =
     {
-      pkgs,
-      lib,
       config,
+      lib,
+      pkgs,
       ...
     }:
     let

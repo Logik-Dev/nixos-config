@@ -2,9 +2,9 @@
 {
   flake.modules.nixos.radarr =
     {
-      pkgs,
-      lib,
       config,
+      lib,
+      pkgs,
       ...
     }:
     let

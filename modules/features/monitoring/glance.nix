@@ -8,8 +8,8 @@
   # honest even for Authelia-gated services.
   flake.modules.nixos.glance =
     {
-      lib,
       config,
+      lib,
       ...
     }:
     let

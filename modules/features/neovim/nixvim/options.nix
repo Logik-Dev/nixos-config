@@ -6,7 +6,7 @@ let
   flake.modules.darwin.neovim.imports = [ options ];
 
   options =
-    { pkgs, lib, ... }:
+    { lib, pkgs, ... }:
     {
       programs.nixvim = {
         clipboard = {

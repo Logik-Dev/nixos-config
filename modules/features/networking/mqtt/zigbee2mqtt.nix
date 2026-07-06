@@ -2,8 +2,8 @@
 let
   zigbee2mqttModule =
     {
-      lib,
       config,
+      lib,
       ...
     }:
     {

@@ -2,8 +2,8 @@
   flake.modules.nixos.nvidia =
     {
       config,
-      pkgs,
       lib,
+      pkgs,
       ...
     }:
     {
