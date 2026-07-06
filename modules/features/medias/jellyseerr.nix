@@ -1,8 +1,13 @@
 { ... }:
 {
   flake.modules.nixos.seerr = {
-    traefik.services.seerr.port = 5055;
-    traefik.services.seerr.enableAuthelia = true;
+    traefik.services.seerr = {
+      port = 5055;
+      enableAuthelia = true;
+      category = "Médias";
+      icon = "di:jellyseerr";
+      title = "Jellyseerr";
+    };
 
     services.seerr.enable = true;
 

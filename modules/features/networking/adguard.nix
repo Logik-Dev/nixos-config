@@ -4,8 +4,13 @@
     { config, ... }:
     {
 
-      traefik.services.dns.port = 3000;
-      traefik.services.dns.enableAuthelia = true;
+      traefik.services.dns = {
+        port = 3000;
+        enableAuthelia = true;
+        category = "Réseau & Stockage";
+        icon = "di:adguard-home";
+        title = "AdGuard Home";
+      };
 
       # resolved conflicts with adguard port
       services.resolved.enable = false;

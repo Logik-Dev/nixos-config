@@ -4,8 +4,12 @@ let
 in
 {
   flake.modules.nixos.home = {
-    traefik.services.mealie.port = port;
-    traefik.services.mealie.enableAuthelia = true;
+    traefik.services.mealie = {
+      port = port;
+      enableAuthelia = true;
+      category = "Maison";
+      icon = "di:mealie";
+    };
     services.mealie = {
       inherit port;
       enable = true;

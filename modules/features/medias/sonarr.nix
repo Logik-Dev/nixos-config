@@ -30,8 +30,12 @@
         ];
       };
 
-      traefik.services.sonarr.port = 8989;
-      traefik.services.sonarr.enableAuthelia = true;
+      traefik.services.sonarr = {
+        port = 8989;
+        enableAuthelia = true;
+        category = "Médias";
+        icon = "di:sonarr";
+      };
 
       notify.services = [ "sonarr" ];
 

@@ -3,8 +3,12 @@
   flake.modules.nixos.sabnzbd =
     { lib, config, ... }:
     {
-      traefik.services.sabnzbd.port = 8088;
-      traefik.services.sabnzbd.enableAuthelia = true;
+      traefik.services.sabnzbd = {
+        port = 8088;
+        enableAuthelia = true;
+        category = "Médias";
+        icon = "di:sabnzbd";
+      };
 
       age.secrets."sabnzbd-credentials.ini" = {
         group = "media";

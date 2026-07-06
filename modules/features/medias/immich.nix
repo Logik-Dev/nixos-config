@@ -3,7 +3,11 @@
   flake.modules.nixos.immich =
     { config, ... }:
     {
-      traefik.services.immich.port = 2283;
+      traefik.services.immich = {
+        port = 2283;
+        category = "Médias";
+        icon = "di:immich";
+      };
 
       services.immich = {
         enable = true;

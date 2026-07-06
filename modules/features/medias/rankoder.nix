@@ -12,8 +12,12 @@
       "d /mnt/storage/medias/rankoder/temp 0750 rankoder media - -"
     ];
 
-    traefik.services.rankoder.port = 8765;
-    traefik.services.rankoder.enableAuthelia = true;
+    traefik.services.rankoder = {
+      port = 8765;
+      enableAuthelia = true;
+      category = "Médias";
+      icon = "di:rankoder";
+    };
 
     services.rankoder = {
       enable = true;

@@ -7,7 +7,11 @@
       ...
     }:
     {
-      traefik.services.jellyfin.port = 8096;
+      traefik.services.jellyfin = {
+        port = 8096;
+        category = "Médias";
+        icon = "di:jellyfin";
+      };
       users.users.jellyfin.extraGroups = [
         "video"
         "render"

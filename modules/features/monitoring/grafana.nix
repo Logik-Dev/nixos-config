@@ -76,6 +76,8 @@
       traefik.services.grafana = {
         port = 3002;
         enableAuthelia = true;
+        category = "Supervision";
+        icon = "di:grafana";
       };
 
       notify.services = [ "grafana" ];

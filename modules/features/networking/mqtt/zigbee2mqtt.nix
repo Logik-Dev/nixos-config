@@ -1,42 +1,22 @@
-{
-  flake.modules.nixos.mqtt =
+{ ... }:
+let
+  zigbee2mqttModule =
     {
       lib,
       config,
       ...
     }:
     {
-      networking.firewall.allowedTCPPorts = [ 1883 ];
-
-      age.secrets.mqtt.owner = "zigbee2mqtt";
       age.secrets."zigbee2mqtt-network-key".owner = "zigbee2mqtt";
 
-      services.mosquitto = {
-        enable = true;
-        listeners = [
-          # Single listener, authentication required (no anonymous). z2m connects
-          # over loopback and Home Assistant (192.168.21.181) over the LAN, both
-          # with the credentials below. Closing anonymous is the whole point:
-          # previously anyone on the LAN/Tailscale could read and publish.
-          {
-            address = "0.0.0.0";
-            port = 1883;
-            omitPasswordAuth = false;
-            settings.allow_anonymous = false;
-            users.zigbee2mqtt = {
-              passwordFile = config.age.secrets."mqtt".path;
-              acl = [ "readwrite zigbee2mqtt/#" ];
-            };
-            users.homeassistant = {
-              passwordFile = config.age.secrets."mqtt".path;
-              acl = [ "readwrite #" ];
-            };
-          }
-        ];
+      traefik.services.zigbee = {
+        port = 8788;
+        enableAuthelia = true;
+        category = "Maison";
+        icon = "di:zigbee2mqtt";
+        title = "Zigbee2MQTT";
       };
 
-      traefik.services.zigbee.port = 8788;
-      traefik.services.zigbee.enableAuthelia = true;
       services.zigbee2mqtt = {
         enable = true;
         settings = {
@@ -94,4 +74,7 @@
         extraRepositories.local = "/mnt/local";
       };
     };
+in
+{
+  flake.modules.nixos.mqtt.imports = [ zigbee2mqttModule ];
 }

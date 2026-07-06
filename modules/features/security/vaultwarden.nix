@@ -14,7 +14,11 @@
         ];
       };
 
-      traefik.services.vaultwarden.port = 8082;
+      traefik.services.vaultwarden = {
+        port = 8082;
+        category = "Maison";
+        icon = "di:vaultwarden";
+      };
 
       notify.services = [ "vaultwarden" ];
 

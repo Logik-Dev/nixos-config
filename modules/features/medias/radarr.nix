@@ -31,8 +31,12 @@
         ];
       };
 
-      traefik.services.radarr.port = 7878;
-      traefik.services.radarr.enableAuthelia = true;
+      traefik.services.radarr = {
+        port = 7878;
+        enableAuthelia = true;
+        category = "Médias";
+        icon = "di:radarr";
+      };
 
       systemd.services.radarr.serviceConfig.UMask = lib.mkForce "0002";
       services.radarr = {

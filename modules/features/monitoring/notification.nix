@@ -18,7 +18,11 @@
       };
 
       config = {
-        traefik.services.ntfy.port = 2586;
+        traefik.services.ntfy = {
+          port = 2586;
+          category = "Supervision";
+          icon = "di:ntfy";
+        };
 
         services.ntfy-sh = {
           enable = true;

@@ -27,6 +27,8 @@
         protocol = "https";
         insecureSkipVerify = true;
         enableAuthelia = true;
+        category = "Réseau & Stockage";
+        icon = "di:unifi";
       };
     };
 }

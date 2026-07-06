@@ -26,8 +26,12 @@
         ];
       };
 
-      traefik.services.prowlarr.port = 9696;
-      traefik.services.prowlarr.enableAuthelia = true;
+      traefik.services.prowlarr = {
+        port = 9696;
+        enableAuthelia = true;
+        category = "Médias";
+        icon = "di:prowlarr";
+      };
 
       services.prowlarr = {
         enable = true;

@@ -19,8 +19,12 @@ in
       { config, ... }:
       {
         imports = [ secretsOwner ];
-        traefik.services.syncthing.port = 8384;
-        traefik.services.syncthing.enableAuthelia = true;
+        traefik.services.syncthing = {
+          port = 8384;
+          enableAuthelia = true;
+          category = "Réseau & Stockage";
+          icon = "di:syncthing";
+        };
         networking.firewall.allowedTCPPorts = [ 22000 ];
         networking.firewall.allowedUDPPorts = [ 22000 ];
         services.syncthing = {
