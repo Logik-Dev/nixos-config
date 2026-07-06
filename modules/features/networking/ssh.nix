@@ -18,7 +18,7 @@ let
           enable = true;
           enableDefaultConfig = false;
           settings = {
-            h.HostName = "192.168.10.100";
+            h.HostName = config.constants.hosts.hyper.lanIp;
             ogms.HostName = "46.62.144.160";
           };
         };

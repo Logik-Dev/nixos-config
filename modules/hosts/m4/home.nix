@@ -1,27 +1,23 @@
 { inputs, ... }:
 let
-  inherit (inputs.self.lib.mk-home) logikdevOnHost;
+  host = (
+    inputs.self.lib.mk-host {
+      host = "m4";
+      osClass = "darwin";
+      useGlobalPkgs = true;
+      useUserPackages = true;
+      modules = with inputs.self.modules.homeManager; [
+        ai-agent
+        desktop
+        dev
+        #passwords
+        #virtualization
+      ];
+    }
+  );
 
-  flake.homeConfigurations."logikdev@m4" = logikdevConfigWithModules.config;
-
-  flake.modules.darwin.m4.imports = [ home ];
-
-  logikdevModules = with inputs.self.modules.homeManager; [
-    ai-agent
-    desktop
-    dev
-    #passwords
-    #virtualization
-  ];
-
-  logikdevConfigWithModules = logikdevOnHost "m4" logikdevModules;
-
-  # Home manager in darwin
-  home = {
-    home-manager.users.logikdev.imports = logikdevConfigWithModules.modules;
-    home-manager.useGlobalPkgs = true;
-    home-manager.useUserPackages = true;
-  };
+  flake.homeConfigurations."logikdev@m4" = host.homeConfig.config;
+  flake.modules.darwin.m4.imports = [ host.homeImport ];
 in
 {
   inherit flake;

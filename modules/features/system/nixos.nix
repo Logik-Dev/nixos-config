@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, config, ... }:
 {
   flake.modules.nixos.nixos.imports = [
     inputs.home-manager.nixosModules.home-manager
@@ -13,7 +13,7 @@
 
     nix.buildMachines = [
       {
-        hostName = "192.168.10.100";
+        hostName = config.constants.hosts.hyper.lanIp;
         sshUser = "logikdev";
         system = "x86_64-linux";
         protocol = "ssh-ng";

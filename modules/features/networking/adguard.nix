@@ -37,7 +37,7 @@
             {
               enabled = true;
               domain = "*.hyper.${config.constants.domain}";
-              answer = "192.168.10.100";
+              answer = config.constants.hosts.hyper.lanIp;
             }
           ];
         };

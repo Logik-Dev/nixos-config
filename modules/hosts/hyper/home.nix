@@ -1,23 +1,18 @@
 { inputs, ... }:
 let
-  inherit (inputs.self.lib.mk-home) logikdevOnHost;
+  host = (
+    inputs.self.lib.mk-host {
+      host = "hyper";
+      osClass = "nixos";
+      modules = with inputs.self.modules.homeManager; [
+        jj
+        dev
+      ];
+    }
+  );
 
-  flake.homeConfigurations."logikdev@hyper" = logikdevConfigWithModules.config;
-
-  flake.modules.nixos.hyper.imports = [ home ];
-
-  logikdevModules = with inputs.self.modules.homeManager; [
-    jj
-    dev
-  ];
-
-  logikdevConfigWithModules = logikdevOnHost "hyper" logikdevModules;
-
-  # Home manager in nixos
-  home = {
-    home-manager.users.logikdev.imports = logikdevConfigWithModules.modules;
-  };
-
+  flake.homeConfigurations."logikdev@hyper" = host.homeConfig.config;
+  flake.modules.nixos.hyper.imports = [ host.homeImport ];
 in
 {
   inherit flake;

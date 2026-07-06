@@ -41,7 +41,7 @@ in
                 autoAcceptFolders = true;
               };
               hyper = {
-                addresses = [ "tcp://192.168.10.100:22000" ];
+                addresses = [ "tcp://${config.constants.hosts.hyper.lanIp}:22000" ];
                 id = "FZPCP6F-EYN4ZIT-XD34XBB-S5QQLJD-Z36F6JG-THSP3ZA-XEA6IWJ-TOMNTAF";
                 autoAcceptFolders = true;
               };

@@ -12,6 +12,7 @@ let
       host = config.networking.hostName;
       domain = config.constants.domain;
       email = config.constants.users.logikdev.email;
+      lanIp = config.constants.hosts.hyper.lanIp;
 
       service = types.submodule {
         options = {
@@ -101,7 +102,7 @@ let
 
             # HTTP
             entryPoints.http = {
-              address = "192.168.10.100:80";
+              address = "${lanIp}:80";
               http.redirections.entryPoint = {
                 to = "https";
                 scheme = "https";
@@ -109,7 +110,7 @@ let
             };
 
             # HTTPS
-            entryPoints.https.address = "192.168.10.100:443";
+            entryPoints.https.address = "${lanIp}:443";
 
             # ACME
             certificatesResolvers.myresolver.acme = {

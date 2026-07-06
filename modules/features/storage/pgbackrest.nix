@@ -28,6 +28,9 @@
       pkgs,
       ...
     }:
+    let
+      sb = config.constants.hosts.hyper.storageBox;
+    in
     {
       services.pgbackrest = {
         enable = true;
@@ -73,14 +76,14 @@
           };
 
           # repo2 — Hetzner Storage Box, same box/key as the restic offsite.
-          "u625917.your-storagebox.de" = {
+          ${sb.host} = {
             type = "sftp";
             path = "/home/pgbackrest";
             retention-full = 8;
             cipher-type = "aes-256-cbc";
             bundle = true;
             block = true;
-            sftp-host-user = "u625917";
+            sftp-host-user = sb.user;
             sftp-host-port = 23;
             sftp-private-key-file = config.age.secrets."hetzner-storagebox-pg".path;
             sftp-host-key-check-type = "strict";

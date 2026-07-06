@@ -8,6 +8,9 @@
       lib,
       ...
     }:
+    let
+      sb = config.constants.hosts.hyper.storageBox;
+    in
     {
       # WAL archiving (archive_mode + archive_command → pgbackrest archive-push)
       # is set by the pgbackrest nixpkgs module itself; the whole PITR chain
@@ -36,7 +39,7 @@
         paths = [ "/mnt/ultra/pg-dump" ];
         manageService = false;
         defaultRepositories = {
-          hetzner = "sftp:u625917@u625917.your-storagebox.de:/home";
+          hetzner = "sftp:${sb.user}@${sb.host}:/home";
           usb = "/mnt/usb";
         };
         runBefore = "${pkgs.writeShellScript "pg-dumpall" ''

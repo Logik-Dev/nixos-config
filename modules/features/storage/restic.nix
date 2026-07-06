@@ -10,6 +10,7 @@ let
     with lib;
     let
       cfg = config.backups;
+      sb = config.constants.hosts.hyper.storageBox;
 
       source = types.submodule {
         options = {
@@ -33,7 +34,7 @@ let
               # The box's writable storage is exposed at /home (real "/" is
               # read-only), so the base must be /home; yields repository
               # sftp:...:/home/restic/<source> per source.
-              hetzner = "sftp:u625917@u625917.your-storagebox.de:/home";
+              hetzner = "sftp:${sb.user}@${sb.host}:/home";
             };
           };
           extraRepositories = mkOption {

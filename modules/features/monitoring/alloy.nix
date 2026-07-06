@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.alloy = {config, ...}: {
+  flake.modules.nixos.alloy = { config, ... }: {
     services.alloy = {
       enable = true;
       extraFlags = [ "--server.http.listen-addr=127.0.0.1:12346" ];

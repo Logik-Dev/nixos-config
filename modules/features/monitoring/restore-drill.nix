@@ -131,7 +131,7 @@
           script = ''
             source ${reportLib}
             TITLE="restore-canary (zigbee ← Hetzner)"
-            REPO="sftp:u625917@u625917.your-storagebox.de:/home/restic/zigbee2mqtt"
+            REPO="sftp:${config.constants.hosts.hyper.storageBox.user}@${config.constants.hosts.hyper.storageBox.host}:/home/restic/zigbee2mqtt"
             DEST=/mnt/ultra/restore-test/zigbee
             rm -rf "$DEST"; mkdir -p "$DEST"
 

@@ -1,10 +1,10 @@
 { inputs, ... }:
 {
   flake.modules.nixos.seedbox =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
     {
 
-      users.groups.media.gid = 991;
+      users.groups.media.gid = config.constants.media.gid;
 
       services.postgresql.initialScript = pkgs.writeText "ownership.sql" ''
         ALTER DATABASE "sonarr-main" OWNER TO sonarr;
