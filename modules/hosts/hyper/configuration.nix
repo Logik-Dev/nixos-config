@@ -38,7 +38,6 @@ let
       restic
       resticExporter
       restoreDrill
-      uptimeKuma
       seedbox
       smartd
       syncthing

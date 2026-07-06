@@ -177,12 +177,6 @@
                         icon = "di:grafana";
                       }
                       {
-                        title = "Uptime Kuma";
-                        url = "https://uptime.hyper.logikdev.fr";
-                        check-url = "http://localhost:3001";
-                        icon = "di:uptime-kuma";
-                      }
-                      {
                         title = "ntfy";
                         url = "https://ntfy.hyper.logikdev.fr";
                         check-url = "http://localhost:2586";
