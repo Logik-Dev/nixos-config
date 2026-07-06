@@ -183,12 +183,11 @@ let
                   entryPoints = [ "https" ];
                   tls.certResolver = "myresolver";
                   rule = "Host(`${service}.${host}.${domain}`)";
-                  middlewares =
-                    [
-                      "secureHeaders@file"
-                      "ratelimit@file"
-                    ]
-                    ++ lib.optional value.enableAuthelia "authelia@file";
+                  middlewares = [
+                    "secureHeaders@file"
+                    "ratelimit@file"
+                  ]
+                  ++ lib.optional value.enableAuthelia "authelia@file";
                 }
 
               ) cfg.services)

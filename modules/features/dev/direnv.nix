@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.dev =
+  flake.modules.homeManager.dev-direnv =
     { pkgs, ... }:
     {
       programs.direnv = {

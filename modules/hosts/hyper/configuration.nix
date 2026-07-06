@@ -33,7 +33,7 @@ let
       postgres
       postgresql
       prometheus
-      promtail
+      alloy
       rankoder
       restic
       resticExporter

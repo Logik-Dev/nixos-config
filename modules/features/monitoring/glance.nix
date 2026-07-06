@@ -100,6 +100,7 @@
                         title = "Rankoder";
                         url = "https://rankoder.hyper.logikdev.fr";
                         check-url = "http://localhost:8765";
+                        icon = "di:rankoder";
                       }
                     ];
                   }

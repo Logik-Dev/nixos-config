@@ -1,6 +1,6 @@
-{ pkgs, ... }:
+{ ... }:
 {
-  flake.modules.nixos.promtail = {
+  flake.modules.nixos.alloy = {config, ...}: {
     services.alloy = {
       enable = true;
       extraFlags = [ "--server.http.listen-addr=127.0.0.1:12346" ];
@@ -32,7 +32,7 @@
         path = "/var/log/journal"
         labels = {
           job = "systemd-journal",
-          host = "hyper",
+          host = "${config.networking.hostName}",
         }
         relabel_rules = loki.relabel.journal.rules
         forward_to = [loki.write.local.receiver]

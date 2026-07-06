@@ -23,17 +23,22 @@
 
       nixos.${username} =
         { config, ... }:
+        let
+          hasGroup = g: config.users.groups ? ${g};
+        in
         {
           imports = [ fish ];
           users.users.${username} = {
             description = username;
             isNormalUser = true;
             hashedPasswordFile = config.age.secrets."${username}-pw".path;
-            extraGroups = lib.optionals isAdmin [
-              "wheel"
-              "media"
-              "networkmanager"
-            ];
+            extraGroups = lib.optionals isAdmin (
+              [ "wheel" ]
+              ++ lib.filter hasGroup [
+                "media"
+                "networkmanager"
+              ]
+            );
           };
         };
     };
