@@ -29,6 +29,7 @@ let
       hardening
       node
       nvidia
+      ollama
       paperless
       pgbackrest
       postgres
