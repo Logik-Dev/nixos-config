@@ -65,5 +65,19 @@
         paths = [ "/mnt/local/paperless" ];
         manageService = false;
       };
+
+      # Dossier Syncthing d'ingestion : Mac (~/Paperless) → ce consume dir.
+      # Paperless avale puis supprime, et la suppression est propagée → l'inbox
+      # se vide au fil du classement. Déclaratif via overrideFolders = true
+      # (voir storage/syncthing.nix) ; fusionne avec les autres folders déclarés.
+      services.syncthing.settings.folders."paperless-consume" = {
+        path = "/mnt/local/paperless/consume";
+        label = "Paperless Consume";
+        devices = [
+          "hyper"
+          "m4"
+        ];
+        ignorePerms = true;
+      };
     };
 }
