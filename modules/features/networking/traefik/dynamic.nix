@@ -21,6 +21,19 @@ let
             authResponseHeaders = "Remote-User,Remote-Groups,Remote-Email,Remote-Name";
           };
 
+          # Remove any client-supplied Remote-* header BEFORE forwardAuth runs,
+          # so only Authelia can set them. Without this, the access_control
+          # LAN/Tailscale bypass returns 200 without setting Remote-User, and a
+          # forged header would pass straight through to header-trusting
+          # backends (paperless SSO) → instant admin impersonation. Empty value
+          # = delete the header in traefik. Applied to every authelia router.
+          http.middlewares.stripAuthHeaders.headers.customRequestHeaders = {
+            Remote-User = "";
+            Remote-Groups = "";
+            Remote-Email = "";
+            Remote-Name = "";
+          };
+
           # Security headers applied to every router (see routers below).
           # HSTS is safe here: every vhost is HTTPS-only via traefik. preload
           # is left off (it's an irreversible commitment to the browser list).
@@ -72,7 +85,10 @@ let
                   "secureHeaders@file"
                   "ratelimit@file"
                 ]
-                ++ lib.optional value.enableAuthelia "authelia@file";
+                ++ lib.optionals value.enableAuthelia [
+                  "stripAuthHeaders@file"
+                  "authelia@file"
+                ];
               }
             ) cfg)
             // {
@@ -82,6 +98,7 @@ let
                 middlewares = [
                   "secureHeaders@file"
                   "ratelimit@file"
+                  "stripAuthHeaders@file"
                   "authelia@file"
                 ];
                 entryPoints = [ "https" ];

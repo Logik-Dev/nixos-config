@@ -29,6 +29,7 @@ let
       hardening
       node
       nvidia
+      paperless
       pgbackrest
       postgres
       postgresql
