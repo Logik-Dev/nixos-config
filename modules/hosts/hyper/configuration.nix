@@ -24,6 +24,7 @@ let
       loki
       monitoring
       mqtt
+      n8n
       neovim
       gpu
       hardening

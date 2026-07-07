@@ -8,6 +8,7 @@ let
       common
       hetznerStoragebox
       logikdev
+      ollama
       tailscale
     ])
     ++ [ ];

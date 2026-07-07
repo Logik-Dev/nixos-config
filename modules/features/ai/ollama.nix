@@ -40,4 +40,38 @@
 
       notify.services = [ "ollama" ];
     };
+
+  # macOS (M4 Pro, 24 Go) : nix-darwin n'a pas de `services.ollama`. On déclare
+  # donc le binaire (store, Metal embarqué sur Apple Silicon — pas de CUDA à
+  # gérer) + un agent launchd « user » maison. User agent obligatoire : Metal
+  # requiert la session graphique, un daemon système n'y accède pas.
+  #
+  # Rôle : booster batch pour le tri de mails n8n (modèle plus gros = meilleur
+  # suivi d'instructions que la P4000/8 Go). Pas de 24/7 attendu : les gros lots
+  # tournent Mac réveillé. Le poids du modèle (qwen3:14b, ~9 Go) reste du state
+  # → `ollama pull qwen3:14b` une fois (aucune approche ne le met dans le store).
+  flake.modules.darwin.ollama =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = [ pkgs.ollama ];
+
+      launchd.user.agents.ollama.serviceConfig = {
+        ProgramArguments = [
+          "${pkgs.ollama}/bin/ollama"
+          "serve"
+        ];
+        # KeepAlive : au login Tailscale n'a pas encore assigné l'IP → le bind
+        # échoue une fois, launchd relance jusqu'à ce que 100.76.159.66 existe.
+        KeepAlive = true;
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          # N'écoute que sur l'IP Tailscale du Mac : joignable par n8n/hyper via
+          # le tailnet, jamais exposé sur le wifi public (Ollama n'a pas d'auth).
+          OLLAMA_HOST = "100.76.159.66:11434";
+          OLLAMA_KEEP_ALIVE = "5m";
+        };
+        StandardOutPath = "/tmp/ollama.log";
+        StandardErrorPath = "/tmp/ollama.err.log";
+      };
+    };
 }

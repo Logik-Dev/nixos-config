@@ -1,4 +1,4 @@
-{ inputs, config, ... }:
+{ inputs, ... }:
 {
   flake.modules.nixos.nixos.imports = [
     inputs.home-manager.nixosModules.home-manager
@@ -9,11 +9,15 @@
     { home-manager.backupFileExtension = "bak"; }
   ];
 
-  flake.modules.darwin.common = {
-
-    nix.buildMachines = [
-      {
-        hostName = config.constants.hosts.hyper.lanIp;
+  # Fonction module (pas attrset statique) : `config` doit être résolu dans le
+  # contexte du système darwin — sinon `config.constants` référence le `config`
+  # de flake-parts (qui n'a pas l'option) → « attribute 'constants' missing ».
+  flake.modules.darwin.common =
+    { config, ... }:
+    {
+      nix.buildMachines = [
+        {
+          hostName = config.constants.hosts.hyper.lanIp;
         sshUser = "logikdev";
         system = "x86_64-linux";
         protocol = "ssh-ng";
