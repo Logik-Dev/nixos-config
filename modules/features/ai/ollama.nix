@@ -28,6 +28,7 @@
         loadModels = [
           "qwen3:8b" # extraction fine + JSON (thinking off) → Paperless-AI
           "gemma3:4b" # tri rapide en volume → mails n8n
+          "gemma4:e4b"
         ];
 
         environmentVariables = {
