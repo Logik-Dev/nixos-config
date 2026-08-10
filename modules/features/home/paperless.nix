@@ -5,6 +5,12 @@
     {
       age.secrets."paperless-admin-pw".owner = "paperless";
 
+      # Gotenberg (conversion Office→PDF pour Tika) écoute par défaut sur 3000,
+      # or AdGuard Home occupe déjà 0.0.0.0:3000 → le bind de Gotenberg échoue et
+      # Paperless tombe sur l'UI d'AdGuard (401) : tous les .docx/.odt/.xlsx
+      # échouent. On le décale sur 3001 (interne, 127.0.0.1 uniquement).
+      services.gotenberg.port = 3001;
+
       traefik.services.paperless = {
         port = 28981;
         enableAuthelia = true;
@@ -31,6 +37,9 @@
         consumptionDirIsPublic = true;
         settings = {
           PAPERLESS_OCR_LANGUAGE = "fra+eng";
+          # Le module ne câble pas l'endpoint : Paperless viserait localhost:3000
+          # (AdGuard). On le pointe sur le port déplacé de Gotenberg (cf. plus haut).
+          PAPERLESS_TIKA_GOTENBERG_ENDPOINT = "http://localhost:3001";
           PAPERLESS_TIME_ZONE = "Europe/Paris";
           # URL externe pour que Django fasse confiance à l'origine proxifiée
           # par Traefik (CSRF).

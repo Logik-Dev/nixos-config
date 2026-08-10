@@ -8,7 +8,15 @@ let
       "d /mnt/parity2 0755 root root -"
     ];
 
-    notify.services = [ "snapraid" ];
+    # The nixpkgs snapraid module creates snapraid-sync.service and
+    # snapraid-scrub.service (each with its own timer) — there is no plain
+    # "snapraid.service". Naming "snapraid" here only spawned a phantom
+    # snapraid.service that never runs, leaving sync/scrub failures silent
+    # (diverging parity with no alert). Wire OnFailure to the real units.
+    notify.services = [
+      "snapraid-sync"
+      "snapraid-scrub"
+    ];
 
     services.snapraid = {
       enable = true;

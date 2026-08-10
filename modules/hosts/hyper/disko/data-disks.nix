@@ -99,6 +99,16 @@ let
           };
         };
       };
+
+      # Monthly checksum scrub of the btrfs backup drive. /mnt/usb is btrfs
+      # single (no DUP data) — scrub can detect bit-rot but not self-heal it,
+      # so it's our only early-warning that the restic/pgbackrest target is
+      # silently corrupting. df/usage won't tell us; the scrub will.
+      services.btrfs.autoScrub = {
+        enable = true;
+        interval = "monthly";
+        fileSystems = [ "/mnt/usb" ];
+      };
     };
 in
 {
