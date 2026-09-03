@@ -37,9 +37,10 @@
         consumptionDirIsPublic = true;
         settings = {
           PAPERLESS_OCR_LANGUAGE = "fra+eng";
-          # Le module ne câble pas l'endpoint : Paperless viserait localhost:3000
-          # (AdGuard). On le pointe sur le port déplacé de Gotenberg (cf. plus haut).
-          PAPERLESS_TIKA_GOTENBERG_ENDPOINT = "http://localhost:3001";
+          # L'endpoint Gotenberg est câblé automatiquement par le module nixpkgs
+          # à partir de services.gotenberg.port (→ http://127.0.0.1:3001), donc on
+          # ne le fixe plus ici (le faire crée un conflit de priorité). Le port
+          # déplacé sur 3001 (cf. plus haut) suffit à éviter AdGuard sur 3000.
           PAPERLESS_TIME_ZONE = "Europe/Paris";
           # URL externe pour que Django fasse confiance à l'origine proxifiée
           # par Traefik (CSRF).

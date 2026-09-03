@@ -52,6 +52,11 @@
               printf '%s' "$RESTIC_PASSWORD" > "$RUNTIME_DIRECTORY/password"
               export RESTIC_PASSWORD_FILE="$RUNTIME_DIRECTORY/password"
               unset RESTIC_PASSWORD
+              # $CACHE_DIRECTORY must be expanded here, at runtime: systemd does
+              # NOT expand variables inside Environment= (it would be passed to
+              # restic literally, which then tries to `mkdir $CACHE_DIRECTORY` on
+              # the read-only fs and fails under the stricter modern restic).
+              export RESTIC_CACHE_DIR="$CACHE_DIRECTORY"
               exec ${pkgs.prometheus-restic-exporter}/bin/restic-exporter.py
             '';
             EnvironmentFile = config.age.secrets."restic.env".path;
@@ -66,7 +71,6 @@
               "LISTEN_ADDRESS=127.0.0.1"
               "LISTEN_PORT=${toString port}"
               "REFRESH_INTERVAL=3600"
-              "RESTIC_CACHE_DIR=$CACHE_DIRECTORY"
               "RESTIC_REPOSITORY=${repository}"
             ];
             PrivateTmp = true;

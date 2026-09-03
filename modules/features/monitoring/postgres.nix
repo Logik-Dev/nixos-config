@@ -9,7 +9,7 @@
       dataSourceName = "host=/run/postgresql dbname=postgres user=postgres sslmode=disable";
       extraFlags = [
         "--collector.database"
-        "--collector.replication_slot"
+        "--collector.replication_slots"
         "--collector.long_running_transactions"
         "--collector.stat_activity_autovacuum"
       ];
