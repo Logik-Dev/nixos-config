@@ -9,16 +9,22 @@
         enable = true;
         enableFishIntegration = true;
         enableZshIntegration = true;
-        global.autoUpdate = true;
+        global.autoUpdate = false;
         onActivation = {
-          autoUpdate = true;
+          autoUpdate = false;
           #cleanup = "uninstall";
-          upgrade = true;
+          upgrade = false;
         };
         taps = [
-          "anomalyco/homebrew-tap"
+          {
+            name = "anomalyco/homebrew-tap";
+            trusted = true;
+          }
         ];
-        brews = [ "opencode" ];
+        brews = [
+          "glow"
+          "opencode"
+        ];
         casks = [
           "audacity"
           "discord"

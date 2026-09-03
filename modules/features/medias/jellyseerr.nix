@@ -14,7 +14,10 @@
     notify.services = [ "seerr" ];
 
     backups.sources.seerr = {
-      paths = [ "/var/lib/jellyseerr" ];
+      # DynamicUser + StateDirectory: /var/lib/jellyseerr is a symlink to
+      # /var/lib/private/jellyseerr, so backing up the former only saves the
+      # link. stateRevision 0 -> data lives under /var/lib/private/jellyseerr.
+      paths = [ "/var/lib/private/jellyseerr" ];
       extraRepositories.local = "/mnt/local";
     };
 

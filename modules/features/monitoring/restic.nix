@@ -39,14 +39,17 @@
             # into a runtime file before launching the exporter.
             ExecStart = pkgs.writeShellScript "restic-exporter-${name}-start" ''
               ${lib.optionalString (lib.hasPrefix "sftp:" repository) ''
-                # Stagger sftp exporters: on a deploy they all restart at once,
-                # and a dozen near-simultaneous sftp sessions arms the Storage
-                # Box's per-IP rate-limiter, which then refuses ports 22/23
-                # for the whole egress IP until ~25 min of complete silence.
-                # 0-900s spreads 13 exporters to <1 connection/min. The sleep
-                # runs inside the main process (Type=simple) so it never
-                # delays the nixos switch.
-                sleep "$((RANDOM % 900))"
+                # Stagger sftp exporters ONLY on mass-start events (boot or
+                # nixos switch): dozens of near-simultaneous sftp sessions arm
+                # the Storage Box's per-IP rate-limiter, which then refuses
+                # ports 22/23 for the whole egress IP until ~25 min of silence.
+                # 48 exporters × RANDOM % 3000 spreads them to <1 conn/min.
+                # An isolated restart (crash, repo not yet created) must not
+                # sleep again — that left exporters down ~50 min and fired
+                # false ResticExporterDown alerts on 2026-09-24.
+                if [ "$(( $(${pkgs.coreutils}/bin/date +%s) - $(${pkgs.coreutils}/bin/stat -c %Y /run/current-system) ))" -lt 900 ]; then
+                  sleep "$((RANDOM % 3000))"
+                fi
               ''}
               umask 0077
               printf '%s' "$RESTIC_PASSWORD" > "$RUNTIME_DIRECTORY/password"
@@ -62,11 +65,14 @@
             EnvironmentFile = config.age.secrets."restic.env".path;
             # Slow the restart loop for remote repos: hammering a refused
             # connection is exactly what keeps the Storage Box rate-limiter
-            # armed. 15 min: 13 exporters retrying at 5 min (≈2.6 conn/min
-            # sustained) proved enough to re-trigger the block on 2026-07-04;
-            # at 15 min it's <1/min. An exporter staying down longer is
-            # covered by the ResticExporterDown alert.
-            RestartSec = lib.mkIf (lib.hasPrefix "sftp:" repository) 900;
+            # armed. The 2026-07-04 storm was ~13 exporters retrying every
+            # 5 min (≈2.6 conn/min) — with 48 exporters, 60 min keeps the
+            # sustained rate under 1 conn/min. An exporter staying down longer
+            # is covered by the ResticExporterDown alert. Local repos get
+            # 5 min: a freshly added source has no repo until its first backup,
+            # and the default RestartSec tripped systemd's start limit on
+            # 2026-09-24 (start-limit-hit) instead of retrying.
+            RestartSec = if lib.hasPrefix "sftp:" repository then 3600 else 300;
             Environment = [
               "LISTEN_ADDRESS=127.0.0.1"
               "LISTEN_PORT=${toString port}"
@@ -136,7 +142,7 @@
         # while their repo is unreachable, and a per-failure push turns any
         # Storage Box outage into an ntfy flood. Exporter health is alerted
         # once, calmly, by the ResticExporterDown Prometheus rule
-        # (up{job="restic"} == 0 for 30m) in prometheus.nix.
+        # (up{job="restic"} == 0 for 75m) in prometheus.nix.
       };
     };
 }

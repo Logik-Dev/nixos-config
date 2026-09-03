@@ -7,12 +7,17 @@ let
       ...
     }:
     let
-      inherit (config.restoreDrill.lib) reportLib commonPath bigRepoLines;
+      inherit (config.restoreDrill.lib)
+        reportLib
+        drillStamp
+        commonPath
+        bigRepoLines
+        ;
     in
     {
       systemd.services.restic-read-data = {
         description = "Weekly rotating read-data verification of big repos (immich)";
-        startAt = "Sun 08:00";
+        startAt = "Sun 12:00";
         path = [
           pkgs.restic
           pkgs.openssh
@@ -23,6 +28,9 @@ let
           EnvironmentFile = config.age.secrets."restic.env".path;
           # Downloads a slice from Hetzner + reads slices from USB — can be long.
           TimeoutStartSec = "6h";
+          CacheDirectory = "restic-read-data";
+          Environment = [ "RESTIC_CACHE_DIR=/var/cache/restic-read-data" ];
+          ExecStopPost = [ "+${drillStamp} restic-read-data" ];
         };
         script = ''
           source ${reportLib}
@@ -34,7 +42,7 @@ let
           LOG="$(mktemp)"
           while read -r name repo; do
             [ -z "$name" ] && continue
-            if restic -r "$repo" check --read-data-subset="$N/$SLICES" >"$LOG" 2>&1; then
+            if restic -r "$repo" check --read-data-subset="$N/$SLICES" --retry-lock 30m >"$LOG" 2>&1; then
               OK=$((OK + 1)); add "✓ $name"
             else
               KO=$((KO + 1)); FAILED=1

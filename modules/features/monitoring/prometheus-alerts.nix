@@ -9,8 +9,11 @@
               name = "homelab";
               rules = [
                 {
+                  # restic exporter targets are excluded: a Storage Box outage
+                  # takes all ~38 sftp exporters down at once, and
+                  # ResticExporterDown already reports that calmly after 30m.
                   alert = "ServiceDown";
-                  expr = "up == 0";
+                  expr = ''up{job!="restic"} == 0'';
                   for = "1m";
                   labels.severity = "critical";
                   annotations = {
@@ -54,6 +57,190 @@
                   };
                 }
                 {
+                  # Authelia-protected vhosts redirect to the portal (2xx/401),
+                  # so this mainly covers the unprotected services (Immich,
+                  # Jellyfin, Vaultwarden, ntfy) plus Traefik/TLS itself.
+                  alert = "ProbeFailure";
+                  expr = "probe_success == 0";
+                  for = "5m";
+                  labels.severity = "critical";
+                  annotations = {
+                    summary = "Blackbox probe failed for {{ $labels.service }}";
+                    description = "{{ $labels.service }} has been failing its HTTP probe for 5 minutes.";
+                  };
+                }
+                {
+                  alert = "TLSCertExpirySoon";
+                  expr = "probe_ssl_earliest_cert_expiry - time() < 14 * 86400";
+                  for = "1h";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "TLS certificate for {{ $labels.service }} expires soon";
+                    description = "The certificate presented for {{ $labels.service }} expires in less than 14 days.";
+                  };
+                }
+                {
+                  alert = "PostgresDown";
+                  expr = "pg_up == 0";
+                  for = "5m";
+                  labels.severity = "critical";
+                  annotations = {
+                    summary = "PostgreSQL is down";
+                    description = "The postgres exporter can no longer reach the local cluster.";
+                  };
+                }
+                {
+                  # In async mode pg acknowledges WAL from the spool, so
+                  # failed_count can stay quiet; the age of the last successful
+                  # archive is the reliable signal.
+                  alert = "PgWalArchiveStale";
+                  expr = "pg_stat_archiver_last_archive_age > 7200";
+                  for = "15m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "WAL archiving is lagging";
+                    description = "No WAL segment archived for more than 2 hours — PITR offsite is falling behind.";
+                  };
+                }
+                {
+                  alert = "PgWalArchiveFailures";
+                  expr = "increase(pg_stat_archiver_failed_count[1h]) > 0";
+                  for = "10m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "WAL archiving failures";
+                    description = "archive-push failed at least once in the last hour.";
+                  };
+                }
+                {
+                  alert = "PgbackrestBackupStale";
+                  expr = "time() - pgbackrest_last_full_timestamp_seconds > 8 * 86400";
+                  for = "1h";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "pgBackRest full backup stale ({{ $labels.stanza }}/repo{{ $labels.repo }})";
+                    description = "No successful full backup in the last 8 days for stanza {{ $labels.stanza }}, repo {{ $labels.repo }}.";
+                  };
+                }
+                {
+                  # The async spool grows on the root fs while a repo is
+                  # unreachable; at 2 GiB pgBackRest starts dropping WAL
+                  # (archive-push-queue-max). Catch the growth early.
+                  alert = "PgbackrestSpoolGrowing";
+                  expr = "pgbackrest_spool_size_bytes > 536870912";
+                  for = "1h";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "pgBackRest WAL spool growing (> 512 MiB)";
+                    description = "archive-push has been queueing WAL for over an hour — offsite archiving may be failing (WAL is dropped at 2 GiB).";
+                  };
+                }
+                {
+                  alert = "PgbackrestMetricsMissing";
+                  expr = "count(pgbackrest_last_full_timestamp_seconds) < 2";
+                  for = "26h";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "pgBackRest metrics missing";
+                    description = "Fewer than 2 repos reported last-full timestamps — the daily metrics job may have stopped.";
+                  };
+                }
+                {
+                  alert = "SystemdUnitFailed";
+                  expr = ''node_systemd_unit_state{state="failed"} == 1'';
+                  for = "5m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "systemd unit {{ $labels.name }} failed";
+                    description = "Unit {{ $labels.name }} has been in the failed state for 5 minutes.";
+                  };
+                }
+                {
+                  alert = "TemperatureHigh";
+                  expr = "node_hwmon_temp_celsius > 75";
+                  for = "10m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "High temperature on {{ $labels.chip }}/{{ $labels.sensor }}";
+                    description = "Sensor {{ $labels.chip }}/{{ $labels.sensor }} is above 75 °C for 10 minutes.";
+                  };
+                }
+                {
+                  alert = "GpuTemperatureHigh";
+                  expr = "nvidia_smi_temperature_gpu > 85";
+                  for = "10m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "GPU temperature above 85 °C";
+                    description = "The P4000 GPU has been above 85 °C for 10 minutes.";
+                  };
+                }
+                {
+                  # A repo with zero snapshots exposes restic_snapshots_total = 0
+                  # but no restic_backup_timestamp, so ResticBackupStale can
+                  # never fire for it. 26h covers a freshly added source (next
+                  # 02:05 + up to 5h random delay).
+                  alert = "ResticRepoEmpty";
+                  expr = ''restic_snapshots_total{job="restic"} == 0'';
+                  for = "26h";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "Restic repository empty: {{ $labels.repository }}";
+                    description = "Repository {{ $labels.repository }} has never had a snapshot.";
+                  };
+                }
+                {
+                  alert = "DrillStale";
+                  expr = "time() - drill_last_run_timestamp_seconds > 9 * 86400";
+                  for = "30m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "Backup drill {{ $labels.drill }} has not run";
+                    description = "The weekly drill {{ $labels.drill }} has not completed in the last 9 days (dead-man switch).";
+                  };
+                }
+                {
+                  # Data disks are mounted with `nofail`: a missing mount is
+                  # otherwise invisible (tmpfiles recreate the dirs on the root
+                  # fs). Jobs now require their mounts (RequiresMountsFor), this
+                  # alert reports the root cause.
+                  alert = "MountPointMissing";
+                  expr = ''absent(node_filesystem_size_bytes{mountpoint="/mnt/usb"})'';
+                  for = "5m";
+                  labels = {
+                    severity = "critical";
+                    mountpoint = "/mnt/usb";
+                  };
+                  annotations = {
+                    summary = "Mount point {{ $labels.mountpoint }} is missing";
+                    description = "The /mnt/usb filesystem is not mounted — backups would silently write to the root filesystem.";
+                  };
+                }
+                {
+                  alert = "MountPointMissing";
+                  expr = ''absent(node_filesystem_size_bytes{mountpoint="/mnt/ultra"})'';
+                  for = "5m";
+                  labels = {
+                    severity = "critical";
+                    mountpoint = "/mnt/ultra";
+                  };
+                  annotations = {
+                    summary = "Mount point {{ $labels.mountpoint }} is missing";
+                    description = "The /mnt/ultra filesystem is not mounted — media data and backup sources are unavailable.";
+                  };
+                }
+                {
+                  alert = "FilesystemReadOnly";
+                  # /nix/store is a deliberately read-only ext4 mount here.
+                  expr = ''node_filesystem_readonly{fstype!~"squashfs|iso9660|erofs|tmpfs|ramfs",mountpoint!="/nix/store"} == 1'';
+                  for = "10m";
+                  labels.severity = "critical";
+                  annotations = {
+                    summary = "Filesystem {{ $labels.mountpoint }} is read-only";
+                    description = "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is mounted read-only.";
+                  };
+                }
+                {
                   alert = "ResticBackupStale";
                   expr = "time() - restic_backup_timestamp > 172800";
                   for = "0m";
@@ -84,11 +271,14 @@
                   # notification instead.
                   alert = "ResticExporterDown";
                   expr = ''up{job="restic"} == 0'';
-                  for = "30m";
+                  # 75m: sftp exporters deliberately stagger up to 50 min after
+                  # a nixos switch (Storage Box rate-limit protection), which
+                  # would trip a 30m threshold on every deploy.
+                  for = "75m";
                   labels.severity = "warning";
                   annotations = {
                     summary = "Restic exporter down: {{ $labels.repository }}";
-                    description = "The restic exporter for {{ $labels.repository }} has been unreachable for 30 minutes — its staleness/check alerts are blind until it returns.";
+                    description = "The restic exporter for {{ $labels.repository }} has been unreachable for 75 minutes — its staleness/check alerts are blind until it returns.";
                   };
                 }
               ];

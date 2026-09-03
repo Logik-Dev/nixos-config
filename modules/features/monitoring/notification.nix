@@ -47,14 +47,18 @@
               let
                 script = pkgs.writeShellScript "notify-failure" ''
                   SERVICE="$1"
-                  LOCKFILE="/tmp/notify-failure-''${SERVICE}.lock"
+                  LOCKFILE="/run/notify-failure-''${SERVICE}.lock"
 
-                  # Don't repeat notification if it was sent during last minute
-                  if [ -f "$LOCKFILE" ] && [ $(( $(date +%s) - $(cat "$LOCKFILE") )) -lt 60 ]; then
-                    exit 0
+                  # Don't repeat a notification sent during the last minute.
+                  # /run (not /tmp): root-owned state on tmpfs, no symlink games.
+                  now="$(date +%s)"
+                  if [ -f "$LOCKFILE" ]; then
+                    last="$(cat "$LOCKFILE" 2>/dev/null || echo 0)"
+                    case "$last" in "" | *[!0-9]*) last=0 ;; esac
+                    [ $((now - last)) -lt 60 ] && exit 0
                   fi
 
-                  echo "$(date +%s)" > "$LOCKFILE"
+                  printf '%s\n' "$now" > "$LOCKFILE"
 
                   LOGS=$(${pkgs.systemd}/bin/journalctl -u "$SERVICE" -n 30 --no-pager -o short-monotonic 2>/dev/null \
                     | grep -v ' systemd\[1\]: ' \
@@ -106,9 +110,12 @@
                   ${ntfy} access everyone backup-verify write-only
 
                   # Read-only account for the phone (password from agenix).
-                  # Change later with: ntfy user change-pass reader
-                  NTFY_PASSWORD="$(cat ${config.age.secrets."ntfy-reader-pw".path})" \
-                    ${ntfy} user add reader 2>/dev/null || true
+                  # add is a no-op if the user exists; change-pass keeps the
+                  # stored hash in sync when the secret is rotated (the old
+                  # `|| true` silently kept a stale password forever).
+                  READER_PW="$(cat ${config.age.secrets."ntfy-reader-pw".path})"
+                  NTFY_PASSWORD="$READER_PW" ${ntfy} user add reader 2>/dev/null || true
+                  NTFY_PASSWORD="$READER_PW" ${ntfy} user change-pass reader >/dev/null
                   ${ntfy} access reader '*' read-only
                 '';
               };

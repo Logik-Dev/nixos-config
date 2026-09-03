@@ -7,12 +7,18 @@ let
       ...
     }:
     let
-      inherit (config.restoreDrill.lib) reportLib commonPath repoLines;
+      inherit (config.restoreDrill.lib)
+        reportLib
+        drillStamp
+        commonPath
+        repoLines
+        ;
     in
     {
       systemd.services.restic-check = {
         description = "Weekly integrity check of all restic repositories";
-        startAt = "Sun 05:00";
+        # 09:00: after the 02:05-07:05 backup window and the 01:30 pg_dumpall.
+        startAt = "Sun 09:00";
         path = [
           pkgs.restic
           pkgs.openssh
@@ -21,6 +27,9 @@ let
         serviceConfig = {
           Type = "oneshot";
           EnvironmentFile = config.age.secrets."restic.env".path;
+          CacheDirectory = "restic-check";
+          Environment = [ "RESTIC_CACHE_DIR=/var/cache/restic-check" ];
+          ExecStopPost = [ "+${drillStamp} restic-check" ];
         };
         script = ''
           source ${reportLib}
@@ -29,7 +38,7 @@ let
           LOG="$(mktemp)"
           while read -r name repo mode; do
             [ -z "$name" ] && continue
-            if [ "$mode" = full ]; then args="check --read-data"; else args="check"; fi
+            if [ "$mode" = full ]; then args="check --read-data --retry-lock 30m"; else args="check --retry-lock 30m"; fi
             if restic -r "$repo" $args >"$LOG" 2>&1; then
               OK=$((OK + 1))
             else

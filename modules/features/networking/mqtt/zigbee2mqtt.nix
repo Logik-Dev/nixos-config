@@ -9,6 +9,8 @@ let
     {
       age.secrets."zigbee2mqtt-network-key".owner = "zigbee2mqtt";
 
+      notify.services = [ "zigbee2mqtt" ];
+
       traefik.services.zigbee = {
         port = 8788;
         enableAuthelia = true;

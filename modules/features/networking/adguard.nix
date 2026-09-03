@@ -15,8 +15,14 @@
       # resolved conflicts with adguard port
       services.resolved.enable = false;
 
-      # Configure nameservers to use AdGuard Home
-      networking.nameservers = [ "127.0.0.1" ];
+      # Configure nameservers to use AdGuard Home, with Quad9 as a last-resort
+      # fallback: if AdGuard itself is down the host still resolves (plaintext
+      # and unfiltered — better than a DNS outage; LAN clients are unaffected).
+      # Known limitation: browsers using DoH/Private Relay bypass both anyway.
+      networking.nameservers = [
+        "127.0.0.1"
+        "9.9.9.9"
+      ];
 
       networking.firewall.allowedUDPPorts = [ 53 ];
 
@@ -29,11 +35,17 @@
         mutableSettings = true;
         settings = {
           dns = {
+            # DNS-over-TLS upstreams (Quad9 filtered: dns.quad9.net → 9.9.9.9,
+            # dns10.quad9.net → 149.112.112.112); the plain addresses are only
+            # the bootstrap used to resolve the DoT hostnames.
             upstream_dns = [
+              "tls://dns.quad9.net"
+              "tls://dns10.quad9.net"
+            ];
+            bootstrap_dns = [
               "9.9.9.9"
               "149.112.112.112"
             ];
-            bootstrap_dns = [ "9.9.9.9" ];
             enable_dnssec = true;
           };
 
@@ -49,7 +61,10 @@
       };
 
       backups.sources.adguard = {
-        paths = [ "/var/lib/AdGuardHome" ];
+        # DynamicUser + StateDirectory: /var/lib/AdGuardHome is a symlink to
+        # /var/lib/private/AdGuardHome, so backing up the former only saves the
+        # link (and the admin password hash lives in that state).
+        paths = [ "/var/lib/private/AdGuardHome" ];
         extraRepositories.local = "/mnt/local";
         # AdGuard Home is the host's DNS resolver (nameservers = 127.0.0.1,
         # resolved disabled). The default manageService stops it during the

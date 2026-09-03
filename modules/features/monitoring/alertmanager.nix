@@ -22,7 +22,7 @@
               name = "ntfy";
               webhook_configs = [
                 {
-                  url = "http://127.0.0.1:8000/alertmanager";
+                  url = "http://127.0.0.1:8000/hook";
                   send_resolved = true;
                 }
               ];

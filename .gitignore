@@ -9,3 +9,4 @@ result-*
 *.qcow2
 **/.terraform/*
 **/generated/**
+AirVPN_*.conf

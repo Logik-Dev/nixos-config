@@ -19,6 +19,12 @@
 
       systemd.services.sabnzbd.serviceConfig.UMask = lib.mkForce "0002";
 
+      # Config, history and queue state in /var/lib/sabnzbd; stopped during
+      # the backup for a consistent copy.
+      backups.sources.sabnzbd = {
+        paths = [ "/var/lib/sabnzbd" ];
+      };
+
       services.sabnzbd = {
         enable = true;
         group = "media";

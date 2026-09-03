@@ -27,6 +27,7 @@ in
         };
         networking.firewall.allowedTCPPorts = [ 22000 ];
         networking.firewall.allowedUDPPorts = [ 22000 ];
+        notify.services = [ "syncthing" ];
         services.syncthing = {
           enable = true;
           user = "logikdev";

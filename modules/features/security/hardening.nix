@@ -23,5 +23,14 @@
 
   flake.modules.darwin.common = {
     security.pam.services.sudo_local.touchIdAuth = true;
+
+    # Per-application exceptions (ollama from the nix store, syncthing) cannot
+    # be declared by nix-darwin and must be re-added manually after a reinstall
+    # with `socketfilterfw --add <binary>` (see docs/audit-2026-09.md, P0-7).
+    networking.applicationFirewall = {
+      enable = true;
+      allowSigned = true;
+      allowSignedApp = true;
+    };
   };
 }

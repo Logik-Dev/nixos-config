@@ -17,7 +17,23 @@
       host = config.networking.hostName;
       domain = config.constants.domain;
 
-      servicesInCategory = cat: lib.filterAttrs (_: v: v.category == cat) cfg;
+      # Every category used by a service must appear in the dashboard layout
+      # below; the assertion at the bottom prevents a new category (like
+      # "Automatisation"/n8n once was) from silently disappearing.
+      categories = [
+        "Médias"
+        "Maison"
+        "Réseau & Stockage"
+        "Supervision"
+        "Automatisation"
+      ];
+
+      usedCategories = lib.unique (lib.filter (c: c != null) (lib.mapAttrsToList (_: v: v.category) cfg));
+
+      missingCategories = lib.subtractLists categories usedCategories;
+
+      # A port-less service cannot produce a check-url; skip it defensively.
+      servicesInCategory = cat: lib.filterAttrs (_: v: v.category == cat && v.port != null) cfg;
 
       mkSite =
         name: value:
@@ -91,6 +107,7 @@
                   widgets = [
                     (mkMonitor "Réseau & Stockage")
                     (mkMonitor "Supervision")
+                    (mkMonitor "Automatisation")
                   ];
                 }
               ];
@@ -98,6 +115,13 @@
           ];
         };
       };
+
+      assertions = [
+        {
+          assertion = missingCategories == [ ];
+          message = "Glance dashboard is missing categories: ${lib.concatStringsSep ", " missingCategories}";
+        }
+      ];
 
       traefik.services.home = {
         port = 3004;

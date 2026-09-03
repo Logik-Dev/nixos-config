@@ -31,6 +31,18 @@
 - M4 (darwin) : known network services (Thunderbolt/Wi-Fi)
 - Auth key via agenix (`tailscale.age`)
 
+## VPN torrent (AirVPN → qBittorrent)
+
+`features/downloads/{vpn,qbittorrent}.nix` — doc complète : [torrent-vpn.md](torrent-vpn.md)
+
+- wg0 (AirVPN) : routes isolées dans la table `4242`, `fwMark 0x4242`, MTU 1320
+- Routage par UID (qbittorrent + prowlarr) vers 4242 ; exceptions LAN scopées
+- Kill-switch nft `inet vpn_killswitch` (fail-closed) : accepte le fwmark,
+  lo, le LAN et wg0, droppe le reste des UIDs routés
+- Port forward AirVPN (TCP+UDP) → local 51413 (port d'écoute qBittorrent)
+- Ne jamais mettre `100.64.0.0/10` dans `vpn.airvpn.lanNetworks` : une règle
+  globale `to 100.64.0.0/10 lookup main` écrase Tailscale et coupe le mesh
+
 ## SSH
 
 `networking/ssh.nix`

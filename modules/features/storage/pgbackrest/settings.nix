@@ -35,12 +35,14 @@ let
         enable = true;
 
         settings = {
-          # Async WAL archiving: archive-push acks fast from a spool and a
-          # background process ships to both repos with retries, so postgres
-          # never blocks on the USB disk or a Hetzner outage. WAL is only
-          # acknowledged once safely in ALL repos; if one is down, postgres
-          # retains WAL in pg_wal and retries (disk-usage alerts cover runaway
-          # growth).
+          # Async WAL archiving: archive-push acks PostgreSQL as soon as the
+          # segment is in the local spool (/var/spool/pgbackrest); a background
+          # process then ships it to both repos with retries, so postgres never
+          # blocks on the USB disk or a Hetzner outage. Consequence: while a
+          # repo is unreachable the spool GROWS on the root LV — it is bounded
+          # by archive-push-queue-max (below) and watched by the
+          # PgbackrestSpoolGrowing alert, so a stuck archiver cannot fill the
+          # root filesystem (which would take PostgreSQL down).
           archive-async = true;
           spool-path = "/var/spool/pgbackrest";
           compress-type = "zst";
@@ -55,13 +57,23 @@ let
           lock-path = "/run/pgbackrest";
         };
 
-        # Keep WAL pushes gentle on the Storage Box: it enforces a connection
-        # limit per IP and temporarily BANS the home IP when exceeded (learned
-        # the hard way on 2026-07-04 — a retry storm during initial debugging
-        # got port 22/23 refused for the whole house). 4 parallel pushers, each
-        # with its own sftp session plus built-in retries, is storm fuel; one
-        # is plenty for a homelab's WAL rate. Full backups keep process-max=4.
-        commands.archive-push.process-max = 1;
+        commands.archive-push = {
+          # Keep WAL pushes gentle on the Storage Box: it enforces a connection
+          # limit per IP and temporarily BANS the home IP when exceeded
+          # (learned the hard way on 2026-07-04 — a retry storm during initial
+          # debugging got port 22/23 refused for the whole house). 4 parallel
+          # pushers, each with its own sftp session plus built-in retries, is
+          # storm fuel; one is plenty for a homelab's WAL rate. Full backups
+          # keep process-max=4.
+          process-max = 1;
+
+          # Hard cap on the async spool. At 2 GiB pgBackRest acks and DROPS the
+          # queued WAL (PITR is interrupted until the next full backup) — a
+          # deliberate trade: better a broken archive than a full root fs that
+          # takes PostgreSQL down. The 512 MiB spool alert should fire long
+          # before this.
+          archive-push-queue-max = "2GiB";
+        };
 
         repos = {
           # repo1 — USB disk. The name "localhost" is magic in the nixpkgs

@@ -39,12 +39,31 @@
 
       notify.services = [ "n8n" ];
 
-      # SQLite + clé de chiffrement des credentials vivent dans /var/lib/n8n
-      # (n8n recommande SQLite en instance unique ; Postgres = mode queue/scale
-      # inutile ici). Service arrêté pendant le backup (manageService défaut)
-      # pour une copie SQLite cohérente.
+      # Base applicative où les workflows n8n écrivent leurs données de travail
+      # (tri mail : table mail_meta, puis pgvector à l'étage 2). DISTINCTE du
+      # store interne de n8n (qui reste sur SQLite, cf. plus bas). Connexion en
+      # peer via la socket Unix : le service tourne en DynamicUser nommé « n8n »,
+      # et pg_hba a `local all all peer` → le rôle « n8n » = l'utilisateur OS,
+      # donc aucun mot de passe ni secret agenix. ensureDBOwnership exige que le
+      # nom de la base == le nom du rôle.
+      services.postgresql = {
+        ensureDatabases = [ "n8n" ];
+        ensureUsers = [
+          {
+            name = "n8n";
+            ensureDBOwnership = true;
+          }
+        ];
+      };
+
+      # SQLite + clé de chiffrement des credentials vivent dans
+      # /var/lib/private/n8n (DynamicUser + StateDirectory : /var/lib/n8n est
+      # un symlink, le sauvegarder ne capture rien). n8n recommande SQLite en
+      # instance unique ; Postgres = mode queue/scale inutile ici. Service
+      # arrêté pendant le backup (manageService défaut) pour une copie SQLite
+      # cohérente.
       backups.sources.n8n = {
-        paths = [ "/var/lib/n8n" ];
+        paths = [ "/var/lib/private/n8n" ];
       };
     };
 }

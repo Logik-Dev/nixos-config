@@ -28,6 +28,11 @@ let
       {
         programs.virt-manager.enable = true;
       }
+      # Managed locally only: no remote SSH access (sshd was enabled by
+      # nixos.common but no authorizedKeys were ever declared).
+      {
+        services.openssh.enable = false;
+      }
     ];
 
   network = {

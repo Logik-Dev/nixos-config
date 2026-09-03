@@ -18,6 +18,14 @@ let
 
         notify.services = [ "traefik" ];
 
+        # acme.json: losing it means re-issuing every certificate on restore
+        # (Let's Encrypt rate limits). Live copy — stopping Traefik would take
+        # every web service down.
+        backups.sources.traefik = {
+          paths = [ config.services.traefik.dataDir ];
+          manageService = false;
+        };
+
         services.traefik = {
           enable = true;
           environmentFiles = [ config.age.secrets.cloudflare.path ];

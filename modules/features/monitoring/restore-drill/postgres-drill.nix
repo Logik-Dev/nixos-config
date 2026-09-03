@@ -8,20 +8,22 @@ let
       ...
     }:
     let
-      inherit (config.restoreDrill.lib) reportLib commonPath;
+      inherit (config.restoreDrill.lib) reportLib drillStamp commonPath;
       pg = config.services.postgresql.finalPackage;
     in
     {
       systemd.services.postgres-restore-drill = {
         description = "Weekly postgres restore drill (pgBackRest ← Hetzner → throwaway instance)";
-        startAt = "Sun 07:00";
-        path = commonPath;
+        startAt = "Sun 11:00";
+        path = [ pkgs.jq ] ++ commonPath;
+        unitConfig.RequiresMountsFor = [ "/mnt/ultra" ];
         serviceConfig = {
           Type = "oneshot";
           User = "postgres";
           Group = "postgres";
           EnvironmentFile = config.age.secrets."pgbackrest.env".path;
-          TimeoutStartSec = "20min";
+          TimeoutStartSec = "45min";
+          ExecStopPost = [ "+${drillStamp} postgres-restore-drill" ];
         };
         script = ''
           source ${reportLib}
@@ -30,6 +32,18 @@ let
           PGB=${lib.getExe pkgs.pgbackrest}
           ROOT=/mnt/ultra/restore-test; RDIR=$ROOT/pg; SOCK=$ROOT/sock
           rm -rf "$RDIR" "$SOCK"; mkdir -p "$RDIR" "$SOCK"; chmod 700 "$RDIR"
+
+          # The restore only proves the chain works; it says nothing about the
+          # backup's age. Fail on a full older than 9 days.
+          LAST="$("$PGB" --stanza=default info --output=json | ${lib.getExe pkgs.jq} -r \
+            '[.[] | .backup[]? | select(.type=="full" and (.error|not)) | .timestamp.stop] | max')"
+          case "$LAST" in "" | null | *[!0-9]*) add "aucun full trouvé dans pgbackrest info"; exit 1 ;; esac
+          AGE=$(( $(date +%s) - LAST ))
+          add "dernier full: il y a $(( AGE / 86400 )) j"
+          [ "$AGE" -lt 777600 ] || { add "full trop vieux (> 9 j)"; exit 1; }
+
+          "$PGB" --stanza=default check
+          add "pgbackrest check ✓"
 
           "$PGB" --stanza=default --repo=2 restore --pg1-path="$RDIR" \
             --type=immediate --target-action=promote --archive-mode=off

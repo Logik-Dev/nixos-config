@@ -17,6 +17,8 @@ let
         enable = true;
         port = 9090;
         listenAddress = "127.0.0.1";
+        # Kept at the historical "prometheus" path (nixpkgs' default is now
+        # "prometheus2"): renaming it would orphan the existing 30d TSDB.
         stateDir = "prometheus";
         retentionTime = "30d";
 

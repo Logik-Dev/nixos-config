@@ -37,6 +37,7 @@ let
       postgresql
       prometheus
       alloy
+      qbittorrent
       rankoder
       restic
       resticExporter
@@ -48,6 +49,7 @@ let
       traefik
       unifi
       vaultwarden
+      vpn-torrent
     ])
     ++ [
       # host-specific tailscale config
@@ -57,7 +59,7 @@ let
         networking.firewall.allowedTCPPorts = [
           22
         ];
-        notify.services = [ "tailscale" ];
+        notify.services = [ "tailscaled" ];
         services.tailscale = {
           useRoutingFeatures = "both";
           extraUpFlags = [ "--ssh" ];
@@ -72,6 +74,20 @@ let
           (inputs.self + "/secrets/id_ed25519.pub")
         ];
       }
+      # AirVPN WireGuard for torrenting
+      (
+        { config, ... }:
+        {
+          vpn.airvpn = {
+            enable = true;
+            address = "10.150.11.114/32";
+            publicKey = "PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=";
+            endpoint = "nl3.vpn.airdns.org:1637";
+            privateKeyFile = config.age.secrets."airvpn-private.key".path;
+            presharedKeyFile = config.age.secrets."airvpn-psk.key".path;
+          };
+        }
+      )
     ];
 
   disableNetworkManager = {

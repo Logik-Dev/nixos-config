@@ -26,10 +26,10 @@ Module : `modules/features/monitoring/restore-drill.nix`. Résultats postés (su
 
 | Service systemd | Quand | Ce qu'il prouve |
 |---|---|---|
-| `restic-check` | dim. 05:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`/`rustfs` (couverts par `restic-read-data`) |
-| `restore-canary` | dim. 06:00 | Restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` |
-| `postgres-restore-drill` | dim. 07:00 | Restore pgBackRest réel **depuis Hetzner (repo2)** → instance jetable → requêtes sur vaultwarden/prowlarr — prouve la chaîne PITR offsite chaque semaine |
-| `restic-read-data` | dim. 08:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur les gros repos immich ×3 + rustfs-usb → couverture complète tous les ~13 cycles |
+| `restic-check` | dim. 09:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`/`rustfs` (couverts par `restic-read-data`) — `--retry-lock 30m` |
+| `restore-canary` | dim. 10:00 | Restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` (échoue si `coordinator_backup.json` manquant) |
+| `postgres-restore-drill` | dim. 11:00 | Contrôle d'âge (< 9 j) + `pgbackrest check` repo2, puis restore réel **depuis Hetzner (repo2)** → instance jetable → requêtes sur vaultwarden/prowlarr |
+| `restic-read-data` | dim. 12:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur les gros repos immich ×3 + rustfs-usb → couverture complète tous les ~13 cycles — `--retry-lock 30m` |
 
 Lancer un drill à la main :
 

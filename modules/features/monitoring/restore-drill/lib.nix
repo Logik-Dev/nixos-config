@@ -58,6 +58,21 @@ let
         set -Eeuo pipefail
       '';
 
+      # Each drill stamps its last run into the node-exporter textfile dir via
+      # an ExecStopPost prefixed with "+" (full privileges, so the postgres
+      # drill can write too). DrillStale alerts when a stamp goes missing for
+      # 9 days — that is the dead-man switch for a timer that stopped firing.
+      drillStamp = pkgs.writeShellScript "drill-stamp" ''
+        set -eu
+        name="$1"
+        dir=/var/lib/node-exporter-textfile
+        mkdir -p "$dir"
+        umask 022
+        tmp="$dir/.drill-$name.prom.tmp"
+        printf 'drill_last_run_timestamp_seconds{drill="%s"} %s\n' "$name" "$(date +%s)" > "$tmp"
+        mv -f "$tmp" "$dir/drill-$name.prom"
+      '';
+
       commonPath = [
         pkgs.coreutils
         pkgs.gnutar
@@ -76,6 +91,7 @@ let
         restoreDrill.lib = {
           inherit
             reportLib
+            drillStamp
             commonPath
             repoLines
             bigRepoLines

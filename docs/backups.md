@@ -16,11 +16,14 @@ par couple (timer quotidien ~02:05).
 |---|---|---|
 | `usb` | `/mnt/usb` | sur site, disque externe |
 | `hetzner` | `sftp:…@…your-storagebox.de:/home` | **offsite** (Storage Box, trafic gratuit) |
-| `local` | `/mnt/local` | sur site (certaines sources) |
+| `local` | `/mnt/local` | sur site (certaines sources) — **LV du disque système**, pas un domaine de panne distinct |
 
 Par défaut une source va sur `usb + hetzner`. Rétention (prune auto) :
 `--keep-daily 7 --keep-weekly 3 --keep-monthly 6 --keep-yearly 2`.
 Secrets : `restic.env` (mot de passe restic), clé SSH Hetzner dans agenix.
+**Copie de secours du mot de passe restic dans Vaultwarden** (comme la
+passphrase pgBackRest) : sans elle, les repos sont illisibles si l'identité
+age maître est perdue.
 
 > **Historique — rustfs (décommissionné 2026-07-04).** Il y avait une cible `s3`
 > (store objet rustfs sur `/mnt/ultra`). Elle a été retirée : le blob-store

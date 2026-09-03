@@ -11,6 +11,13 @@ let
 
       age.secrets.mqtt.owner = "zigbee2mqtt";
 
+      notify.services = [ "mosquitto" ];
+
+      # mosquitto.db holds the retained messages (working directory).
+      backups.sources.mosquitto = {
+        paths = [ "/var/lib/mosquitto" ];
+      };
+
       services.mosquitto = {
         enable = true;
         listeners = [

@@ -109,6 +109,10 @@ let
         interval = "monthly";
         fileSystems = [ "/mnt/usb" ];
       };
+
+      # Scrub errors are the only early warning that /mnt/usb (btrfs single,
+      # no self-heal) is corrupting — surface failures on ntfy.
+      notify.services = [ "btrfs-scrub-mnt-usb" ];
     };
 in
 {

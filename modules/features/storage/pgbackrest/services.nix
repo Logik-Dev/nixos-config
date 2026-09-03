@@ -16,6 +16,7 @@ let
       systemd.services.pgbackrest-default-weekly = {
         after = [ "postgresql.service" ];
         requires = [ "postgresql.service" ];
+        unitConfig.RequiresMountsFor = [ "/mnt/usb" ];
         serviceConfig = {
           User = lib.mkForce "postgres";
           Group = lib.mkForce "postgres";
@@ -45,6 +46,7 @@ let
           "network-online.target"
         ];
         wants = [ "network-online.target" ];
+        unitConfig.RequiresMountsFor = [ "/mnt/usb" ];
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;

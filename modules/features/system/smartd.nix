@@ -3,25 +3,25 @@
   flake.modules.nixos.smartd =
     { pkgs, ... }:
     let
-      # smartd's "mail" transport invokes its mailer like `mailer -s <subject>
-      # <recipient>` with the alert body on stdin. We hijack that shim to push
-      # the SMART alert to ntfy (homelab-alerts, already granted) as an urgent
-      # notification, so a failing disk reaches the phone instead of a wall(1)
-      # broadcast that no one is around to read.
+      # nixpkgs' smartd module pipes a full e-mail to its mailer
+      # (`${mailer} -i <recipient>`: From/To/Subject headers, then the alert
+      # message and `smartctl -a` output on stdin). Parse it here — Subject
+      # becomes the ntfy title, the body after the header block the message
+      # (truncated to ntfy's size limit). The previous shim expected
+      # `-s <subject>` and never matched, so every alert arrived as a generic
+      # "SMART alert".
       ntfyMailer = pkgs.writeShellScript "smartd-ntfy" ''
-        subject="SMART alert"
-        while [ "$#" -gt 0 ]; do
-          case "$1" in
-            -s) subject="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        body="$(cat)"
+        input="$(${pkgs.coreutils}/bin/cat)"
+        subject="$(printf '%s\n' "$input" | ${pkgs.gnused}/bin/sed -n 's/^Subject: //p' | ${pkgs.coreutils}/bin/head -1)"
+        body="$(printf '%s\n' "$input" | ${pkgs.gawk}/bin/awk 'found{print} /^[[:space:]]*$/{found=1}')"
+        [ -n "$subject" ] || subject="SMART alert"
+        [ -n "$body" ] || body="$input"
+        body="$(printf '%s' "$body" | ${pkgs.coreutils}/bin/tail -c 3800)"
         ${pkgs.curl}/bin/curl -s \
           -H "Title: 💽 $subject" \
           -H "Priority: urgent" \
           -H "Tags: floppy_disk,rotating_light" \
-          -d "$body" \
+          --data-binary "$body" \
           "http://localhost:2586/homelab-alerts" >/dev/null 2>&1 || true
       '';
     in

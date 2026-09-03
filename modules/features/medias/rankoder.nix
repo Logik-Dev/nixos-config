@@ -19,6 +19,14 @@
       icon = "di:rankoder";
     };
 
+    notify.services = [ "rankoder" ];
+
+    # App state/logs only — NOT retentionDir (originals live under
+    # /mnt/storage/medias, huge and not meant to be duplicated here).
+    backups.sources.rankoder = {
+      paths = [ "/var/lib/rankoder" ];
+    };
+
     services.rankoder = {
       enable = true;
       group = "media";
@@ -34,7 +42,9 @@
       mqtt.username = "homeassistant";
       http = {
         enable = true;
-        address = "0.0.0.0";
+        # The UI has no auth of its own — Traefik/Authelia is the only entry
+        # point (upstream module explicitly recommends loopback).
+        address = "127.0.0.1";
       };
     };
   };

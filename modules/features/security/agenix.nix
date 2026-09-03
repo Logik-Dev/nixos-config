@@ -16,14 +16,24 @@ let
     sonicmaster = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIKWq7Zig25N+JdghtVp/T4V1gr1VKNG9egaQjWU4adb";
   };
 
-  yubikeyIdentity = "${inputs.self}/secrets/age-yubikey-identity.pub";
+  yubikeyIdentity = "${inputs.self}/secrets/age-yubikey-identity.identity";
 
-  linux = {
-    imports = [
-      inputs.agenix.nixosModules.default
-      inputs.agenix-rekey.nixosModules.default
-    ];
-  };
+  linux =
+    { config, lib, ... }:
+    {
+      imports = [
+        inputs.agenix.nixosModules.default
+        inputs.agenix-rekey.nixosModules.default
+      ];
+
+      # agenix only derives identityPaths from services.openssh.hostKeys when
+      # sshd is enabled; hosts without sshd (sonicmaster) still get their host
+      # keys generated (sshd-keygen is independent of enable) and need them to
+      # decrypt their secrets.
+      age.identityPaths = map (e: e.path) (
+        lib.filter (e: e.type == "rsa" || e.type == "ed25519") config.services.openssh.hostKeys
+      );
+    };
 
   darwin = {
     imports = [
@@ -42,6 +52,8 @@ let
         masterIdentities = [
           yubikeyIdentity
           {
+            # Software fallback identity, m4-local: rekeying happens on the
+            # Mac (the YubiKey plugin identity above is the primary).
             pubkey = "age12cd6wdnk3su0wkedg7lm5uvcg79hqw28yp6e3h6y944wcaj94cgs53w43h";
             identity = "/Users/logikdev/.config/age/keys.txt";
           }
