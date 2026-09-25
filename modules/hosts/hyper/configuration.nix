@@ -9,6 +9,7 @@ let
       adguard
       audio
       common
+      cross-seed
       disableNetworkManager
       ddns
       fail2ban

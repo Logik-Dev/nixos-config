@@ -134,6 +134,35 @@ disparaissent et le drop s'applique → aucune fuite WAN.
 - Backups : `backups.sources.qbittorrent = /mnt/ultra/qbittorrent` ;
   `notify.services = [ "qbittorrent" ]`.
 
+## cross-seed (ratio automatique)
+
+`modules/features/downloads/cross-seed.nix` — croise la bibliothèque avec les
+trackers pour seeder le même contenu sur plusieurs trackers **sans
+télécharger** (gros levier de ratio, aucun risque de H&R).
+
+- `dataDirs` = branches `/mnt/medias1/medias` + `/mnt/medias2/medias` (pas le
+  pool mergerfs : cross-seed choisit le `linkDir` par device, condition pour
+  que le hardlink fonctionne).
+- `linkDirs` = `/mnt/medias{1,2}/cross-seed-links` (tmpfiles `2775
+  cross-seed:media`).
+- Torrents injectés dans qBittorrent, catégorie `cross-seed-link`, save path
+  sous le linkDir du tracker.
+- `matchMode = "partial"`, `linkType = "hardlink"`,
+  `useGenConfigDefaults = true`.
+- Secret `cross-seed-secrets.json.age` : `apiKey`, `torznab`
+  (`http://127.0.0.1:9696/<id>/api?apikey=<prowlarr>`), `torrentClients`
+  (`qbittorrent:http://user:pass@127.0.0.1:8090`, mot de passe URL-encodé si
+  nécessaire).
+- Le module s'active dès que le secret existe (`config.age.secrets ? …`) :
+  créer le secret, `nix run .#agenix-rekey`, `git add`, puis déployer.
+- cross-seed est dans `vpn.airvpn.routedUsers` (uid 972) : ses requêtes
+  trackers (C411 via Prowlarr, API YggReborn) sortent par le VPN, comme
+  qBittorrent, et il est couvert par le kill-switch.
+- Ajouter un tracker = ajouter son URL Torznab Prowlarr dans le secret + rekey.
+- Vérifs : `journalctl -u cross-seed`, torrents dans la catégorie
+  `cross-seed-link` de qBittorrent.
+- Doc upstream : <https://www.cross-seed.org>
+
 ## Prowlarr (DynamicUser)
 
 `services.prowlarr` tourne en **DynamicUser** : son UID n'existe qu'à partir du
@@ -198,7 +227,7 @@ sudo timeout 30 "$TCP" -ni management udp port 1637
 ## Ajouter un utilisateur au VPN
 
 1. Ajouter le nom dans `vpn.airvpn.routedUsers` (défaut :
-   `[ "qbittorrent" "prowlarr" ]`).
+   `[ "qbittorrent" "prowlarr" "cross-seed" ]`).
 2. Si le service est un **DynamicUser**, ajouter son unité aux listes
    `after`/`partOf` de `vpn-policy-routing` et `vpn-killswitch` (voir Prowlarr).
 3. Redéployer, puis vérifier `ip rule show` et la sortie effective

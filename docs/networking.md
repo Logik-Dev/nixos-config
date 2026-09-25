@@ -36,7 +36,8 @@
 `features/downloads/{vpn,qbittorrent}.nix` — doc complète : [torrent-vpn.md](torrent-vpn.md)
 
 - wg0 (AirVPN) : routes isolées dans la table `4242`, `fwMark 0x4242`, MTU 1320
-- Routage par UID (qbittorrent + prowlarr) vers 4242 ; exceptions LAN scopées
+- Routage par UID (qbittorrent + prowlarr + cross-seed) vers 4242 ;
+  exceptions LAN scopées
 - Kill-switch nft `inet vpn_killswitch` (fail-closed) : accepte le fwmark,
   lo, le LAN et wg0, droppe le reste des UIDs routés
 - Port forward AirVPN (TCP+UDP) → local 51413 (port d'écoute qBittorrent)

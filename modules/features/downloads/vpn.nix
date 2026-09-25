@@ -59,6 +59,7 @@
           default = [
             "qbittorrent"
             "prowlarr"
+            "cross-seed"
           ];
           description = "User names whose traffic is forced through the VPN tunnel";
         };
@@ -146,7 +147,10 @@
             "wireguard-wg0.service"
             "prowlarr.service"
           ];
-          before = [ "qbittorrent.service" ];
+          before = [
+            "qbittorrent.service"
+            "cross-seed.service"
+          ];
           partOf = [ "prowlarr.service" ];
           wantedBy = [ "multi-user.target" ];
           serviceConfig = {
@@ -231,7 +235,10 @@
         systemd.services.vpn-killswitch = {
           description = "nftables kill-switch for VPN-torrent users";
           after = [ "vpn-policy-routing.service" ];
-          before = [ "qbittorrent.service" ];
+          before = [
+            "qbittorrent.service"
+            "cross-seed.service"
+          ];
           partOf = [ "prowlarr.service" ];
           wants = [ "vpn-policy-routing.service" ];
           wantedBy = [ "multi-user.target" ];

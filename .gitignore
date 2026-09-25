@@ -10,3 +10,4 @@ result-*
 **/.terraform/*
 **/generated/**
 AirVPN_*.conf
+.syncthing.*.tmp
