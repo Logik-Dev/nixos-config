@@ -242,8 +242,35 @@ sudo timeout 30 "$TCP" -ni management udp port 1637
    (`category.create=mfs`), le hardlink ne fonctionne que si download et
    bibliothèque sont sur la même branche ; sinon copie (doublon temporaire
    jusqu'à la fin du seed).
-4. **Prowlarr** : indexers (c411, Sharewood…), synchronisation des apps.
+4. **Prowlarr** : indexers (C411, YggReborn…), synchronisation des apps.
    Prowlarr sort par la même IP VPN que qBittorrent (cohérence tracker).
+
+### Qualité & codecs (x265 > x264, AV1 exclu)
+
+Configuré via les API Sonarr/Radarr (runtime, pas Nix). Custom formats à
+scores **additifs** + `cutoffFormatScore = 200` (upgrade jusqu'à x265) :
+
+| Format | Score | Cumul |
+|---|---|---|
+| x265 | 200 | 200 |
+| x265 MULTI | 50 | 250 |
+| x264 | 100 | 100 |
+| x264 MULTI | 50 | 150 |
+| AV1 | 0 | 0 → **rejeté** |
+| AV1 MULTI | 0 | 0 → **rejeté** |
+
+AV1 est volontairement **rejeté** (score 0 < `minFormatScore`) : le P4000
+n'a pas de décodage AV1 matériel, Jellyfin transcoderait en CPU. Les custom
+formats AV1 restent définis, il suffit de changer leur score pour les
+réactiver.
+
+Le codec domine le bonus MULTI ; l'ordre des qualités du profil
+(2160p > 1080p) reste prioritaire sur les scores. `minFormatScore` :
+50 (Radarr) / 49 (Sonarr) → les releases sans codec identifiable sont
+refusées (comportement existant).
+
+Plafonds de taille (MB/min) : 2160p WEBDL/WEBRip 220, Bluray 320, Remux 480 ;
+1080p Bluray 150, Remux 250 ; Sonarr Remux 1080p 220.
 
 ## Ajouter un utilisateur au VPN
 
