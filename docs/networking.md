@@ -40,8 +40,10 @@
 - Kill-switch nft `inet vpn_killswitch` (fail-closed) : accepte le fwmark,
   lo, le LAN et wg0, droppe le reste des UIDs routés
 - Port forward AirVPN (TCP+UDP) → local 51413 (port d'écoute qBittorrent)
-- Ne jamais mettre `100.64.0.0/10` dans `vpn.airvpn.lanNetworks` : une règle
-  globale `to 100.64.0.0/10 lookup main` écrase Tailscale et coupe le mesh
+- DNS de hyper = Tailscale MagicDNS (`100.100.100.100`) : les UIDs routés ont
+  une exception scopée vers la table 52 (`vpn.airvpn.tailscaleNetworksV4/V6`),
+  sinon `EAI_AGAIN` sur les trackers. Ne jamais mettre `100.64.0.0/10` dans
+  `lanNetworks` (règle globale vers `main` = mesh cassé)
 
 ## SSH
 

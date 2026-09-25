@@ -73,7 +73,25 @@
             Networks that routed users can reach directly (not via VPN).
             Do NOT add Tailscale's 100.64.0.0/10 here: forcing it to the main
             table overrides Tailscale's own policy routing and breaks the mesh.
+            Tailscale is handled by tailscaleNetworksV4/V6 instead.
           '';
+        };
+
+        tailscaleNetworksV4 = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ "100.64.0.0/10" ];
+          description = ''
+            Tailscale IPv4 ranges routed users may reach via Tailscale's own
+            table 52. Required because Tailscale MagicDNS (100.100.100.100) is
+            the system resolver: without it, DNS queries from routed users are
+            sent into the VPN tunnel and time out (EAI_AGAIN).
+          '';
+        };
+
+        tailscaleNetworksV6 = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ "fd7a:115c:a1e0::/48" ];
+          description = "Tailscale IPv6 range, same purpose as tailscaleNetworksV4.";
         };
       };
 
@@ -164,9 +182,21 @@
               for net in ${lib.concatStringsSep " " cfg.lanNetworks}; do
                 ${pkgs.iproute2}/bin/ip rule del uidrange "$uid-$uid" to "$net" lookup main pref 100 || true
               done
+              for net in ${lib.concatStringsSep " " cfg.tailscaleNetworksV4}; do
+                ${pkgs.iproute2}/bin/ip rule del uidrange "$uid-$uid" to "$net" lookup 52 pref 100 || true
+              done
+              for net in ${lib.concatStringsSep " " cfg.tailscaleNetworksV6}; do
+                ${pkgs.iproute2}/bin/ip -6 rule del uidrange "$uid-$uid" to "$net" lookup 52 pref 100 || true
+              done
               ${pkgs.iproute2}/bin/ip rule del uidrange "$uid-$uid" lookup 4242 pref 200 || true
               for net in ${lib.concatStringsSep " " cfg.lanNetworks}; do
                 ${pkgs.iproute2}/bin/ip rule add uidrange "$uid-$uid" to "$net" lookup main pref 100
+              done
+              for net in ${lib.concatStringsSep " " cfg.tailscaleNetworksV4}; do
+                ${pkgs.iproute2}/bin/ip rule add uidrange "$uid-$uid" to "$net" lookup 52 pref 100
+              done
+              for net in ${lib.concatStringsSep " " cfg.tailscaleNetworksV6}; do
+                ${pkgs.iproute2}/bin/ip -6 rule add uidrange "$uid-$uid" to "$net" lookup 52 pref 100
               done
               ${pkgs.iproute2}/bin/ip rule add uidrange "$uid-$uid" lookup 4242 pref 200
             done
@@ -185,6 +215,12 @@
               uid=$(${pkgs.coreutils}/bin/id -u "$user" 2>/dev/null) || continue
               for net in ${lib.concatStringsSep " " cfg.lanNetworks}; do
                 ${pkgs.iproute2}/bin/ip rule del uidrange "$uid-$uid" to "$net" lookup main pref 100 || true
+              done
+              for net in ${lib.concatStringsSep " " cfg.tailscaleNetworksV4}; do
+                ${pkgs.iproute2}/bin/ip rule del uidrange "$uid-$uid" to "$net" lookup 52 pref 100 || true
+              done
+              for net in ${lib.concatStringsSep " " cfg.tailscaleNetworksV6}; do
+                ${pkgs.iproute2}/bin/ip -6 rule del uidrange "$uid-$uid" to "$net" lookup 52 pref 100 || true
               done
               ${pkgs.iproute2}/bin/ip rule del uidrange "$uid-$uid" lookup 4242 pref 200 || true
             done
@@ -233,6 +269,12 @@
                 ${lib.concatMapStringsSep "\n                " (net: ''
                   ip daddr ${net} accept
                 '') cfg.lanNetworks}
+                ${lib.concatMapStringsSep "\n                " (net: ''
+                  ip daddr ${net} accept
+                '') cfg.tailscaleNetworksV4}
+                ${lib.concatMapStringsSep "\n                " (net: ''
+                  ip6 daddr ${net} accept
+                '') cfg.tailscaleNetworksV6}
                 oifname "wg0" accept
                 counter drop
               }

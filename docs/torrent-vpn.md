@@ -75,13 +75,21 @@ vpn.airvpn = {
 |---|---|---|---|
 | 50 | `fwmark 0x4242` | `main` | paquets de transport WireGuard (ne jamais les router dans le tunnel) |
 | 100 | `uidrange <uid>` + `to <LAN>` | `main` | exceptions LAN des UIDs routés |
+| 100 | `uidrange <uid>` + `to <Tailscale>` | `52` | MagicDNS (100.100.100.100) des UIDs routés |
 | 200 | `uidrange <uid>` | `4242` | trafic applicatif des UIDs routés |
 
 - Table 4242 : `default dev wg0` (ajoutée par le module WireGuard via `table`).
 - `lanNetworks` par défaut : `192.168.10.0/24`, `192.168.21.0/24`.
-- **Ne jamais ajouter `100.64.0.0/10` (Tailscale)** : une règle globale
-  `to 100.64.0.0/10 lookup main` écrase la policy routing de Tailscale
-  (priorité 5210) et coupe le mesh (SSH distant perdu).
+- `tailscaleNetworksV4/V6` : `100.64.0.0/10`, `fd7a:115c:a1e0::/48`, routés
+  vers la **table 52** de Tailscale. Indispensable car **Tailscale MagicDNS
+  (100.100.100.100) est le resolver système** sur hyper (`/etc/resolv.conf`
+  généré par resolvconf) : sans cette exception, les requêtes DNS des UIDs
+  routés partent dans wg0 et timeout → les trackers renvoient
+  « Host not found (non-authoritative) » (`EAI_AGAIN`) et le torrent ne démarre
+  jamais.
+- **Ne jamais ajouter `100.64.0.0/10` à `lanNetworks`** : la règle serait
+  globale et pointerait vers `main` (au lieu de la table 52), ce qui écrase la
+  policy routing de Tailscale (priorité 5210) et coupe le mesh/SSH distant.
 - Les règles sont scopées par UID : le reste de l'hôte n'est pas affecté.
 
 ## Kill-switch (nftables)
@@ -114,6 +122,10 @@ disparaissent et le drop s'applique → aucune fuite WAN.
 - `serverConfig = {}` volontairement : le `qBittorrent.conf` reste inscriptible
   par l'UI (sinon tmpfiles le remplace par un symlink en lecture seule à chaque
   activation et les réglages UI sont perdus).
+- **Ne pas binder l'interface réseau sur `wg0`** (Options → Avancé) : les
+  requêtes DNS sortiraient avec la source `wg0` et MagicDNS ne répondrait pas.
+  Le kill-switch assure déjà l'étanchéité, le bind est inutile.
+  Config actuelle : `Session\Interface=` vide.
 - `extraArgs = [ "--confirm-legal-notice" ]` (évite le prompt au premier boot).
 - `systemd.services.qbittorrent-permissions` : `chown -R qbittorrent:media`
   du profil avant démarrage (reliquats d'anciens tests).
@@ -196,8 +208,16 @@ sudo timeout 30 "$TCP" -ni management udp port 1637
 
 - **fwMark obligatoire** : sans lui, le kill-switch droppe le transport
   WireGuard (handshake OK sans kill-switch, KO avec).
-- **Jamais `100.64.0.0/10` dans `lanNetworks`** : casse Tailscale (vécu : perte
-  de l'accès SSH distant).
+- **DNS & Tailscale** : hyper résout via **Tailscale MagicDNS**
+  (100.100.100.100, `/etc/resolv.conf` géré par resolvconf). Les UIDs routés
+  ont besoin de l'exception scopée vers la table 52 (`tailscaleNetworksV4/V6`),
+  sinon leurs requêtes DNS partent dans wg0 → `EAI_AGAIN` → les trackers
+  répondent « Host not found (non-authoritative) » et le torrent ne démarre pas.
+- **Jamais `100.64.0.0/10` dans `lanNetworks`** : règle globale vers `main`,
+  écrase Tailscale (priorité 5210) et coupe le mesh/SSH distant (vécu).
+- **Redémarrer qBittorrent après un changement de routage DNS** : son cache
+  négatif de résolution persiste (« Host not found ») même une fois le DNS
+  réparé.
 - **agenix** : les secrets sont à `/run/agenix/<nom>` ; l'auto-découverte exige
   le `git add` des `.age` (flake = arbre git).
 - **Config AirVPN en CRLF** : comparer les clés en strippant `\r` (un hash naïf
