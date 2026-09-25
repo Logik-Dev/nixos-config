@@ -147,21 +147,42 @@ télécharger** (gros levier de ratio, aucun risque de H&R).
   cross-seed:media`).
 - Torrents injectés dans qBittorrent, catégorie `cross-seed-link`, save path
   sous le linkDir du tracker.
-- `matchMode = "partial"`, `linkType = "hardlink"`,
-  `useGenConfigDefaults = true`.
-- Secret `cross-seed-secrets.json.age` : `apiKey`, `torznab`
-  (`http://127.0.0.1:9696/<id>/api?apikey=<prowlarr>`), `torrentClients`
+- `matchMode = "partial"`, `linkType = "symlink"` (mergerfs),
+  `useGenConfigDefaults = true`, `searchLimit = 300`.
+- Secret `cross-seed-secrets.json.age` : `apiKey`, `torznab` (URLs Torznab
+  Prowlarr : C411 id 4, YggReborn id 5), `torrentClients`
   (`qbittorrent:http://user:pass@127.0.0.1:8090`, mot de passe URL-encodé si
   nécessaire).
 - Le module s'active dès que le secret existe (`config.age.secrets ? …`) :
   créer le secret, `nix run .#agenix-rekey`, `git add`, puis déployer.
 - cross-seed est dans `vpn.airvpn.routedUsers` (uid 972) : ses requêtes
-  trackers (C411 via Prowlarr, API YggReborn) sortent par le VPN, comme
-  qBittorrent, et il est couvert par le kill-switch.
+  trackers (via Prowlarr) sortent par le VPN, comme qBittorrent, et il est
+  couvert par le kill-switch.
 - Ajouter un tracker = ajouter son URL Torznab Prowlarr dans le secret + rekey.
 - Vérifs : `journalctl -u cross-seed`, torrents dans la catégorie
   `cross-seed-link` de qBittorrent.
 - Doc upstream : <https://www.cross-seed.org>
+
+## freeleech-farmer (ratio sans rien chercher)
+
+`modules/features/downloads/freeleech-farmer.{nix,py}` — timer systemd (toutes
+les 30 min) qui interroge les Torznab de la config cross-seed, ne garde que le
+**freeleech** (`downloadvolumefactor=0`) et l'ajoute à qBittorrent dans la
+catégorie `freeleech`.
+
+- Tourne sous l'utilisateur `cross-seed` (uid 972, déjà routé VPN +
+  kill-switch) ; réutilise le secret `cross-seed-secrets.json.age`
+  (`torznab` + `torrentClients`).
+- Filtres/limites (env du service) : `FARMER_MAX_ADDS=5`,
+  `FARMER_MAX_SIZE_GB=20`, `FARMER_MAX_TOTAL_GB=100`, `FARMER_MIN_FREE_GB=200`,
+  `FARMER_CLEAN_RATIO=2.0`, `FARMER_CLEAN_DAYS=14`, catégories Torznab
+  autorisées (préfixes 2/3/5/7, XXX exclu).
+- Nettoyage : les torrents `freeleech` sont supprimés (fichiers compris) au
+  ratio ≥ 2 ou après 14 jours.
+- Cible principale : YggReborn (freeleech auto sur les torrents peu seedés) ;
+  C411 a peu de freeleech mais est scanné aussi.
+- Logs : `journalctl -u freeleech-farmer` ; test manuel :
+  `sudo systemctl start freeleech-farmer`.
 
 ## Prowlarr (DynamicUser)
 

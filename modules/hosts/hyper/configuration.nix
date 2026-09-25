@@ -13,6 +13,7 @@ let
       disableNetworkManager
       ddns
       fail2ban
+      freeleech-farmer
       hetznerStoragebox
       home
       immich
