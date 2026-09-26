@@ -5,5 +5,6 @@
     dev-direnv
     git
     jj
+    opencode
   ];
 }

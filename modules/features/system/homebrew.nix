@@ -15,15 +15,8 @@
           #cleanup = "uninstall";
           upgrade = false;
         };
-        taps = [
-          {
-            name = "anomalyco/homebrew-tap";
-            trusted = true;
-          }
-        ];
         brews = [
           "glow"
-          "opencode"
         ];
         casks = [
           "audacity"
