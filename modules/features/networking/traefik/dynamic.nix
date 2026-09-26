@@ -80,7 +80,11 @@ let
                 inherit service;
                 entryPoints = [ "https" ];
                 tls.certResolver = "myresolver";
-                rule = "Host(`${service}.${host}.${domain}`)";
+                rule =
+                  "Host(`${service}.${host}.${domain}`)"
+                  +
+                    lib.optionalString (value.methods != [ ])
+                      " && (${lib.concatMapStringsSep " || " (m: "Method(`${m}`)") value.methods})";
                 middlewares = [
                   "secureHeaders@file"
                   "ratelimit@file"

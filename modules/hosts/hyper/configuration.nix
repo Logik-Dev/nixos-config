@@ -64,7 +64,8 @@ let
         notify.services = [ "tailscaled" ];
         services.tailscale = {
           useRoutingFeatures = "both";
-          extraUpFlags = [ "--ssh" ];
+          # No `--ssh`: Tailscale SSH would bypass sshd (key-only) and fail2ban.
+          # Regular sshd over the tailnet is the only admin path.
           extraSetFlags = [ "--advertise-routes=192.168.10.0/24,192.168.21.0/24" ];
         };
       }

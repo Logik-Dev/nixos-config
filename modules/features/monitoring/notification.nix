@@ -23,6 +23,14 @@
           port = 2586;
           category = "Supervision";
           icon = "di:ntfy";
+          # Read-only from the internet: publishers post from localhost
+          # (bypassing Traefik), so the public vhost never needs POST/PUT.
+          # Closes anonymous external writes to the alert topics.
+          methods = [
+            "GET"
+            "HEAD"
+            "OPTIONS"
+          ];
         };
 
         services.ntfy-sh = {

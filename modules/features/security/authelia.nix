@@ -63,13 +63,17 @@ in
             default_policy = "deny";
             rules = [
 
-              # Bypass for LAN
+              # Trusted networks (home LAN + the whole Tailscale tailnet): ask
+              # for the Authelia login but no second factor. Previously a full
+              # `bypass` on the LAN and a hard-coded m4 Tailscale IP; the tailnet
+              # CGNAT range replaces the per-device address so a re-key no longer
+              # silently widens or breaks the rule.
               {
                 domain = "*.${config.constants.domain}";
-                policy = "bypass";
+                policy = "one_factor";
                 networks = [
                   "192.168.10.0/24"
-                  "100.76.159.66/32"
+                  "100.64.0.0/10"
                 ];
               }
 

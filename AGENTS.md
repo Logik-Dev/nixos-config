@@ -13,6 +13,7 @@
   - `+mk-host.nix` — `flake.lib.mk-host`: one-call factory that builds `homeConfigurations."logikdev@<host>"` and injects home-manager imports into the host's `flake.modules.<cls>.<host>.imports`. Takes `{ host, modules, useGlobalPkgs, useUserPackages }`.
   - `user.nix` — `flake.factory.user`: creates user modules for darwin/nixos (fish shell, hashedPasswordFile, conditional groups).
 - Stack torrent : `modules/features/downloads/{vpn,qbittorrent,cross-seed,freeleech-farmer}.nix` — qBittorrent natif derrière AirVPN (wg0, table 4242, kill-switch nft par UID, port forward 51413) + cross-seed (ratio auto via cross-seeding) + freeleech-farmer (auto-grab freeleech Torznab → catégorie `freeleech`). Secrets : `cross-seed-secrets.json.age` (partagé). Doc complète : `docs/torrent-vpn.md`.
+- Stack musique/voix : **hors dépôt** (Home Assistant = VM libvirt sur hyper, cf. `modules/hosts/hyper/libvirt.nix`). Spotify Famille multi-comptes via **Music Assistant** (add-on HAOS) : routage par `area_id` (script HA `musique_personne`), plugin **Spotify Connect** (Soloist), pipeline **Assist FR** (STT/TTS cloud). Doc complète : `docs/music-home.md`.
 
 ## Commands
 
@@ -59,6 +60,7 @@ Always run `nix flake check` before committing.
 ## Known quirks
 
 - `system.stateVersion` for darwin is an int (`5`), not a string — set in `modules/lib/+mk-os.nix:41`.
+- Music Assistant (VM HA) : la recherche catalogue du provider Spotify peut se **bloquer** (ne renvoie que la bibliothèque) → l'intent média joue une radio TuneIn à la place. Fix : **reload du provider** (MA → Providers, ou API `config/providers/reload`). Détail : `docs/music-home.md` (§ Dépannage).
 - `home-manager.useGlobalPkgs = true` on darwin + sonicmaster — set via `flake.lib.mk-host` in `modules/lib/+mk-host.nix:20`.
 - nixd uses `nixpkgs=${inputs.nixpkgs}` nixPath (`modules/features/system/nix.nix:7`).
 - git repos track both `.jj/` (Jujutsu) and `.git/`. Don't assume `git` is the only VCS.

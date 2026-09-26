@@ -40,6 +40,12 @@
               host = "u625917.your-storagebox.de";
             };
           };
+          hosts.m4 = {
+            # Tailscale IP of the Mac, used to bind ollama on the tailnet only.
+            # Authelia trusts the whole tailnet CGNAT range, so this is the only
+            # place the address is needed.
+            tailscaleIp = "100.76.159.66";
+          };
           media.gid = 991;
         };
       };

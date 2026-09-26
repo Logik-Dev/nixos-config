@@ -52,7 +52,7 @@
   # tournent Mac réveillé. Le poids du modèle (qwen3:14b, ~9 Go) reste du state
   # → `ollama pull qwen3:14b` une fois (aucune approche ne le met dans le store).
   flake.modules.darwin.ollama =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.ollama ];
 
@@ -62,13 +62,13 @@
           "serve"
         ];
         # KeepAlive : au login Tailscale n'a pas encore assigné l'IP → le bind
-        # échoue une fois, launchd relance jusqu'à ce que 100.76.159.66 existe.
+        # échoue une fois, launchd relance jusqu'à ce que l'IP existe.
         KeepAlive = true;
         RunAtLoad = true;
         EnvironmentVariables = {
           # N'écoute que sur l'IP Tailscale du Mac : joignable par n8n/hyper via
           # le tailnet, jamais exposé sur le wifi public (Ollama n'a pas d'auth).
-          OLLAMA_HOST = "100.76.159.66:11434";
+          OLLAMA_HOST = "${config.constants.hosts.m4.tailscaleIp}:11434";
           OLLAMA_KEEP_ALIVE = "5m";
         };
         StandardOutPath = "/tmp/ollama.log";

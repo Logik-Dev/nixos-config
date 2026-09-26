@@ -34,6 +34,17 @@ let
                 default = "http";
               };
 
+              methods = lib.mkOption {
+                description = "If non-empty, restrict the router to these HTTP methods (e.g. read-only public routes)";
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                example = [
+                  "GET"
+                  "HEAD"
+                  "OPTIONS"
+                ];
+              };
+
               enableAuthelia = lib.mkOption {
                 description = "Wheter to enable authelia";
                 type = lib.types.bool;

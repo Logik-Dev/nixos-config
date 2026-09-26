@@ -7,7 +7,11 @@ let
       ...
     }:
     {
-      networking.firewall.allowedTCPPorts = [ 1883 ];
+      # MQTT is not encrypted (yet) and shared credentials are used, so keep it
+      # off every untrusted interface: only the IoT bridge (where the Home
+      # Assistant VM lives) is opened. loopback is always allowed and carries
+      # zigbee2mqtt/rankoder; LAN, Tailscale and the management NIC stay closed.
+      networking.firewall.interfaces."br-iot".allowedTCPPorts = [ 1883 ];
 
       age.secrets.mqtt.owner = "zigbee2mqtt";
 
