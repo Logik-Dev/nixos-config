@@ -3,8 +3,6 @@ let
 
   flake.modules.nixos.neovim.imports = [ options ];
 
-  flake.modules.darwin.neovim.imports = [ options ];
-
   options =
     { lib, pkgs, ... }:
     {

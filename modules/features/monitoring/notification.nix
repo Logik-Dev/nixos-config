@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.monitoring =
+  flake.modules.nixos.notification =
     {
       config,
       lib,

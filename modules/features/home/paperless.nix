@@ -27,8 +27,6 @@
         # quand un parent appartient à un utilisateur non-root. Les
         # métadonnées vivent dans postgres (couvert par pg-dumpall + PITR).
         dataDir = "/mnt/local/paperless";
-        address = "127.0.0.1";
-        port = 28981;
         database.createLocally = true;
         passwordFile = config.age.secrets."paperless-admin-pw".path;
         # Tika + Gotenberg locaux : OCR des .docx/.odt et import d'e-mails.

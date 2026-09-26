@@ -56,7 +56,6 @@ Un grand module est éclaté en plusieurs fichiers qui peuplent tous le même sl
 # modules/features/neovim/nixvim/options.nix
 { ... }: {
   flake.modules.nixos.neovim.imports = [ options ];
-  flake.modules.darwin.neovim.imports = [ options ];
   options = { lib, pkgs, ... }: { ... };
 }
 ```
@@ -91,7 +90,6 @@ Autres splits : `traefik/{options,static,dynamic}.nix`,
 let
   host = (inputs.self.lib.mk-host {
     host = "hyper";
-    osClass = "nixos";
     modules = with inputs.self.modules.homeManager; [ jj dev ];
   });
   flake.homeConfigurations."logikdev@hyper" = host.homeConfig.config;
@@ -120,7 +118,7 @@ et enregistre automatiquement chaque fichier comme
 unspecified) et peuple `config.constants` :
 
 - `domain` — domaine principal (`logikdev.fr`)
-- `users.logikdev` — fullname, username, homeDir, flakeDir, email, gpg, sshKey, sshKeyMac
+- `users.logikdev` — fullname, username, flakeDir, email, sshKey, sshKeyMac
 - `hosts.hyper` — lanIp, gateway, prefixLength, mac.{management,vms}, storageBox.{user,host}
 - `media.gid` — GID du groupe media (991)
 
@@ -130,7 +128,7 @@ dans `nixos.common`, `darwin.common`, et `homeManager.common`.
 ## Traefik services + glance
 
 `traefik.services` est une option NixOS custom (`traefik/options.nix`) qui décrit
-un attrsOf de services. Chaque service a : `subdomain`, `host`, `port`,
+un attrsOf de services. Chaque service a : `host`, `port`,
 `protocol`, `enableAuthelia`, `insecureSkipVerify`, `category`, `icon`, `title`.
 
 Traefik génère automatiquement les routers/services depuis cette option

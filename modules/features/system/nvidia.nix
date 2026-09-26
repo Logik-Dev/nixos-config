@@ -23,7 +23,7 @@
       };
 
       boot.initrd.kernelModules = [ "nvidia" ];
-      boot.extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
+      boot.extraModulePackages = [ config.hardware.nvidia.package ];
 
       # nixpkgs.config.cudaSupport = true;
 

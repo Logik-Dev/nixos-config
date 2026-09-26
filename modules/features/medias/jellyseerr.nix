@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.seerr = {
+  flake.modules.nixos.jellyseerr = {
     traefik.services.seerr = {
       port = 5055;
       enableAuthelia = true;

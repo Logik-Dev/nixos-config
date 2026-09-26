@@ -2,8 +2,6 @@
 let
   flake.modules.nixos.neovim.imports = lsp;
 
-  flake.modules.darwin.neovim.imports = lsp;
-
   lsp = [
     #asm
     angular
@@ -76,18 +74,13 @@ let
 
   };
   nix =
-    { pkgs, ... }:
+    { config, ... }:
     let
-      isDarwin = pkgs.stdenv.isDarwin;
-      flakePath = if isDarwin then "/Users/logikdev/Homelab/Nixos" else "/home/logikdev/Homelab/Nixos";
+      hostName = config.networking.hostName;
+      flakePath = config.constants.users.logikdev.flakeDir;
       withHost = opts: ''(builtins.getFlake "${flakePath}").${opts}'';
-      osConfig =
-        if isDarwin then "darwinConfigurations.m4.options" else "nixosConfigurations.sonicmaster.options";
-      homeManagerConfig =
-        if isDarwin then
-          ''homeConfigurations."logikdev@m4".options''
-        else
-          ''homeConfigurations."logikdev@sonicmaster".options'';
+      osConfig = "nixosConfigurations.${hostName}.options";
+      homeManagerConfig = ''homeConfigurations."logikdev@${hostName}".options'';
     in
     {
       programs.nixvim.plugins.lspconfig.enable = true;
@@ -101,7 +94,7 @@ let
             options = {
               nixos.expr = withHost osConfig;
               homeManager.expr = withHost homeManagerConfig;
-              nixvim.expr = withHost ''homeConfigurations."logikdev@sonicmaster".options.programs.nixvim.type.getSubOptions []'';
+              nixvim.expr = withHost ''homeConfigurations."logikdev@${hostName}".options.programs.nixvim.type.getSubOptions []'';
               flakeParts.expr = withHost "debug.options";
             };
           };

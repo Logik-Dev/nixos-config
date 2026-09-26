@@ -14,9 +14,7 @@
     {
       # WAL archiving (archive_mode + archive_command → pgbackrest archive-push)
       # is set by the pgbackrest nixpkgs module itself; the whole PITR chain
-      # lives in storage/pgbackrest.nix (repo1 usb + repo2 Hetzner offsite).
-      # barman-cloud → rustfs was decommissioned 2026-07-04; its store stays
-      # frozen at /mnt/ultra/rustfs/pg-backups until J+14 as a safety net.
+      # lives in storage/pgbackrest/ (repo1 usb + repo2 Hetzner offsite).
       services.postgresql.enable = true;
 
       notify.services = [

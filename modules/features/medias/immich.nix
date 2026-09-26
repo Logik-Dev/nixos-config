@@ -15,7 +15,6 @@
       services.immich = {
         enable = true;
         group = "media";
-        redis.enable = true;
         mediaLocation = "/mnt/ultra/immich";
         machine-learning.enable = false;
         accelerationDevices = [
@@ -23,10 +22,6 @@
           "/dev/nvidiactl"
           "/dev/nvidia-uvm"
         ];
-        database = {
-          enable = true;
-          createDB = true;
-        };
       };
 
       backups.sources.immich = {
@@ -51,8 +46,6 @@
       };
 
       hardware.nvidia-container-toolkit.enable = true;
-
-      systemd.services.nvidia-container-toolkit-cdi-generator.enable = true;
 
       virtualisation.oci-containers.containers = {
         immich-ml = {

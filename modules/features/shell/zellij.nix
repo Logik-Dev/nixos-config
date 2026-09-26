@@ -5,11 +5,11 @@
       programs.zellij = {
         enable = true;
         enableFishIntegration = !pkgs.stdenv.isDarwin;
+        attachExistingSession = true;
         settings = {
           default_shell = "fish";
-          theme = "cyber-dark";
+          theme = "cyber-noir";
           mouse_mode = false;
-          attachExistingSession = true;
         };
       };
     };

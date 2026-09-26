@@ -108,10 +108,6 @@ let
             description = "Default repositories";
             type = lib.types.attrs;
             default = {
-              # No on-site object-store target anymore: the old `s3` (rustfs)
-              # repo lived on the same disk as the sources, so it only ever
-              # protected against accidental deletion — usb + hetzner already
-              # cover that and more. rustfs was decommissioned 2026-07-04.
               usb = "/mnt/usb";
               # Offsite copy on the Hetzner Storage Box (SFTP backend). SSH
               # client config + pinned host key live in

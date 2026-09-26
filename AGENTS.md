@@ -10,7 +10,7 @@
 - Factories in `modules/lib/`:
   - `+mk-os.nix` — `flake.lib.mk-os.{linux,darwin}`: wraps `nixosSystem`/`darwinSystem`.
   - `+mk-home.nix` — `flake.lib.mk-home.{userOnHost,logikdevOnHost}`: builds `homeManagerConfiguration` from a host's system config.
-  - `+mk-host.nix` — `flake.lib.mk-host`: one-call factory that builds `homeConfigurations."logikdev@<host>"` and injects home-manager imports into the host's `flake.modules.<cls>.<host>.imports`. Takes `{ host, osClass, modules, useGlobalPkgs, useUserPackages }`.
+  - `+mk-host.nix` — `flake.lib.mk-host`: one-call factory that builds `homeConfigurations."logikdev@<host>"` and injects home-manager imports into the host's `flake.modules.<cls>.<host>.imports`. Takes `{ host, modules, useGlobalPkgs, useUserPackages }`.
   - `user.nix` — `flake.factory.user`: creates user modules for darwin/nixos (fish shell, hashedPasswordFile, conditional groups).
 - Stack torrent : `modules/features/downloads/{vpn,qbittorrent,cross-seed,freeleech-farmer}.nix` — qBittorrent natif derrière AirVPN (wg0, table 4242, kill-switch nft par UID, port forward 51413) + cross-seed (ratio auto via cross-seeding) + freeleech-farmer (auto-grab freeleech Torznab → catégorie `freeleech`). Secrets : `cross-seed-secrets.json.age` (partagé). Doc complète : `docs/torrent-vpn.md`.
 

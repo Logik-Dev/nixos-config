@@ -46,9 +46,6 @@
     nixos-facter-modules = {
       url = "github:nix-community/nixos-facter-modules";
     };
-    nixpkgs-lib = {
-      follows = "nixpkgs";
-    };
     nixvim = {
       url = "github:nix-community/nixvim";
       inputs.nixpkgs.follows = "nixpkgs";

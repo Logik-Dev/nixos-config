@@ -15,7 +15,14 @@ in
     nixos.common.imports = [ jjStarship ];
     darwin.common.imports = [ jjStarship ];
     homeManager.jj =
-      { config, ... }:
+      { config, pkgs, ... }:
+      let
+        key =
+          if pkgs.stdenv.isDarwin then
+            config.constants.users.logikdev.sshKeyMac
+          else
+            config.constants.users.logikdev.sshKey;
+      in
       {
         programs.jujutsu = {
           enable = true;
@@ -24,10 +31,9 @@ in
               email = config.constants.users.logikdev.email;
               name = config.constants.users.logikdev.fullname;
             };
-            email = config.constants.users.logikdev.email;
             signing.behavior = "own";
             signing.backend = "ssh";
-            signing.key = config.constants.users.logikdev.sshKeyMac;
+            signing.key = key;
 
           };
         };

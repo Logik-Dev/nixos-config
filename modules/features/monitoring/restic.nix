@@ -13,10 +13,6 @@
           name,
           port,
           repository,
-          # Local filesystem repos (e.g. the USB/local ones) are owned by root
-          # with 0700 perms, so a DynamicUser cannot read them. Run as root for
-          # those; only remote (s3:) repos can use a DynamicUser.
-          dynamicUser ? true,
           ...
         }:
         {
@@ -28,7 +24,6 @@
           path = lib.optionals (lib.hasPrefix "sftp:" repository) [ pkgs.openssh ];
           serviceConfig = {
             Type = "simple";
-            DynamicUser = dynamicUser;
             Restart = "always";
             CacheDirectory = "restic-exporter-${name}";
             CacheDirectoryMode = "0700";
@@ -117,7 +112,6 @@
             lib.mapAttrsToList (_targetName: targetPath: {
               name = "${sourceName}-${_targetName}";
               repository = "${targetPath}/restic/${sourceName}";
-              dynamicUser = lib.hasPrefix "s3:" targetPath;
             }) (sourceValue.defaultRepositories // sourceValue.extraRepositories)
           ) config.backups.sources
         )

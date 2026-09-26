@@ -39,7 +39,7 @@ in
       hyper = app: "https://${app}.hyper.${domain}";
 
       seedbox = mkBookmarksFolder "Seedbox" {
-        "Jellyseerr" = hyper "jellyseerr";
+        "Jellyseerr" = hyper "seerr";
         "Jellyfin" = hyper "jellyfin";
         "Radarr" = hyper "radarr";
         "Sonarr" = hyper "sonarr";

@@ -3,7 +3,6 @@ let
   host = (
     inputs.self.lib.mk-host {
       host = "sonicmaster";
-      osClass = "nixos";
       useGlobalPkgs = true;
       modules = with inputs.self.modules.homeManager; [
         browsers

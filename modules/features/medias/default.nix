@@ -29,14 +29,13 @@
       ];
 
       systemd.tmpfiles.rules = [
-        "d /mnt/storage 2755 logikdev media - -"
         "d /mnt/storage/medias 2755 logikdev media - -"
         "d /mnt/ultra 2755 logikdev media - -"
       ];
 
       imports = with inputs.self.modules.nixos; [
         jellyfin
-        seerr
+        jellyseerr
         prowlarr
         radarr
         sabnzbd

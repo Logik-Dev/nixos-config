@@ -29,7 +29,6 @@
         enable = true;
         group = "media";
         configFile = null;
-        stateDir = "sabnzbd";
         secretFiles = [ config.age.secrets."sabnzbd-credentials.ini".path ];
         settings = {
           misc = {

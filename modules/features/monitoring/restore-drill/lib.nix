@@ -13,8 +13,6 @@ let
       # weekly restic-check it gets a structural `restic check` only; its
       # blob-level verification is done incrementally by restic-read-data below
       # (a rotating slice). Everything else is small, so full --read-data is cheap.
-      # (rustfs used to be here too, until the wholesale rustfs-usb backup and
-      # then rustfs itself were dropped — see docs/backups.md.)
       bigSources = [
         "immich"
       ];

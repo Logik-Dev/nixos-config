@@ -3,8 +3,6 @@ let
 
   flake.modules.nixos.neovim.imports = [ blink ];
 
-  flake.modules.darwin.neovim.imports = [ blink ];
-
   blink = {
     programs.nixvim.plugins.blink-cmp = {
       enable = true;

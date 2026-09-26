@@ -3,11 +3,10 @@ let
 
   flake.modules.nixos.neovim.imports = [ conform ];
 
-  flake.modules.darwin.neovim.imports = [ conform ];
-
   conform =
     { lib, pkgs, ... }:
     {
+      programs.nixvim.extraPackages = [ pkgs.prettier ];
       programs.nixvim.plugins.conform-nvim = {
         enable = true;
         settings = {

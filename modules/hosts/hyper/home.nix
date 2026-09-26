@@ -3,7 +3,6 @@ let
   host = (
     inputs.self.lib.mk-host {
       host = "hyper";
-      osClass = "nixos";
       modules = with inputs.self.modules.homeManager; [
         jj
         dev

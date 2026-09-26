@@ -3,8 +3,6 @@ let
 
   flake.modules.nixos.neovim.imports = [ keymaps ];
 
-  flake.modules.darwin.neovim.imports = [ keymaps ];
-
   keymap = mode: desc: key: action: {
     inherit action key mode;
     options = {
@@ -25,7 +23,7 @@ let
     <Cmd>lua
     function rebuild()
       vim.cmd("terminal nh os switch")
-      vim.cmd("source ~/.config/nvim/init.lua")
+      vim.cmd("source $MYVIMRC")
     end
     rebuild()
   '';

@@ -15,7 +15,7 @@ let
       fail2ban
       freeleech-farmer
       hetznerStoragebox
-      home
+      mealie
       immich
       kvm-intel
       logikdev
@@ -24,7 +24,7 @@ let
       glance
       grafana
       loki
-      monitoring
+      notification
       mqtt
       n8n
       neovim

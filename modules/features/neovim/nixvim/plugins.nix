@@ -3,8 +3,6 @@ let
 
   flake.modules.nixos.neovim.imports = [ plugins ];
 
-  flake.modules.darwin.neovim.imports = [ plugins ];
-
   plugins =
     { ... }:
     {

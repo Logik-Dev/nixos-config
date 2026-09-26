@@ -1,8 +1,6 @@
 let
   flake.modules.nixos.neovim.imports = [ telescope ];
 
-  flake.modules.darwin.neovim.imports = [ telescope ];
-
   map = action: desc: {
     inherit action;
     options.desc = "Telescope: ${desc}";

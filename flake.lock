@@ -582,9 +582,6 @@
         "nix-darwin": "nix-darwin",
         "nixos-facter-modules": "nixos-facter-modules",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-lib": [
-          "nixpkgs"
-        ],
         "nixvim": "nixvim",
         "nur": "nur",
         "rankoder": "rankoder",

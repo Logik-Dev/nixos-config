@@ -3,8 +3,6 @@ let
 
   flake.modules.nixos.neovim.imports = [ treesitter ];
 
-  flake.modules.darwin.neovim.imports = [ treesitter ];
-
   treesitter =
     { ... }:
     {

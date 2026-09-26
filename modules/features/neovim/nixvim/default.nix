@@ -2,8 +2,6 @@ let
 
   flake.modules.nixos.neovim.imports = [ default ];
 
-  flake.modules.darwin.neovim.imports = [ default ];
-
   default =
     { ... }:
     {

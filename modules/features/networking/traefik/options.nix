@@ -13,12 +13,6 @@ let
         type = lib.types.attrsOf (
           lib.types.submodule {
             options = {
-              subdomain = lib.mkOption {
-                description = "Alternative subdomain name, if not set default to vhost name";
-                type = lib.types.nullOr lib.types.str;
-                default = null;
-              };
-
               host = lib.mkOption {
                 description = "Host IP";
                 type = lib.types.str;

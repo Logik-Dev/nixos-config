@@ -3,7 +3,6 @@ let
   flake.lib.mk-host =
     {
       host,
-      osClass,
       modules,
       useGlobalPkgs ? false,
       useUserPackages ? false,
