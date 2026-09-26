@@ -1,8 +1,10 @@
 { ... }:
 {
   flake.modules.nixos.sabnzbd =
-    { config, lib, ... }:
+    { config, ... }:
     {
+      imports = [ (import ./lib/_media-service.nix { app = "sabnzbd"; }) ];
+
       traefik.services.sabnzbd = {
         port = 8088;
         enableAuthelia = true;
@@ -17,8 +19,6 @@
 
       notify.services = [ "sabnzbd" ];
 
-      systemd.services.sabnzbd.serviceConfig.UMask = lib.mkForce "0002";
-
       # Config, history and queue state in /var/lib/sabnzbd; stopped during
       # the backup for a consistent copy.
       backups.sources.sabnzbd = {
@@ -27,7 +27,6 @@
 
       services.sabnzbd = {
         enable = true;
-        group = "media";
         configFile = null;
         secretFiles = [ config.age.secrets."sabnzbd-credentials.ini".path ];
         settings = {

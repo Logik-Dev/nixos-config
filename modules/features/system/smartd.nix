@@ -3,6 +3,8 @@
   flake.modules.nixos.smartd =
     { pkgs, ... }:
     let
+      pushNtfy = import ../monitoring/lib/_ntfy.nix { inherit pkgs; };
+
       # nixpkgs' smartd module pipes a full e-mail to its mailer
       # (`${mailer} -i <recipient>`: From/To/Subject headers, then the alert
       # message and `smartctl -a` output on stdin). Parse it here — Subject
@@ -11,18 +13,14 @@
       # `-s <subject>` and never matched, so every alert arrived as a generic
       # "SMART alert".
       ntfyMailer = pkgs.writeShellScript "smartd-ntfy" ''
+        source ${pushNtfy}
         input="$(${pkgs.coreutils}/bin/cat)"
         subject="$(printf '%s\n' "$input" | ${pkgs.gnused}/bin/sed -n 's/^Subject: //p' | ${pkgs.coreutils}/bin/head -1)"
         body="$(printf '%s\n' "$input" | ${pkgs.gawk}/bin/awk 'found{print} /^[[:space:]]*$/{found=1}')"
         [ -n "$subject" ] || subject="SMART alert"
         [ -n "$body" ] || body="$input"
         body="$(printf '%s' "$body" | ${pkgs.coreutils}/bin/tail -c 3800)"
-        ${pkgs.curl}/bin/curl -s \
-          -H "Title: 💽 $subject" \
-          -H "Priority: urgent" \
-          -H "Tags: floppy_disk,rotating_light" \
-          --data-binary "$body" \
-          "http://localhost:2586/homelab-alerts" >/dev/null 2>&1 || true
+        printf '%s' "$body" | push_ntfy homelab-alerts "💽 $subject" floppy_disk,rotating_light urgent
       '';
     in
     {

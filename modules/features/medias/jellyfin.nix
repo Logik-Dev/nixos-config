@@ -2,11 +2,12 @@
   flake.modules.nixos.jellyfin =
     {
       config,
-      lib,
       pkgs,
       ...
     }:
     {
+      imports = [ (import ./lib/_media-service.nix { app = "jellyfin"; }) ];
+
       traefik.services.jellyfin = {
         port = 8096;
         category = "Médias";
@@ -19,11 +20,8 @@
         "render"
       ];
 
-      systemd.services.jellyfin.serviceConfig.UMask = lib.mkForce "0002";
-
       services.jellyfin = {
         enable = true;
-        group = "media";
         dataDir = "/mnt/ultra/jellyfin";
       };
 

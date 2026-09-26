@@ -9,6 +9,7 @@
     }:
     let
       cfg = config.notify;
+      pushNtfy = import ./lib/_ntfy.nix { inherit pkgs; };
     in
     {
       options.notify.services = lib.mkOption {
@@ -46,6 +47,8 @@
             "notify-failure@" =
               let
                 script = pkgs.writeShellScript "notify-failure" ''
+                  source ${pushNtfy}
+
                   SERVICE="$1"
                   LOCKFILE="/run/notify-failure-''${SERVICE}.lock"
 
@@ -64,12 +67,7 @@
                     | grep -v ' systemd\[1\]: ' \
                     | tail -c 3800)
 
-                  ${pkgs.curl}/bin/curl -s \
-                    -H "Title: Homelab Alert" \
-                    -H "Priority: high" \
-                    -H "Tags: warning" \
-                    -d "$LOGS" \
-                    "http://localhost:2586/service-failure"
+                  printf '%s' "$LOGS" | push_ntfy service-failure "Homelab Alert" warning high
                 '';
               in
               {

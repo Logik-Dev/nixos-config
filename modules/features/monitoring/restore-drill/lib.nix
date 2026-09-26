@@ -18,13 +18,13 @@ let
       ];
       resticRepos = lib.flatten (
         lib.mapAttrsToList (
-          sourceName: sourceValue:
-          lib.mapAttrsToList (_targetName: targetPath: {
-            name = "${sourceName}-${_targetName}";
-            repository = "${targetPath}/restic/${sourceName}";
+          sourceName: _sourceValue:
+          lib.mapAttrsToList (targetName: repository: {
+            name = "${sourceName}-${targetName}";
+            inherit repository;
             mode = if lib.elem sourceName bigSources then "struct" else "full";
-          }) (sourceValue.defaultRepositories // sourceValue.extraRepositories)
-        ) config.backups.sources
+          }) config.backups.repositories.${sourceName}
+        ) config.backups.repositories
       );
       repoLines = lib.concatMapStringsSep "\n" (r: "${r.name} ${r.repository} ${r.mode}") resticRepos;
 
@@ -33,11 +33,14 @@ let
         lib.filter (r: r.mode == "struct") resticRepos
       );
 
+      pushNtfy = import ../lib/_ntfy.nix { inherit pkgs; };
+
       # Sourced by every drill: accumulates a human-readable body with add(),
       # then posts ONE formatted message to the dedicated backup-verify topic on
       # exit — success (✅) and failure (❌) alike, so the weekly run doubles as a
       # heartbeat (silence means the timer itself didn't fire).
       reportLib = pkgs.writeText "backup-verify-report.sh" ''
+        source ${pushNtfy}
         BODY=""
         add() { BODY="''${BODY}$1
         "; }
@@ -48,9 +51,7 @@ let
           else
             head="❌ ''${TITLE:-drill} — ÉCHEC (rc=$rc)"; prio=high; tags=rotating_light
           fi
-          printf '%s\n\n%s' "$head" "$BODY" | ${pkgs.curl}/bin/curl -s \
-            -H "Title: Backup verify" -H "Priority: $prio" -H "Tags: $tags" \
-            --data-binary @- "http://localhost:2586/backup-verify" >/dev/null 2>&1 || true
+          printf '%s\n\n%s' "$head" "$BODY" | push_ntfy backup-verify "Backup verify" "$tags" "$prio"
         }
         trap _finish EXIT
         set -Eeuo pipefail

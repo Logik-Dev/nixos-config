@@ -108,12 +108,12 @@
       instances = lib.imap0 (index: inst: inst // { port = basePort + index; }) (
         lib.flatten (
           lib.mapAttrsToList (
-            sourceName: sourceValue:
-            lib.mapAttrsToList (_targetName: targetPath: {
-              name = "${sourceName}-${_targetName}";
-              repository = "${targetPath}/restic/${sourceName}";
-            }) (sourceValue.defaultRepositories // sourceValue.extraRepositories)
-          ) config.backups.sources
+            sourceName: _sourceValue:
+            lib.mapAttrsToList (targetName: repository: {
+              name = "${sourceName}-${targetName}";
+              inherit repository;
+            }) config.backups.repositories.${sourceName}
+          ) config.backups.repositories
         )
       );
     in

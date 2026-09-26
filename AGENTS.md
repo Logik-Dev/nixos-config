@@ -64,6 +64,8 @@ Always run `nix flake check` before committing.
 - git repos track both `.jj/` (Jujutsu) and `.git/`. Don't assume `git` is the only VCS.
 - CI: none (no `.github/workflows`). Relies on local `nix flake check`.
 - New `.nix` files must be `git add`-ed: the flake source is the git tree, so untracked files are invisible to `nix eval`/`nixos-rebuild` (import-tree won't see them either).
+- import-tree skips files whose name starts with `_` — use that prefix for non-module helpers (e.g. `medias/lib/_servarr.nix`, `monitoring/lib/_ntfy.nix`) that are only pulled in via relative `import`.
+- `notify.services` accepts any string and the module itself creates the unit (`onFailure` wiring), so a typo yields an empty, never-started unit and a silent alert (cf. audit P0-3/FAC-5). Cross-check names against real units; an eval-time assertion is not viable.
 - `nixos-rebuild switch` restarts changed *active* units; a running drill oneshot (e.g. `restic-read-data`, up to 6h) will block activation until it finishes. `sudo systemctl stop restic-read-data` first if a switch hangs.
 - After adding a `backups.sources.<name>`, trigger its backups (`systemctl start restic-backups-<name>-{usb,hetzner}`) — otherwise the sftp exporter has no repo to read and alerts `ResticExporterDown` until the nightly run.
 - VPN torrent : le transport WireGuard porte `fwMark 0x4242`. Sans lui, le kill-switch nft droppe les handshakes (paquets noyau générés par WireGuard). Ne jamais retirer `meta mark 0x4242 accept` ni la règle `ip rule fwmark 0x4242 lookup main pref 50`.

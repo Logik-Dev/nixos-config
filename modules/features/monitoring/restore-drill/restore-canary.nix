@@ -12,9 +12,7 @@ let
       # Derived from the backup config: renaming the source or dropping the
       # hetzner target now breaks evaluation instead of restoring the wrong repo.
       canarySource = "zigbee2mqtt";
-      canaryRepo = "${
-        config.backups.sources.${canarySource}.defaultRepositories.hetzner
-      }/restic/${canarySource}";
+      canaryRepo = config.backups.repositories.${canarySource}.hetzner;
     in
     {
       systemd.services.restore-canary = {

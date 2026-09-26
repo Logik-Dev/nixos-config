@@ -10,6 +10,17 @@ let
       cfg = config.backups;
       sb = config.constants.hosts.hyper.storageBox;
 
+      # Single source of truth for the (source × repository) → path mapping:
+      # the backup jobs here, the restic exporters (monitoring/restic.nix) and
+      # the restore drills (restore-drill/*) all consume it instead of
+      # re-deriving `<target>/restic/<source>`.
+      repositories = lib.mapAttrs (
+        sourceName: sourceValue:
+        lib.mapAttrs (targetName: targetPath: "${targetPath}/restic/${sourceName}") (
+          sourceValue.defaultRepositories // sourceValue.extraRepositories
+        )
+      ) cfg.sources;
+
       # One job per (source × repository). Computed once so the backup
       # definitions, the notify units and the systemd guards stay in sync.
       jobs = lib.flatten (
@@ -47,7 +58,7 @@ let
           extraBackupArgs = [ "--cleanup-cache" ];
           initialize = true;
           environmentFile = config.age.secrets."restic.env".path;
-          repository = "${targetPath}/restic/${sourceName}";
+          repository = repositories.${sourceName}.${targetName};
           timerConfig = {
             OnCalendar = "02:05";
             Persistent = true;
@@ -149,9 +160,15 @@ let
           type = lib.types.attrsOf source;
           default = { };
         };
+        repositories = lib.mkOption {
+          description = "Computed (source × repository) → repository path map, shared by backups, exporters and drills";
+          type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
+          readOnly = true;
+        };
       };
 
       config = {
+        backups.repositories = repositories;
 
         environment.systemPackages = [ pkgs.restic ];
 
