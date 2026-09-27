@@ -18,6 +18,22 @@ _: {
       };
 
       config = {
+        # FAC-5: `notify.services` is a free-form list and this module creates the
+        # onFailure unit itself, so a typo silently produces an empty,
+        # never-started unit (a dead alert). A ghost unit is all-defaults apart
+        # from our `onFailure`, so assert every listed name carries real content
+        # (a description, a script, or a non-empty serviceConfig). Real units
+        # backed by `systemd.packages` (e.g. tailscaled) still have a populated
+        # serviceConfig from the NixOS overrides.
+        assertions = map (name: {
+          assertion =
+            let
+              s = config.systemd.services.${name};
+            in
+            s.description != "" || s.script != "" || s.serviceConfig != { };
+          message = "notify.services: '${name}' matches no real systemd service (typo / ghost unit, cf. FAC-5).";
+        }) cfg.services;
+
         traefik.services.ntfy = {
           port = 2586;
           category = "Supervision";
