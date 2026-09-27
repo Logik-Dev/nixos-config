@@ -62,7 +62,7 @@ Un grand module est éclaté en plusieurs fichiers qui peuplent tous le même sl
 
 Autres splits : `traefik/{options,static,dynamic}.nix`,
 `pgbackrest/{settings,services,secrets}.nix`,
-`restore-drill/{lib,restic-check,restore-canary,postgres-drill,read-data}.nix`,
+`restore-drill/{lib,restic-verify,postgres-drill}.nix`,
 `mqtt/{mosquitto,zigbee2mqtt}.nix`, `disko/{default,system-disks,data-disks}.nix`.
 
 ## Factories (`modules/lib/`)

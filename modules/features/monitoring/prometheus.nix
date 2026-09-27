@@ -65,16 +65,6 @@ let
             ];
           }
           {
-            job_name = "restic";
-            scrape_interval = "60s";
-            static_configs = map (inst: {
-              targets = [ "127.0.0.1:${toString inst.port}" ];
-              labels = {
-                repository = inst.name;
-              };
-            }) config.resticExporters;
-          }
-          {
             job_name = "blackbox_http";
             scrape_interval = "30s";
             metrics_path = "/probe";

@@ -67,7 +67,6 @@ _: {
         paths = [ "/mnt/ultra/bindery" ];
         # SQLite DB lives in /config: stop the container for a consistent copy.
         serviceName = "podman-bindery";
-        extraRepositories.local = "/mnt/local";
       };
     };
 }

@@ -48,7 +48,6 @@
           "${config.services.jellyfin.dataDir}/cache"
           "${config.services.jellyfin.dataDir}/transcodes"
         ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 }

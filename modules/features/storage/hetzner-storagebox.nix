@@ -8,8 +8,8 @@ let
   # the key is re-materialised from the master identity (age key / Yubikey),
   # exactly like restic.env.
   #
-  # The actual repository URL (sftp:user@host:) is set in
-  # modules/features/storage/restic.nix (default `defaultRepositories`).
+  # The actual repository URL (sftp:user@host:) is built in
+  # modules/features/storage/restic.nix.
 
   # Pinned host keys of the Storage Box (ssh-keyscan -p 23; ed25519
   # fingerprint SHA256:XqONwb1S0zuj5A1CDxpOSuD2hnAArV1A3wKY7Z3sdgM). All three

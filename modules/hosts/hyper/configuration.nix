@@ -23,7 +23,6 @@ let
       alertmanager
       glance
       grafana
-      loki
       notification
       mqtt
       n8n
@@ -38,11 +37,9 @@ let
       postgres
       postgresql
       prometheus
-      alloy
       qbittorrent
       rankoder
       restic
-      resticExporter
       restoreDrill
       seedbox
       smartd

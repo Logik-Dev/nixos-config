@@ -9,10 +9,9 @@ let
     }:
     let
       # One line per (source × repository), space-separated: "<name> <repo> <mode>".
-      # immich (~440 GB) is too large for a weekly full --read-data. In the
-      # weekly restic-check it gets a structural `restic check` only; its
-      # blob-level verification is done incrementally by restic-read-data below
-      # (a rotating slice). Everything else is small, so full --read-data is cheap.
+      # immich (~440 GB) is too large for a weekly full --read-data: it gets a
+      # rotating 10% `--read-data-subset` (full coverage ~quarterly), while every
+      # other repo is small enough for a full --read-data each week.
       bigSources = [
         "immich"
       ];
@@ -22,16 +21,11 @@ let
           lib.mapAttrsToList (targetName: repository: {
             name = "${sourceName}-${targetName}";
             inherit repository;
-            mode = if lib.elem sourceName bigSources then "struct" else "full";
+            mode = if lib.elem sourceName bigSources then "subset" else "full";
           }) config.backups.repositories.${sourceName}
         ) config.backups.repositories
       );
       repoLines = lib.concatMapStringsSep "\n" (r: "${r.name} ${r.repository} ${r.mode}") resticRepos;
-
-      # The big repos, for restic-read-data's rotating slice check.
-      bigRepoLines = lib.concatMapStringsSep "\n" (r: "${r.name} ${r.repository}") (
-        lib.filter (r: r.mode == "struct") resticRepos
-      );
 
       pushNtfy = import ../lib/_ntfy.nix { inherit pkgs; };
 
@@ -93,7 +87,6 @@ let
             drillStamp
             commonPath
             repoLines
-            bigRepoLines
             ;
         };
 

@@ -34,7 +34,6 @@
       # backup so the sqlite/rsa_key snapshot is consistent.
       backups.sources.vaultwarden = {
         paths = [ "/var/lib/vaultwarden" ];
-        extraRepositories.local = "/mnt/local";
       };
 
     };

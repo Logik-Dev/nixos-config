@@ -30,7 +30,6 @@ _: {
       # API key (config.xml); the DB itself is in postgres.
       backups.sources.prowlarr = {
         paths = [ "/var/lib/private/prowlarr" ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 }

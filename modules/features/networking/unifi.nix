@@ -19,7 +19,6 @@
       backups.sources.unifi = {
         paths = [ "/var/lib/unifi/data/backup/autobackup" ];
         manageService = false;
-        extraRepositories.local = "/mnt/local";
       };
 
       traefik.services.unifi = {

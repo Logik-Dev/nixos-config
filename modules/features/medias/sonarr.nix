@@ -31,7 +31,6 @@ _: {
 
       backups.sources.sonarr = {
         paths = [ config.services.sonarr.dataDir ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 }

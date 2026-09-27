@@ -8,23 +8,7 @@
   "version": 1,
   "refresh": "1m",
   "time": { "from": "now-24h", "to": "now" },
-  "templating": {
-    "list": [
-      {
-        "name": "unit",
-        "label": "unité",
-        "type": "query",
-        "datasource": { "type": "loki", "uid": "loki" },
-        "query": "label_values(unit)",
-        "refresh": 2,
-        "multi": true,
-        "includeAll": true,
-        "allValue": ".+",
-        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
-        "sort": 1
-      }
-    ]
-  },
+  "templating": { "list": [] },
   "panels": [
     {
       "id": 1,
@@ -780,30 +764,6 @@
               "custom": { "fillOpacity": 0, "lineWidth": 1, "showPoints": "never" }
             },
             "overrides": []
-          }
-        },
-        {
-          "id": 23,
-          "type": "logs",
-          "title": "Erreurs journal (priority ≤ 3)",
-          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
-          "datasource": { "type": "loki", "uid": "loki" },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "{job=\"systemd-journal\", unit=~\"$unit\", priority=~\"[0-3]\"}",
-              "datasource": { "type": "loki", "uid": "loki" }
-            }
-          ],
-          "options": {
-            "showTime": true,
-            "showLabels": false,
-            "showCommonLabels": false,
-            "wrapLogMessage": true,
-            "prettifyLogMessage": false,
-            "enableLogDetails": true,
-            "dedupStrategy": "none",
-            "sortOrder": "Descending"
           }
         }
       ]

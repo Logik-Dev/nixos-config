@@ -11,95 +11,97 @@ let
       sb = config.constants.hosts.hyper.storageBox;
 
       # Single source of truth for the (source × repository) → path mapping:
-      # the backup jobs here, the restic exporters (monitoring/restic.nix) and
-      # the restore drills (restore-drill/*) all consume it instead of
-      # re-deriving `<target>/restic/<source>`.
-      repositories = lib.mapAttrs (
-        sourceName: sourceValue:
-        lib.mapAttrs (_targetName: targetPath: "${targetPath}/restic/${sourceName}") (
-          sourceValue.defaultRepositories // sourceValue.extraRepositories
-        )
-      ) cfg.sources;
+      # the backup jobs, the restore drills (restore-drill/*) and the Grafana
+      # labels all consume it instead of re-deriving `<target>/restic/<source>`.
+      # Two targets only: usb = dedicated external disk (on-site), hetzner =
+      # Storage Box (off-site). There is no third on-site copy: /mnt/local is a
+      # LV of the system disk, i.e. not a distinct failure domain.
+      repositories = lib.mapAttrs (sourceName: _: {
+        usb = "/mnt/usb/restic/${sourceName}";
+        hetzner = "sftp:${sb.user}@${sb.host}:/home/restic/${sourceName}";
+      }) cfg.sources;
 
-      # One job per (source × repository). Computed once so the backup
-      # definitions, the notify units and the systemd guards stay in sync.
-      jobs = lib.flatten (
-        lib.mapAttrsToList (
-          sourceName: sourceValue:
-          lib.mapAttrsToList (targetName: targetPath: {
-            name = "${sourceName}-${targetName}";
-            inherit
-              sourceName
-              sourceValue
-              targetName
-              targetPath
-              ;
-          }) (sourceValue.defaultRepositories // sourceValue.extraRepositories)
-        ) cfg.sources
-      );
+      metricsLib = import ../monitoring/lib/_restic-metrics.nix { inherit pkgs; };
+
+      # One systemd unit per source (not per repo): the ExecStart script below
+      # backs up to usb then hetzner sequentially and emits push metrics. This
+      # removes the per-repo job fan-out and with it the flock/refcount dance
+      # that used to avoid concurrent stop/start of the same service.
+      mkScript =
+        sourceName: sourceValue:
+        let
+          excludes =
+            lib.optionalString (sourceValue.exclude != [ ])
+              "--exclude-file ${pkgs.writeText "restic-exclude-${sourceName}" (lib.concatLines sourceValue.exclude)}";
+        in
+        pkgs.writeShellScript "restic-backup-${sourceName}" ''
+          source ${metricsLib}
+          set -Eeuo pipefail
+
+          # Paths were collected by the nixpkgs restic module in ExecStartPre.
+          INCLUDES=/run/restic-backups-${sourceName}/includes
+          fail=0
+
+          backup_repo() {
+            key="$1"; repo="$2"
+            # A fresh repo has no config yet; unlock clears any stale exclusive
+            # lock left by a backup killed mid-run (e.g. a switch during the
+            # nightly job), which otherwise stalls every later run.
+            restic -r "$repo" cat config >/dev/null 2>&1 || restic -r "$repo" init
+            restic -r "$repo" unlock
+            if restic -r "$repo" backup --files-from "$INCLUDES" ${excludes} --cleanup-cache; then
+              restic -r "$repo" forget --prune \
+                --keep-daily 7 --keep-weekly 3 --keep-monthly 6 --keep-yearly 2
+              emit_restic_metrics "${sourceName}" "$key" "$repo"
+            else
+              fail=1
+            fi
+          }
+
+          backup_repo usb ${lib.escapeShellArg repositories.${sourceName}.usb}
+          backup_repo hetzner ${lib.escapeShellArg repositories.${sourceName}.hetzner}
+
+          exit "$fail"
+        '';
 
       mkBackup =
-        job:
+        sourceName: sourceValue:
         let
-          inherit (job)
-            sourceName
-            sourceValue
-            targetName
-            ;
           serviceName =
             if (lib.isString sourceValue.serviceName) then sourceValue.serviceName else sourceName;
         in
         {
           inherit (sourceValue) paths;
           inherit (sourceValue) exclude;
-          # Bound the per-job cache on the root filesystem (26 jobs would
-          # otherwise grow /var/cache without limit).
-          extraBackupArgs = [ "--cleanup-cache" ];
           initialize = true;
           environmentFile = config.age.secrets."restic.env".path;
-          repository = repositories.${sourceName}.${targetName};
+          repository = repositories.${sourceName}.usb;
           timerConfig = {
             OnCalendar = "02:05";
             Persistent = true;
             RandomizedDelaySec = "5h";
           };
-          pruneOpts = [
-            "--keep-daily 7"
-            "--keep-weekly 3"
-            "--keep-monthly 6"
-            "--keep-yearly 2"
-          ];
-        }
-        // lib.optionalAttrs (sourceValue.manageService || sourceValue.runBefore != null) {
-          backupPrepareCommand = lib.concatStringsSep "\n" (
-            lib.optional sourceValue.manageService "${config.systemd.package}/bin/systemctl stop ${serviceName}.service"
-            ++ lib.optional (sourceValue.runBefore != null) sourceValue.runBefore
-          );
         }
         // lib.optionalAttrs sourceValue.manageService {
-          # Targets of the same source can overlap (5h random spread): only
-          # restart the service when no other *service* (--type=service skips
-          # the always-active timers, which would otherwise match the glob) is
-          # still backing up, and serialize the check with flock so two
-          # cleanups cannot both skip.
-          backupCleanupCommand = ''
-            {
-              ${pkgs.util-linux}/bin/flock 9
-              others="$(${config.systemd.package}/bin/systemctl list-units --type=service --state=active --no-legend 'restic-backups-${sourceName}-*' | ${pkgs.gnugrep}/bin/grep -v 'restic-backups-${sourceName}-${targetName}.service' || true)"
-              [ -n "$others" ] || ${config.systemd.package}/bin/systemctl start ${serviceName}.service
-            } 9>/run/restic-${sourceName}.start.lock
-          '';
+          backupPrepareCommand = "${config.systemd.package}/bin/systemctl stop ${serviceName}.service";
+          backupCleanupCommand = "${config.systemd.package}/bin/systemctl start ${serviceName}.service";
         };
 
       # Data disks are mounted with `nofail`: without an explicit mount
-      # dependency a missing /mnt/usb or /mnt/ultra would silently redirect the
-      # backup to the root filesystem (tmpfiles recreate the target dirs, and
-      # `initialize = true` happily creates a brand-new repo there). Requiring
-      # the mounts makes the job fail loudly instead (onFailure is wired to
-      # ntfy since P0-3). sftp targets need no local mount.
-      mkUnitOverride = job: {
-        unitConfig.RequiresMountsFor =
-          lib.optional (lib.hasPrefix "/" job.targetPath) job.targetPath ++ job.sourceValue.paths;
+      # dependency a missing /mnt/usb would silently redirect the backup to the
+      # root filesystem (tmpfiles recreate the target dir, and `initialize = true`
+      # happily creates a brand-new repo there). Requiring the mount makes the
+      # job fail loudly instead (onFailure is wired to ntfy). sftp needs no mount.
+      mkUnitOverride = sourceName: sourceValue: {
+        path = [
+          pkgs.restic
+          pkgs.jq
+          pkgs.coreutils
+        ];
+        unitConfig.RequiresMountsFor = [ "/mnt/usb" ] ++ sourceValue.paths;
+        serviceConfig.ExecStart = lib.mkForce [
+          (toString (mkScript sourceName sourceValue))
+        ];
       };
 
       source = lib.types.submodule {
@@ -114,27 +116,8 @@ let
             type = lib.types.listOf lib.types.str;
             default = [ ];
           };
-          defaultRepositories = lib.mkOption {
-            description = "Default repositories";
-            type = lib.types.attrs;
-            default = {
-              usb = "/mnt/usb";
-              # Offsite copy on the Hetzner Storage Box (SFTP backend). SSH
-              # client config + pinned host key live in
-              # modules/features/storage/hetzner-storagebox.nix.
-              # The box's writable storage is exposed at /home (real "/" is
-              # read-only), so the base must be /home; yields repository
-              # sftp:...:/home/restic/<source> per source.
-              hetzner = "sftp:${sb.user}@${sb.host}:/home";
-            };
-          };
-          extraRepositories = lib.mkOption {
-            description = "Extra repositories";
-            type = lib.types.attrs;
-            default = { };
-          };
           manageService = lib.mkOption {
-            description = "Stop and restart the service";
+            description = "Stop and restart the service around the backup";
             type = lib.types.bool;
             default = true;
           };
@@ -143,14 +126,10 @@ let
             type = lib.types.nullOr lib.types.str;
             default = null;
           };
-          runBefore = lib.mkOption {
-            description = "Command to run before backup";
-            type = lib.types.nullOr lib.types.str;
-            default = null;
-          };
-
         };
       };
+
+      sourceNames = lib.attrNames cfg.sources;
     in
     {
       options.backups = {
@@ -160,7 +139,7 @@ let
           default = { };
         };
         repositories = lib.mkOption {
-          description = "Computed (source × repository) → repository path map, shared by backups, exporters and drills";
+          description = "Computed (source × repository) → repository path map, shared by backups, drills and dashboards";
           type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
           readOnly = true;
         };
@@ -173,15 +152,13 @@ let
 
         systemd.tmpfiles.rules = [ "d /mnt/usb/restic 0755 root root -" ];
 
-        notify.services = map (job: "restic-backups-${job.name}") jobs;
+        notify.services = map (name: "restic-backups-${name}") sourceNames;
 
-        services.restic.backups = lib.listToAttrs (
-          map (job: lib.nameValuePair job.name (mkBackup job)) jobs
-        );
+        services.restic.backups = lib.mapAttrs mkBackup cfg.sources;
 
-        systemd.services = lib.listToAttrs (
-          map (job: lib.nameValuePair "restic-backups-${job.name}" (mkUnitOverride job)) jobs
-        );
+        systemd.services = lib.mapAttrs' (
+          name: value: lib.nameValuePair "restic-backups-${name}" (mkUnitOverride name value)
+        ) cfg.sources;
       };
     };
 

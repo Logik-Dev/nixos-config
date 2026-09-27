@@ -31,7 +31,6 @@ _: {
 
       backups.sources.radarr = {
         paths = [ config.services.radarr.dataDir ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 }

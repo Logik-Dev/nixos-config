@@ -73,7 +73,6 @@ let
       # network pairings. Stopped during backup for a consistent snapshot.
       backups.sources.zigbee2mqtt = {
         paths = [ config.services.zigbee2mqtt.dataDir ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 in

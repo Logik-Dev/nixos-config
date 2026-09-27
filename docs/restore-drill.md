@@ -21,29 +21,27 @@ chiffrés : `/mnt/usb/pgbackrest` (repo1) et la Storage Box Hetzner en sftp
 
 ## 1. Vérifications automatiques (hebdo, dimanche)
 
-Module : `modules/features/monitoring/restore-drill/` (`lib.nix`, `restic-check.nix`,
-`restore-canary.nix`, `postgres-drill.nix`, `read-data.nix`). Résultats postés (succès **et**
-échec, en heartbeat) sur le topic ntfy **`backup-verify`**.
+Module : `modules/features/monitoring/restore-drill/` (`lib.nix`, `restic-verify.nix`,
+`postgres-drill.nix`). Résultats postés (succès **et** échec, en heartbeat) sur le
+topic ntfy **`backup-verify`**. Chaque drill écrit aussi son horodatage dans le
+textfile node_exporter (dead-man `DrillStale`).
 
 | Service systemd | Quand | Ce qu'il prouve |
 |---|---|---|
-| `restic-check` | dim. 09:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich` (couvert par `restic-read-data`) — `--retry-lock 30m` |
-| `restore-canary` | dim. 10:00 | Restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` (échoue si `coordinator_backup.json` manquant) |
+| `restic-verify` | dim. 10:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`, qui reçoit `--read-data-subset=10%` — `--retry-lock 30m` ; puis restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` (échoue si `coordinator_backup.json` manquant). Écrit `restic_check_success{repository}` (textfile) pour `ResticCheckFailed`/Grafana |
 | `postgres-restore-drill` | dim. 11:00 | Contrôle d'âge (< 9 j) + `pgbackrest check` repo2, puis restore réel **depuis Hetzner (repo2)** → instance jetable → requêtes sur vaultwarden/prowlarr |
-| `restic-read-data` | dim. 12:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur le gros repo `immich` (usb + hetzner) → couverture complète tous les ~13 cycles — `--retry-lock 30m` |
 
 Lancer un drill à la main :
 
 ```sh
-systemctl start postgres-restore-drill.service
-journalctl -u postgres-restore-drill.service -f
+systemctl start restic-verify.service
+journalctl -u restic-verify.service -f
 ```
 
 > **Gros repo (`immich` ~480 Go)** : trop volumineux pour un `--read-data` complet hebdo.
-> `restic-check` ne fait qu'un contrôle structurel dessus ; la vérification des blobs est
-> faite par `restic-read-data` en **slice tournante `N/13`** (restic impose `t ≤ 256`), soit
-> ~1/13 relu chaque semaine → couverture totale par trimestre. Trafic Hetzner gratuit ;
-> coût = ~1/13 de la bande passante + I/O disque local.
+> `restic-verify` ne lit qu'un sous-ensemble `--read-data-subset=10%` (tirage
+> aléatoire) à chaque passage → couverture probabiliste. Trafic Hetzner gratuit ;
+> coût = ~10 % de la bande passante + I/O disque local.
 
 ---
 
@@ -69,7 +67,6 @@ set -a; . /run/agenix/restic.env; set +a
 # Repos possibles pour une source <SRC> :
 #   /mnt/usb/restic/<SRC>                                (usb)
 #   sftp:u625917@u625917.your-storagebox.de:/home/restic/<SRC>  (hetzner offsite)
-#   /mnt/local/restic/<SRC>                              (local, certaines sources)
 REPO=sftp:u625917@u625917.your-storagebox.de:/home/restic/vaultwarden
 
 restic -r "$REPO" snapshots                  # lister

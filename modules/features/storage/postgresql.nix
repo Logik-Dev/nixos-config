@@ -5,9 +5,6 @@ _: {
       config,
       ...
     }:
-    let
-      sb = config.constants.hosts.hyper.storageBox;
-    in
     {
       # WAL archiving (archive_mode + archive_command → pgbackrest archive-push)
       # is set by the pgbackrest nixpkgs module itself; the whole PITR chain
@@ -34,9 +31,9 @@ _: {
       # shipped to Hetzner + usb. The crown jewels (vaultwarden vault,
       # prowlarr, immich metadata) all live in postgres — belt and suspenders.
       # The dump runs ONCE per day (01:30) into a fixed filename, so both
-      # restic targets (which start at 02:05+ and used to each re-dump via
-      # runBefore) ship the exact same, fresh dump. RequiresMountsFor keeps it
-      # off the root filesystem if /mnt/ultra is missing.
+      # restic targets (which start at 02:05+) ship the exact same, fresh dump.
+      # RequiresMountsFor keeps it off the root filesystem if /mnt/ultra is
+      # missing.
       systemd.services.pg-dumpall = {
         description = "Daily logical dump of the whole PostgreSQL cluster";
         startAt = "*-*-* 01:30:00";
@@ -58,10 +55,6 @@ _: {
       backups.sources.pg-dump = {
         paths = [ "/mnt/ultra/pg-dump" ];
         manageService = false;
-        defaultRepositories = {
-          hetzner = "sftp:${sb.user}@${sb.host}:/home";
-          usb = "/mnt/usb";
-        };
       };
 
     };

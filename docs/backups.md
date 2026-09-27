@@ -7,8 +7,8 @@ Pour **restaurer** ou vérifier, voir [restore-drill.md](restore-drill.md).
 
 Un module restic maison (`modules/features/storage/restic.nix`) expose l'option
 `backups.sources.<nom>`. Chaque source déclare des `paths` et est sauvegardée vers
-plusieurs **cibles** (repos), donnant un job systemd `restic-backups-<source>-<cible>`
-par couple (timer quotidien ~02:05).
+**deux cibles** (usb + hetzner), via **une seule unité systemd par source**
+`restic-backups-<source>` (timer quotidien ~02:05) qui enchaîne les deux repos.
 
 ### Cibles (repos restic)
 
@@ -16,14 +16,17 @@ par couple (timer quotidien ~02:05).
 |---|---|---|
 | `usb` | `/mnt/usb` | sur site, disque externe |
 | `hetzner` | `sftp:…@…your-storagebox.de:/home` | **offsite** (Storage Box, trafic gratuit) |
-| `local` | `/mnt/local` | sur site (certaines sources) — **LV du disque système**, pas un domaine de panne distinct |
 
-Par défaut une source va sur `usb + hetzner`. Rétention (prune auto) :
+Rétention (prune auto) :
 `--keep-daily 7 --keep-weekly 3 --keep-monthly 6 --keep-yearly 2`.
 Secrets : `restic.env` (mot de passe restic), clé SSH Hetzner dans agenix.
 **Copie de secours du mot de passe restic dans Vaultwarden** (comme la
 passphrase pgBackRest) : sans elle, les repos sont illisibles si l'identité
 age maître est perdue.
+
+> **Historique — cible `local` (retirée 2026-09-27).** `/mnt/local` était un LV
+> du **disque système** : pas un domaine de panne distinct. `usb + hetzner` la
+> remplacent (une copie sur site, une offsite).
 
 ## Sources sauvegardées
 
@@ -31,24 +34,24 @@ age maître est perdue.
 
 | Source | Emplacement | Cibles |
 |---|---|---|
-| `adguard` | `/var/lib/private/AdGuardHome` | usb + hetzner + local |
-| `grafana` | état Grafana | usb + local |
+| `adguard` | `/var/lib/private/AdGuardHome` | usb + hetzner |
+| `grafana` | état Grafana | usb + hetzner |
 | `immich` | `/mnt/ultra/immich` (hors `cache/`,`thumbs/`,`encoded-video`) | usb + hetzner |
-| `jellyfin` | `/mnt/ultra/jellyfin` (hors `log/`,`cache/`,`transcodes`) | usb + hetzner + local |
+| `jellyfin` | `/mnt/ultra/jellyfin` (hors `log/`,`cache/`,`transcodes`) | usb + hetzner |
 | `mealie` | `/var/lib/private/mealie` | usb + hetzner |
 | `mosquitto` | `/var/lib/mosquitto` | usb + hetzner |
 | `n8n` | `/var/lib/private/n8n` | usb + hetzner |
 | `paperless` | `/mnt/local/paperless` | usb + hetzner |
 | `pg-dump` | `/mnt/ultra/pg-dump` (pg_dumpall 01:30) | usb + hetzner |
-| `prowlarr` / `radarr` / `sonarr` | `/mnt/ultra/<app>` | usb + hetzner + local |
+| `prowlarr` / `radarr` / `sonarr` | `/mnt/ultra/<app>` | usb + hetzner |
 | `qbittorrent` | profil + état | usb + hetzner |
 | `rankoder` | `/var/lib/rankoder` (état seul, pas le retentionDir) | usb + hetzner |
 | `sabnzbd` | `/var/lib/sabnzbd` | usb + hetzner |
-| `seerr` | `/var/lib/private/jellyseerr` | usb + hetzner + local |
+| `seerr` | `/var/lib/private/jellyseerr` | usb + hetzner |
 | `traefik` | `acme.json` (copie live) | usb + hetzner |
-| `unifi` | `/var/lib/unifi/data/backup/autobackup` (`.unf`) | usb + local |
-| `vaultwarden` | `/var/lib/vaultwarden` (+ postgres) | usb + hetzner + local |
-| `zigbee2mqtt` | state z2m (`database.db`, coordinator) | usb + hetzner + local |
+| `unifi` | `/var/lib/unifi/data/backup/autobackup` (`.unf`) | usb + hetzner |
+| `vaultwarden` | `/var/lib/vaultwarden` (+ postgres) | usb + hetzner |
+| `zigbee2mqtt` | state z2m (`database.db`, coordinator) | usb + hetzner |
 
 ## Non sauvegardées (assumé)
 
@@ -90,16 +93,23 @@ authelia, *arr). Deux mécanismes complémentaires :
 
 | Donnée | Sur site | Offsite (Hetzner) |
 |---|---|---|
-| Configs services (vaultwarden files, *arr, zigbee, grafana, adguard, unifi…) | usb (+local) | ✅ |
+| Configs services (vaultwarden files, *arr, zigbee, grafana, adguard, unifi…) | usb | ✅ |
 | Immich (médias) | usb | ✅ direct |
 | Postgres (bases) | pgBackRest repo1 (usb, PITR) | ✅ pgBackRest repo2 (**PITR**) + dump logique |
 
 ## Supervision & vérification
 
-- **Exporters Prometheus** : un `prometheus-restic-exporter-<source>-<cible>` par repo
-  (`modules/features/monitoring/restic.nix`) → âge/taille des snapshots dans Grafana.
+- **Métriques Prometheus (push)** : chaque unité de backup écrit, après un
+  succès, `restic_backup_timestamp` / `restic_snapshots_total` /
+  `restic_backup_size_total` par repo dans le textfile de node_exporter
+  (`/var/lib/node-exporter-textfile`, helper `monitoring/lib/_restic-metrics.nix`)
+  → âge/taille des snapshots dans Grafana. Plus aucun process exporter à poller
+  les repos sftp (l'ancien modèle « un exporter par repo » saturait le
+  rate-limiter de la Storage Box). L'alerte `ResticMetricsMissing` (dead-man)
+  couvre une unité de backup qui ne tourne plus.
 - **Drills hebdo** (`modules/features/monitoring/restore-drill/`, topic ntfy
-  `backup-verify`) : intégrité de tous les repos restic, restore canary offsite
-  (zigbee ← Hetzner), restore Postgres réel **pgBackRest ← Hetzner**, et read-data
-  tournant sur les gros repos. Détails + procédures manuelles :
+  `backup-verify`) : `restic-verify` (intégrité de tous les repos + `--read-data`
+  des petits, `--read-data-subset=10%` pour immich, puis restore canari offsite
+  zigbee ← Hetzner) et `postgres-restore-drill` (restore Postgres réel
+  **pgBackRest ← Hetzner**). Détails + procédures manuelles :
   [restore-drill.md](restore-drill.md).

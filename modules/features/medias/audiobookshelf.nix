@@ -28,7 +28,6 @@ _: {
 
       backups.sources.audiobookshelf = {
         paths = [ "/var/lib/audiobookshelf" ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 }

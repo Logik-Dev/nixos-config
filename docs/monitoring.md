@@ -17,8 +17,6 @@ exporters → Prometheus (9090) → Grafana (3002)
 | Alertmanager | 9093 | `monitoring/alertmanager.nix` |
 | alertmanager-ntfy | 8000 | `monitoring/alertmanager.nix` (bridge webhook → ntfy, **`POST /hook`**) |
 | ntfy | 2586 | `monitoring/notification.nix` |
-| Loki | 3100 | `monitoring/loki.nix` |
-| Alloy (logs→Loki) | — | `monitoring/alloy.nix` |
 | Glance (dashboard) | 3004 | `monitoring/glance.nix` |
 
 ## Exporters Prometheus
@@ -32,10 +30,14 @@ Les ports des exporters nixpkgs sont référencés dynamiquement
 | postgres_exporter | 9187 | `monitoring/postgres.nix` | `postgres` |
 | nvidia-gpu exporter | 9835 | `monitoring/gpu.nix` | `nvidia-gpu` |
 | blackbox_exporter | 9115 | `monitoring/blackbox.nix` | `blackbox_http` |
-| restic exporters | 9760+ | `monitoring/restic.nix` | `restic` (un job par repo) |
 | **traefik** (métriques natives) | 8083 | `networking/traefik/static.nix` | `traefik` |
 | **authelia** (métriques natives) | 9959 | `security/authelia.nix` | `authelia` |
 | **fail2ban exporter** | 9191 | `security/fail2ban.nix` | `fail2ban` |
+
+Les métriques restic ne sont **pas** produites par un exporter : chaque unité de
+backup *pousse* ses métriques dans le textfile de node_exporter
+(`monitoring/lib/_restic-metrics.nix`). L'ancien `prometheus-restic-exporter`
+(un process par repo, 56 au total, en sftp) a été supprimé le 2026-09-27.
 
 ### Blackbox
 
@@ -51,8 +53,8 @@ suit la redirection et valide le portail, **pas** le backend (couvert par les
 26 règles (25 noms) dans `monitoring/prometheus-alerts.nix`, toutes groupées dans
 Alertmanager → ntfy :
 
-- **Disponibilité** : `ServiceDown` (`up == 0`, hors `restic`), `ProbeFailure`,
-  `PostgresDown`, `ResticExporterDown` (75m), `Fail2banExporterUnhealthy`.
+- **Disponibilité** : `ServiceDown` (`up == 0`), `ProbeFailure`,
+  `PostgresDown`, `Fail2banExporterUnhealthy`.
 - **Certificats / disques** : `TLSCertExpirySoon`, `HighDiskUsage`,
   `MountPointMissing` (/mnt/usb, /mnt/ultra), `FilesystemReadOnly`.
 - **Charge / température** : `HighCpuLoad`, `HighMemoryPressure`,
@@ -61,7 +63,7 @@ Alertmanager → ntfy :
 - **Postgres / PITR** : `PgWalArchiveStale`, `PgWalArchiveFailures`,
   `PgbackrestBackupStale`, `PgbackrestSpoolGrowing`, `PgbackrestMetricsMissing`.
 - **Backups** : `ResticBackupStale` (max par repo), `ResticCheckFailed`,
-  `ResticRepoEmpty`, `DrillStale` (dead-man des drills).
+  `ResticRepoEmpty`, `ResticMetricsMissing` (dead-man des métriques push), `DrillStale` (dead-man des drills).
 
 ## Notification (`notify.services`)
 

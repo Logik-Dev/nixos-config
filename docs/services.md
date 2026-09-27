@@ -24,7 +24,7 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 | `paperless` | 28981 | Maison | oui (SSO `Remote-User`) | Postgres, Gotenberg, Tika, `/mnt/local` |
 | `vaultwarden` | 8082 | Maison | **non** (clients Bitwarden) | Postgres |
 | `zigbee` | 8788 | Maison | oui | MQTT, dongle `/dev/ttyUSB0` |
-| `grafana` | 3002 | Supervision | oui | Prometheus, Loki |
+| `grafana` | 3002 | Supervision | oui | Prometheus |
 | `ntfy` | 2586 | Supervision | **non** (auth ntfy ; public en lecture seule) | Secrets `ntfy-reader-pw` |
 | `dns` | 3000 | Réseau & Stockage | oui | AdGuard Home (DNS de l'hôte) |
 | `unifi` | 8443 | Réseau & Stockage | oui | HTTPS self-signed, MongoDB-ce |

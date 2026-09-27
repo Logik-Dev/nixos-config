@@ -12,7 +12,7 @@ _: {
         "textfile"
       ];
       extraFlags = [
-        "--collector.systemd.unit-include=(traefik|prometheus|grafana|alertmanager|loki|alloy|mosquitto|zigbee2mqtt|ntfy|smartd|postgresql|adguardhome|authelia|cf-ddns|vaultwarden|jellyfin|seerr|radarr|sonarr|prowlarr|sabnzbd|immich|restic|rankoder|mealie|n8n|paperless|tika|gotenberg|podman-immich-ml|btrfs-scrub|snapraid|syncthing|restore-canary|postgres-restore-drill).*"
+        "--collector.systemd.unit-include=(traefik|prometheus|grafana|alertmanager|mosquitto|zigbee2mqtt|ntfy|smartd|postgresql|adguardhome|authelia|cf-ddns|vaultwarden|jellyfin|seerr|radarr|sonarr|prowlarr|sabnzbd|immich|restic|rankoder|mealie|n8n|paperless|tika|gotenberg|podman-immich-ml|btrfs-scrub|snapraid|syncthing|restic-verify|postgres-restore-drill).*"
         "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|run|var/lib/docker/.+|var/lib/containers/storage/.+)(/|$)"
         "--collector.netclass.ignored-devices=^(veth|br-|docker|virbr|tun|tap).*"
         "--collector.textfile.directory=/var/lib/node-exporter-textfile"

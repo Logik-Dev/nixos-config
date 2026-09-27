@@ -64,7 +64,6 @@ _: {
         # /var/lib/private/AdGuardHome, so backing up the former only saves the
         # link (and the admin password hash lives in that state).
         paths = [ "/var/lib/private/AdGuardHome" ];
-        extraRepositories.local = "/mnt/local";
         # AdGuard Home is the host's DNS resolver (nameservers = 127.0.0.1,
         # resolved disabled). The default manageService stops it during the
         # backup, which kills DNS resolution and breaks any backup target that

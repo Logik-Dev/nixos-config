@@ -102,9 +102,8 @@ let
           };
         };
 
-        # Weekly full at 03:30 Sunday (barman runs at 03:00 during the
-        # double-run; both are gone quiet by the 05:00 restic-check). The
-        # nixpkgs module turns this into pgbackrest-default-weekly
+        # Weekly full at 03:30 Sunday, well before the 10:00 restic-verify
+        # drill. The nixpkgs module turns this into pgbackrest-default-weekly
         # {.service,.timer}; the "default" stanza is auto-wired to the local
         # postgres instance.
         stanzas.default.jobs.weekly = {

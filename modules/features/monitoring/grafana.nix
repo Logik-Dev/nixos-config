@@ -38,6 +38,8 @@ _: {
                 orgId = 1;
               }
               {
+                # Loki was removed with the log stack (Alloy/Loki, 2026-09-27);
+                # keep the delete entry so the stale row is purged from grafana.db.
                 name = "Loki";
                 orgId = 1;
               }
@@ -52,13 +54,6 @@ _: {
                 url = "http://127.0.0.1:9090";
                 access = "proxy";
                 isDefault = true;
-              }
-              {
-                name = "Loki";
-                type = "loki";
-                uid = "loki";
-                url = "http://127.0.0.1:3100";
-                access = "proxy";
               }
             ];
           };
@@ -85,7 +80,6 @@ _: {
       # covered by Nix provisioning. Stopped during backup for a consistent copy.
       backups.sources.grafana = {
         paths = [ "/var/lib/grafana" ];
-        extraRepositories.local = "/mnt/local";
       };
     };
 }
