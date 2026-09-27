@@ -60,7 +60,7 @@ let
             # Prometheus metrics on a dedicated loopback entrypoint (scraped by
             # Prometheus on hyper): request counts/latency per entrypoint,
             # service and router.
-            entryPoints.metrics.address = "127.0.0.1:8082";
+            entryPoints.metrics.address = "127.0.0.1:8083";
             metrics.prometheus = {
               addEntryPointsLabels = true;
               addServicesLabels = true;

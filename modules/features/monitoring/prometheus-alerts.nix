@@ -34,6 +34,30 @@ _: {
                   };
                 }
                 {
+                  # Authelia exposes request counters by status code; a sustained
+                  # 401/403 rate is a brute-force / credential-stuffing signal.
+                  alert = "AutheliaAuthFailureSpike";
+                  expr = ''sum(rate(authelia_request{code=~"401|403"}[10m])) > 0.5'';
+                  for = "10m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "Authelia authentication failures";
+                    description = "More than 5 failed/denied Authelia requests per minute for 10 minutes.";
+                  };
+                }
+                {
+                  # f2b_up is the exporter's own view of the fail2ban socket;
+                  # the Prometheus target can stay up while the socket is dead.
+                  alert = "Fail2banExporterUnhealthy";
+                  expr = "f2b_up == 0";
+                  for = "15m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "fail2ban exporter cannot reach the daemon";
+                    description = "The fail2ban exporter reported f2b_up=0 for 15 minutes — ban metrics are blind.";
+                  };
+                }
+                {
                   alert = "HighDiskUsage";
                   expr = ''(node_filesystem_size_bytes{mountpoint!~".*(.gvfs|dock.*|containerd.*)"} - node_filesystem_avail_bytes{mountpoint!~".*(.gvfs|dock.*|containerd.*)"}) / node_filesystem_size_bytes{mountpoint!~".*(.gvfs|dock.*|containerd.*)"} > 0.80'';
                   for = "5m";
@@ -253,8 +277,13 @@ _: {
                   };
                 }
                 {
+                  # The exporter exposes restic_backup_timestamp once PER
+                  # SNAPSHOT (snapshot_hash label), so a plain
+                  # `time() - restic_backup_timestamp` fires for every snapshot
+                  # older than 48h — i.e. always. Compare the most recent
+                  # snapshot per repository instead.
                   alert = "ResticBackupStale";
-                  expr = "time() - restic_backup_timestamp > 172800";
+                  expr = "time() - max by (repository) (restic_backup_timestamp) > 172800";
                   for = "0m";
                   labels.severity = "warning";
                   annotations = {
