@@ -34,15 +34,18 @@ _: {
                   };
                 }
                 {
-                  # Authelia exposes request counters by status code; a sustained
-                  # 401/403 rate is a brute-force / credential-stuffing signal.
+                  # Authelia exposes request counters by status code and method.
+                  # Only non-GET requests count: the forward-auth/probe traffic
+                  # from Traefik+blackbox is GET and returns 401 for protected
+                  # vhosts on every scrape, which would otherwise fire this
+                  # constantly. Login/credential-stuffing attempts are POST.
                   alert = "AutheliaAuthFailureSpike";
-                  expr = ''sum(rate(authelia_request{code=~"401|403"}[10m])) > 0.5'';
+                  expr = ''sum(rate(authelia_request{code=~"401|403",method!="GET"}[10m])) > 0.2'';
                   for = "10m";
                   labels.severity = "warning";
                   annotations = {
                     summary = "Authelia authentication failures";
-                    description = "More than 5 failed/denied Authelia requests per minute for 10 minutes.";
+                    description = "Sustained failed Authelia login attempts (>2/min for 10m) — possible brute-force.";
                   };
                 }
                 {
