@@ -85,6 +85,12 @@ in
             ];
           };
 
+          # Prometheus metrics (scraped by Prometheus on hyper).
+          telemetry.metrics = {
+            enabled = true;
+            address = "tcp://127.0.0.1:9959";
+          };
+
           # postgresql
           storage = {
             postgres = {

@@ -1,4 +1,4 @@
-{ ... }:
+_:
 let
   staticModule =
     {
@@ -56,6 +56,17 @@ let
 
             # HTTPS
             entryPoints.https.address = "${lanIp}:443";
+
+            # Prometheus metrics on a dedicated loopback entrypoint (scraped by
+            # Prometheus on hyper): request counts/latency per entrypoint,
+            # service and router.
+            entryPoints.metrics.address = "127.0.0.1:8082";
+            metrics.prometheus = {
+              addEntryPointsLabels = true;
+              addServicesLabels = true;
+              addRoutersLabels = true;
+              entryPoint = "metrics";
+            };
 
             # ACME
             certificatesResolvers.myresolver.acme = {

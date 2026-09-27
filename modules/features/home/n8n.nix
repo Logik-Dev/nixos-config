@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.n8n =
     { config, pkgs, ... }:
     let

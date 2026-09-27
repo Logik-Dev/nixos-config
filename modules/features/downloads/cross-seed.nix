@@ -1,5 +1,4 @@
-{ inputs, ... }:
-{
+_: {
   flake.modules.nixos.cross-seed =
     { config, lib, ... }:
     {

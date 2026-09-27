@@ -34,7 +34,7 @@ let
           or (throw "opencode: unsupported system ${pkgs.stdenv.hostPlatform.system}");
       isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
     in
-    pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+    pkgs.stdenvNoCC.mkDerivation (_finalAttrs: {
       pname = "opencode";
       inherit version;
 
@@ -90,7 +90,7 @@ let
       };
     });
 
-  overlay = final: prev: {
+  overlay = final: _prev: {
     opencode = opencodeBin final;
   };
 

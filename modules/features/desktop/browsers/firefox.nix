@@ -1,4 +1,4 @@
-{ inputs, lib, ... }:
+{ lib, ... }:
 let
   mkBookmarksFolder = folder: bms: {
     name = folder;

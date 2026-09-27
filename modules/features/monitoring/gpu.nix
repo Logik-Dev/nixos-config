@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.gpu = {
     services.prometheus.exporters.nvidia-gpu = {
       enable = true;

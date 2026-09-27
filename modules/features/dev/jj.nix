@@ -1,11 +1,9 @@
 { inputs, ... }:
 let
 
-  jjStarship =
-    { ... }:
-    {
-      nixpkgs.overlays = [ inputs.jj-starship.overlays.default ];
-    };
+  jjStarship = _: {
+    nixpkgs.overlays = [ inputs.jj-starship.overlays.default ];
+  };
 
 in
 

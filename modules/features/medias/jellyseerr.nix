@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.jellyseerr = {
     traefik.services.seerr = {
       port = 5055;

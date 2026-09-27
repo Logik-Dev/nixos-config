@@ -1,5 +1,4 @@
-{ inputs, ... }:
-{
+_: {
   flake.modules.nixos.freeleech-farmer =
     {
       config,

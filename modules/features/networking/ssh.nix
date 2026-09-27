@@ -1,4 +1,4 @@
-{ inputs, ... }:
+_:
 let
 
   flake.modules.darwin.common = {
@@ -26,7 +26,7 @@ let
           };
         };
       }
-      (lib.mkIf (pkgs.stdenv.isDarwin) {
+      (lib.mkIf pkgs.stdenv.isDarwin {
         home.file.".ssh/controlmasters/.keep".text = "";
         programs.ssh.settings = {
           "*" = {

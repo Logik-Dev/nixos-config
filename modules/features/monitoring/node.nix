@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.node = {
     services.prometheus.exporters.node = {
       enable = true;

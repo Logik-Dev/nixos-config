@@ -1,5 +1,4 @@
-{ inputs, ... }:
-{
+_: {
   flake.modules.nixos.qbittorrent =
     {
       config,
@@ -66,7 +65,7 @@
         user = "qbittorrent";
         group = "media";
         profileDir = "/mnt/ultra/qbittorrent";
-        webuiPort = webuiPort;
+        inherit webuiPort;
         torrentingPort = vpnCfg.forwardedPort;
         # Keep qBittorrent.conf writable so UI changes persist across reboots.
         serverConfig = { };

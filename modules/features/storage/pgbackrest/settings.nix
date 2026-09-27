@@ -1,9 +1,8 @@
-{ ... }:
+_:
 let
   settingsModule =
     {
       config,
-      lib,
       ...
     }:
     let

@@ -1,5 +1,4 @@
-{ inputs, ... }:
-{
+_: {
   flake.modules.nixos.vpn-torrent =
     {
       config,
@@ -99,7 +98,7 @@
       config = lib.mkIf cfg.enable {
         networking.wireguard.interfaces.wg0 = {
           ips = [ cfg.address ];
-          privateKeyFile = cfg.privateKeyFile;
+          inherit (cfg) privateKeyFile;
           inherit (cfg) mtu;
           table = "4242";
           # Marks the encrypted WireGuard transport packets so the kill-switch
@@ -109,13 +108,13 @@
           peers = [
             (
               {
-                publicKey = cfg.publicKey;
+                inherit (cfg) publicKey;
                 allowedIPs = [ "0.0.0.0/0" ];
-                endpoint = cfg.endpoint;
+                inherit (cfg) endpoint;
                 persistentKeepalive = 15;
               }
               // lib.optionalAttrs (cfg.presharedKeyFile != null) {
-                presharedKeyFile = cfg.presharedKeyFile;
+                inherit (cfg) presharedKeyFile;
               }
             )
           ];

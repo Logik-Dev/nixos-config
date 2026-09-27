@@ -1,11 +1,8 @@
-{ ... }:
-{
+_: {
 
   flake.modules.nixos.postgresql =
     {
       config,
-      lib,
-      pkgs,
       ...
     }:
     let

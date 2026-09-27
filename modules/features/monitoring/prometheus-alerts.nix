@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.prometheus.imports = [
     {
       services.prometheus.rules = [
@@ -19,6 +18,19 @@
                   annotations = {
                     summary = "Service {{ $labels.job }} down";
                     description = "Prometheus target {{ $labels.instance }} (job: {{ $labels.job }}) has been down for more than 1 minute.";
+                  };
+                }
+                {
+                  # Traefik metrics (metrics entrypoint) count requests per
+                  # service and status code; a sustained 5xx rate usually means
+                  # a backend is broken (or the Authelia portal itself).
+                  alert = "TraefikHigh5xxRate";
+                  expr = ''sum(rate(traefik_service_requests_total{code=~"5.."}[5m])) > 1'';
+                  for = "10m";
+                  labels.severity = "warning";
+                  annotations = {
+                    summary = "Traefik is returning 5xx responses";
+                    description = "More than 1 server error/s (5m rate) through Traefik for 10 minutes.";
                   };
                 }
                 {

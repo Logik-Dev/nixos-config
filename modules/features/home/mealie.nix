@@ -1,11 +1,11 @@
-{ ... }:
+_:
 let
   port = 9999;
 in
 {
   flake.modules.nixos.mealie = {
     traefik.services.mealie = {
-      port = port;
+      inherit port;
       enableAuthelia = true;
       category = "Maison";
       icon = "di:mealie";

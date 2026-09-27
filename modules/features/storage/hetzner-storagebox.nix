@@ -1,4 +1,4 @@
-{ ... }:
+_:
 let
   # Offsite restic target: Hetzner Storage Box (SFTP backend).
   #

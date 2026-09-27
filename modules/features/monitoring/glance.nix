@@ -45,7 +45,7 @@
           };
         in
         site
-        // lib.optionalAttrs (value.icon != null) { icon = value.icon; }
+        // lib.optionalAttrs (value.icon != null) { inherit (value) icon; }
         // lib.optionalAttrs value.insecureSkipVerify { allow-insecure = true; };
 
       mkMonitor = cat: {

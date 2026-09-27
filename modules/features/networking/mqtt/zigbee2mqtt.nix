@@ -1,4 +1,4 @@
-{ ... }:
+_:
 let
   zigbee2mqttModule =
     {

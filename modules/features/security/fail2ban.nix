@@ -1,5 +1,8 @@
 {
   flake.modules.nixos.fail2ban = {
+    # Expose jail/bans metrics to Prometheus (socket is wired automatically).
+    services.prometheus.exporters.fail2ban.enable = true;
+
     services.fail2ban = {
       enable = true;
 

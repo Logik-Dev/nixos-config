@@ -22,7 +22,7 @@ let
 
       config = inputs.home-manager.lib.homeManagerConfiguration {
         inherit modules;
-        pkgs = systemConfig.pkgs;
+        inherit (systemConfig) pkgs;
       };
     in
     {

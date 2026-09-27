@@ -16,7 +16,7 @@ let
       # re-deriving `<target>/restic/<source>`.
       repositories = lib.mapAttrs (
         sourceName: sourceValue:
-        lib.mapAttrs (targetName: targetPath: "${targetPath}/restic/${sourceName}") (
+        lib.mapAttrs (_targetName: targetPath: "${targetPath}/restic/${sourceName}") (
           sourceValue.defaultRepositories // sourceValue.extraRepositories
         )
       ) cfg.sources;
@@ -45,14 +45,13 @@ let
             sourceName
             sourceValue
             targetName
-            targetPath
             ;
           serviceName =
             if (lib.isString sourceValue.serviceName) then sourceValue.serviceName else sourceName;
         in
         {
-          paths = sourceValue.paths;
-          exclude = sourceValue.exclude;
+          inherit (sourceValue) paths;
+          inherit (sourceValue) exclude;
           # Bound the per-job cache on the root filesystem (26 jobs would
           # otherwise grow /var/cache without limit).
           extraBackupArgs = [ "--cleanup-cache" ];

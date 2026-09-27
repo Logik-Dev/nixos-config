@@ -1,9 +1,8 @@
-{ ... }:
+_:
 let
   prometheusModule =
     {
       config,
-      lib,
       ...
     }:
     let
@@ -42,6 +41,27 @@ let
             scrape_interval = "15s";
             static_configs = [
               { targets = [ "127.0.0.1:${toString exporters.nvidia-gpu.port}" ]; }
+            ];
+          }
+          {
+            job_name = "traefik";
+            scrape_interval = "15s";
+            static_configs = [
+              { targets = [ "127.0.0.1:8082" ]; }
+            ];
+          }
+          {
+            job_name = "authelia";
+            scrape_interval = "15s";
+            static_configs = [
+              { targets = [ "127.0.0.1:9959" ]; }
+            ];
+          }
+          {
+            job_name = "fail2ban";
+            scrape_interval = "15s";
+            static_configs = [
+              { targets = [ "127.0.0.1:${toString exporters.fail2ban.port}" ]; }
             ];
           }
           {

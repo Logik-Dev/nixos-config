@@ -1,4 +1,4 @@
-{ ... }:
+_:
 let
   flake.modules.nixos.neovim.imports = lsp;
 

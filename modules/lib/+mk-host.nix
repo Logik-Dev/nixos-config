@@ -12,13 +12,11 @@ let
 
       homeConfig = logikdevOnHost host modules;
 
-      homeImport =
-        { ... }:
-        {
-          home-manager.users.logikdev.imports = homeConfig.modules;
-          home-manager.useGlobalPkgs = lib.mkDefault useGlobalPkgs;
-          home-manager.useUserPackages = lib.mkDefault useUserPackages;
-        };
+      homeImport = _: {
+        home-manager.users.logikdev.imports = homeConfig.modules;
+        home-manager.useGlobalPkgs = lib.mkDefault useGlobalPkgs;
+        home-manager.useUserPackages = lib.mkDefault useUserPackages;
+      };
     in
     {
       inherit homeConfig homeImport;

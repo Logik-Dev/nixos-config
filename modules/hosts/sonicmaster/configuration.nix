@@ -33,6 +33,10 @@ let
       {
         services.openssh.enable = false;
       }
+      # Intentionally NOT monitored (no node_exporter) nor backed up (no
+      # restic): this host has been offline for months (last Tailscale sighting
+      # > 200 days). Audit ADD-4 is deliberately deferred — revisit if it
+      # comes back online.
     ];
 
   network = {

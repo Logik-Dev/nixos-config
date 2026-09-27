@@ -24,11 +24,11 @@ let
           hostDir = "${cfg.hostsSecretsDir}/${hostName}";
 
           hostSecrets = lib.optionalAttrs (builtins.pathExists hostDir) (
-            lib.filterAttrs (n: v: v == "regular") (builtins.readDir hostDir)
+            lib.filterAttrs (_n: v: v == "regular") (builtins.readDir hostDir)
           );
 
           mkSecret =
-            k: v: lib.nameValuePair (lib.strings.removeSuffix ".age" k) { rekeyFile = "${hostDir}/${k}"; };
+            k: _v: lib.nameValuePair (lib.strings.removeSuffix ".age" k) { rekeyFile = "${hostDir}/${k}"; };
 
         in
         {

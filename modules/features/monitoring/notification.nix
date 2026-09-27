@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.notification =
     {
       config,
@@ -127,7 +126,7 @@
               };
           }
 
-          (lib.genAttrs cfg.services (name: {
+          (lib.genAttrs cfg.services (_name: {
             onFailure = [ "notify-failure@%n.service" ];
           }))
         ];

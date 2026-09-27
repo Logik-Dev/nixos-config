@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.alloy = { config, ... }: {
     services.alloy = {
       enable = true;
