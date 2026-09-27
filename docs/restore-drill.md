@@ -15,21 +15,22 @@ chiffrés : `/mnt/usb/pgbackrest` (repo1) et la Storage Box Hetzner en sftp
 1. **Vaultwarden** — coffre dans Postgres (`vaultwarden`) + `rsa_key.pem`/pièces jointes dans `/var/lib/vaultwarden` (restic).
 2. **Zigbee2mqtt** — `database.db` + `coordinator_backup.json` (restic) ; sans ça, ré-appairage complet.
 3. **Postgres** — porte aussi prowlarr, immich (métadonnées), etc.
-4. **Immich** — 440 Go de médias (restic : rustfs + usb + hetzner).
+4. **Immich** — ~480 Go de médias (restic : usb + hetzner).
 
 ---
 
 ## 1. Vérifications automatiques (hebdo, dimanche)
 
-Module : `modules/features/monitoring/restore-drill.nix`. Résultats postés (succès **et**
+Module : `modules/features/monitoring/restore-drill/` (`lib.nix`, `restic-check.nix`,
+`restore-canary.nix`, `postgres-drill.nix`, `read-data.nix`). Résultats postés (succès **et**
 échec, en heartbeat) sur le topic ntfy **`backup-verify`**.
 
 | Service systemd | Quand | Ce qu'il prouve |
 |---|---|---|
-| `restic-check` | dim. 09:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich`/`rustfs` (couverts par `restic-read-data`) — `--retry-lock 30m` |
+| `restic-check` | dim. 09:00 | `restic check` structurel sur **tous** les repos + `--read-data` (blobs réels) sur tout sauf `immich` (couvert par `restic-read-data`) — `--retry-lock 30m` |
 | `restore-canary` | dim. 10:00 | Restore réel de **Zigbee depuis Hetzner** (offsite) → `PRAGMA integrity_check` (échoue si `coordinator_backup.json` manquant) |
 | `postgres-restore-drill` | dim. 11:00 | Contrôle d'âge (< 9 j) + `pgbackrest check` repo2, puis restore réel **depuis Hetzner (repo2)** → instance jetable → requêtes sur vaultwarden/prowlarr |
-| `restic-read-data` | dim. 12:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur les gros repos immich ×3 + rustfs-usb → couverture complète tous les ~13 cycles — `--retry-lock 30m` |
+| `restic-read-data` | dim. 12:00 | `--read-data` **par slice tournante** `N/13` (dérivée de la semaine ISO) sur le gros repo `immich` (usb + hetzner) → couverture complète tous les ~13 cycles — `--retry-lock 30m` |
 
 Lancer un drill à la main :
 
@@ -38,11 +39,11 @@ systemctl start postgres-restore-drill.service
 journalctl -u postgres-restore-drill.service -f
 ```
 
-> **Gros repos (`immich` ~440 Go, `rustfs` ~485 Go)** : trop volumineux pour un
-> `--read-data` complet hebdo. `restic-check` ne fait qu'un contrôle structurel dessus ;
-> la vérification des blobs est faite par `restic-read-data` en **slice tournante `N/13`**
-> (restic impose `t ≤ 256`), soit ~1/13 relu chaque semaine → couverture totale par
-> trimestre. Trafic Hetzner gratuit ; coût = ~1/13 de la bande passante + I/O disque local.
+> **Gros repo (`immich` ~480 Go)** : trop volumineux pour un `--read-data` complet hebdo.
+> `restic-check` ne fait qu'un contrôle structurel dessus ; la vérification des blobs est
+> faite par `restic-read-data` en **slice tournante `N/13`** (restic impose `t ≤ 256`), soit
+> ~1/13 relu chaque semaine → couverture totale par trimestre. Trafic Hetzner gratuit ;
+> coût = ~1/13 de la bande passante + I/O disque local.
 
 ---
 
@@ -66,7 +67,6 @@ et `/run/agenix/pgbackrest.env` (passphrases de chiffrement des repos pgBackRest
 set -a; . /run/agenix/restic.env; set +a
 
 # Repos possibles pour une source <SRC> :
-#   s3:https://s3.hyper.logikdev.fr/restic/<SRC>        (rustfs)
 #   /mnt/usb/restic/<SRC>                                (usb)
 #   sftp:u625917@u625917.your-storagebox.de:/home/restic/<SRC>  (hetzner offsite)
 #   /mnt/local/restic/<SRC>                              (local, certaines sources)
@@ -151,4 +151,3 @@ Le dump est fait avec `--clean --if-exists`, donc rejouable sur une instance vie
 3. Restaurer les données par ordre de priorité (§ ci-dessus) via 2a + 2b.
 4. Zigbee : après restore de `database.db` + `coordinator_backup.json`, si le réseau ne
    se reforme pas, supprimer `coordinator_backup.json` et ré-appairer.
-```

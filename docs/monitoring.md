@@ -7,7 +7,7 @@ Stack complète : collecte → stockage → visualisation → alerting.
 ```
 exporters → Prometheus (9090) → Grafana (3002)
                                 ↓
-                        Alertmanager (9093) → ntfy (2586)
+                        Alertmanager (9093) → alertmanager-ntfy (8000, /hook) → ntfy (2586)
 ```
 
 | Composant | Port | Module |
@@ -15,7 +15,7 @@ exporters → Prometheus (9090) → Grafana (3002)
 | Prometheus | 9090 | `monitoring/prometheus.nix` |
 | Grafana | 3002 | `monitoring/grafana.nix` |
 | Alertmanager | 9093 | `monitoring/alertmanager.nix` |
-| alertmanager-ntty | 8000 | `monitoring/alertmanager.nix` (bridge webhook → ntfy) |
+| alertmanager-ntfy | 8000 | `monitoring/alertmanager.nix` (bridge webhook → ntfy, **`POST /hook`**) |
 | ntfy | 2586 | `monitoring/notification.nix` |
 | Loki | 3100 | `monitoring/loki.nix` |
 | Alloy (logs→Loki) | — | `monitoring/alloy.nix` |
@@ -23,8 +23,8 @@ exporters → Prometheus (9090) → Grafana (3002)
 
 ## Exporters Prometheus
 
-Les ports sont référencés dynamiquement depuis la config des exporters
-(`config.services.prometheus.exporters.*.port`), pas hardcodés.
+Les ports des exporters nixpkgs sont référencés dynamiquement
+(`config.services.prometheus.exporters.*.port`).
 
 | Exporter | Port | Module | Job name |
 |---|---|---|---|
@@ -33,36 +33,50 @@ Les ports sont référencés dynamiquement depuis la config des exporters
 | nvidia-gpu exporter | 9835 | `monitoring/gpu.nix` | `nvidia-gpu` |
 | blackbox_exporter | 9115 | `monitoring/blackbox.nix` | `blackbox_http` |
 | restic exporters | 9760+ | `monitoring/restic.nix` | `restic` (un job par repo) |
+| **traefik** (métriques natives) | 8083 | `networking/traefik/static.nix` | `traefik` |
+| **authelia** (métriques natives) | 9959 | `security/authelia.nix` | `authelia` |
+| **fail2ban exporter** | 9191 | `security/fail2ban.nix` | `fail2ban` |
 
 ### Blackbox
 
-Scrape tous les services traefik (`config.traefik.services`) via HTTP 2xx.
-Le relabel extrait le nom du service depuis l'URL pour les labels Prometheus.
+Scrape tous les services traefik (`config.traefik.services`) via le module
+`http_2xx`. Attention : `valid_status_codes = [200, 301, 302, 401, 403]` et
+`follow_redirects = true` — 401/403 comptent comme « up » (apps à auth propre :
+Immich, Jellyfin, Vaultwarden) et, pour les services derrière Authelia, le probe
+suit la redirection et valide le portail, **pas** le backend (couvert par les
+`check-url` directs de Glance). Le relabel extrait le nom du service depuis l'URL.
 
 ## Alertes
 
-7 alertes définies dans `monitoring/prometheus-alerts.nix` :
+26 règles (25 noms) dans `monitoring/prometheus-alerts.nix`, toutes groupées dans
+Alertmanager → ntfy :
 
-| Alerte | Condition | Sévérité | For |
-|---|---|---|---|
-| ServiceDown | `up == 0` | critical | 1m |
-| HighDiskUsage | filesystem > 80% | warning | 5m |
-| HighCpuLoad | load1 / cores > 4 | warning | 10m |
-| HighMemoryPressure | MemAvailable / MemTotal < 0.10 | warning | 5m |
-| ResticBackupStale | `time() - restic_backup_timestamp > 172800` | warning | 0m |
-| ResticCheckFailed | `restic_check_success == 0` | critical | 5m |
-| ResticExporterDown | `up{job="restic"} == 0` | warning | 30m |
+- **Disponibilité** : `ServiceDown` (`up == 0`, hors `restic`), `ProbeFailure`,
+  `PostgresDown`, `ResticExporterDown` (75m), `Fail2banExporterUnhealthy`.
+- **Certificats / disques** : `TLSCertExpirySoon`, `HighDiskUsage`,
+  `MountPointMissing` (/mnt/usb, /mnt/ultra), `FilesystemReadOnly`.
+- **Charge / température** : `HighCpuLoad`, `HighMemoryPressure`,
+  `TemperatureHigh`, `GpuTemperatureHigh`, `SystemdUnitFailed`.
+- **Web / auth** : `TraefikHigh5xxRate`, `AutheliaAuthFailureSpike` (POST 401/403).
+- **Postgres / PITR** : `PgWalArchiveStale`, `PgWalArchiveFailures`,
+  `PgbackrestBackupStale`, `PgbackrestSpoolGrowing`, `PgbackrestMetricsMissing`.
+- **Backups** : `ResticBackupStale` (max par repo), `ResticCheckFailed`,
+  `ResticRepoEmpty`, `DrillStale` (dead-man des drills).
 
 ## Notification (`notify.services`)
 
-Le module `monitoring/notification.nix` expose l'option `notify.services`
-(listOf str). Chaque service qui veut des notifications on-failure s'ajoute à
-cette liste. Un template systemd `notify-failure@.service` envoie un message
-ntfy quand l'unit échoue.
+`monitoring/notification.nix` expose l'option `notify.services` (listOf str).
+Chaque service voulant une notif on-failure s'y ajoute ; un template
+`notify-failure@.service` pousse les 30 dernières lignes de journal vers ntfy.
+**Piège** : le module crée lui-même l'unité — un nom fautif donne une unité
+fantôme jamais déclenchée (cf. audit P0-3/FAC-5).
+
+Topics ntfy : `homelab-alerts` (Alertmanager), `service-failure` (notify),
+`backup-verify` (drills). La route publique Traefik est **lecture seule**
+(`GET/HEAD/OPTIONS`) ; seule la publication locale (`localhost:2586`) écrit.
 
 ## Glance dashboard
 
 `monitoring/glance.nix` auto-génère ses widgets monitor depuis
-`config.traefik.services` filtré par `category`. Chaque service avec une
-catégorie non-null devient un site entry. Voir [modules-pattern.md](modules-pattern.md)
-pour le détail.
+`config.traefik.services` filtré par `category` : chaque service avec une
+catégorie non-null devient un site entry. Voir [modules-pattern.md](modules-pattern.md).

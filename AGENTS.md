@@ -2,11 +2,11 @@
 
 ## Architecture
 
-- **flake-parts** + **import-tree** — modules are auto-discovered from `modules/`. No `default.nix` import files needed; just drop a `.nix` anywhere and set `flake.modules.{nixos,darwin,homeManager,generic}.<name>.imports`.
-- **Dendritic pattern**: every module file writes into `flake.modules.*.<name>.imports` instead of using traditional `imports = [ ./... ]`. Host configs compose by appending to those named lists.
+- **flake-parts** + **import-tree** — modules are auto-discovered from `modules/`. No `default.nix` import files needed; just drop a `.nix` anywhere and populate `flake.modules.{nixos,darwin,homeManager,generic}.<name>` (either a direct config assignment or an `.imports` list).
+- **Dendritic pattern**: instead of traditional `imports = [ ./... ]`, modules write into the flake-parts `flake.modules.<class>.<name>` attrs — most assign the config directly (`flake.modules.nixos.audio = { ... }`), others compose via `.imports` (e.g. a `default.nix` listing sub-modules). Host configs compose by appending to those named lists.
 - Four module classes: `nixos` (NixOS system), `darwin` (macOS system), `homeManager` (home-manager user), `generic` (cross-OS constants/options via `generic.constants`).
 - Three hosts: `hyper` (x86_64-linux, production server), `sonicmaster` (x86_64-linux, media server), `m4` (aarch64-darwin, laptop).
-- User config constants at `modules/features/system/constants.nix:20-48` (domain, email, GPG/SSH keys, `hosts.hyper` IPs/MACs/storageBox, `media.gid`).
+- User config constants at `modules/features/system/constants.nix` (domain, email, SSH keys, `hosts.hyper` IPs/MACs/storageBox, `hosts.m4.tailscaleIp`, `media.gid`).
 - Factories in `modules/lib/`:
   - `+mk-os.nix` — `flake.lib.mk-os.{linux,darwin}`: wraps `nixosSystem`/`darwinSystem`.
   - `+mk-home.nix` — `flake.lib.mk-home.{userOnHost,logikdevOnHost}`: builds `homeManagerConfiguration` from a host's system config.
@@ -19,12 +19,11 @@
 
 | Action | Command |
 |---|---|
-| Build/check all | `nix flake check` |
-| Format | `nix fmt` (auto via jj pre-commit hook) |
-| Deploy to hyper | `nix run .#hyper -- switch` |
-| Deploy to m4 | `nix run .#m4 -- switch` |
-| Deploy to sonicmaster | `nix run .#sonicmaster -- switch` |
-| Deploy (nh alias) | `nh os switch` (or `nrs` for nixos-rebuild) |
+| Build/check all | `nix flake check` (treefmt + checks d'éval des hôtes du système courant) ; `nix flake check --all-systems --no-build` pour tout évaluer |
+| Format | `nix fmt` (nixfmt + deadnix + statix, auto via jj pre-commit hook) |
+| Deploy to hyper | `nh os switch --hostname hyper --target-host logikdev@hyper --build-host logikdev@hyper` (depuis m4) |
+| Deploy to m4 | `sudo darwin-rebuild switch --flake .#m4` (local) |
+| Deploy to sonicmaster | `nh os switch --hostname sonicmaster` (local, sshd désactivé) |
 | Enter devshell | `nix develop` |
 | Rekey secrets | `nix run .#agenix-rekey` (from devshell) |
 
@@ -67,6 +66,7 @@ Always run `nix flake check` before committing.
 - CI: none (no `.github/workflows`). Relies on local `nix flake check`.
 - New `.nix` files must be `git add`-ed: the flake source is the git tree, so untracked files are invisible to `nix eval`/`nixos-rebuild` (import-tree won't see them either).
 - import-tree skips files whose name starts with `_` — use that prefix for non-module helpers (e.g. `medias/lib/_servarr.nix`, `monitoring/lib/_ntfy.nix`) that are only pulled in via relative `import`.
+- Chaque hôte NixOS charge `modules/hosts/<host>/facter.json` **s'il existe** (`system/hardware.nix`) ; sinon le rapport facter est vide et l'éval reste valide. Ajout d'un hôte : voir `docs/add-host.md`.
 - `notify.services` accepts any string and the module itself creates the unit (`onFailure` wiring), so a typo yields an empty, never-started unit and a silent alert (cf. audit P0-3/FAC-5). Cross-check names against real units; an eval-time assertion is not viable.
 - `nixos-rebuild switch` restarts changed *active* units; a running drill oneshot (e.g. `restic-read-data`, up to 6h) will block activation until it finishes. `sudo systemctl stop restic-read-data` first if a switch hangs.
 - After adding a `backups.sources.<name>`, trigger its backups (`systemctl start restic-backups-<name>-{usb,hetzner}`) — otherwise the sftp exporter has no repo to read and alerts `ResticExporterDown` until the nightly run.

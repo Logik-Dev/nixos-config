@@ -25,17 +25,47 @@ Secrets : `restic.env` (mot de passe restic), clé SSH Hetzner dans agenix.
 passphrase pgBackRest) : sans elle, les repos sont illisibles si l'identité
 age maître est perdue.
 
-> **Historique — rustfs (décommissionné 2026-07-04).** Il y avait une cible `s3`
-> (store objet rustfs sur `/mnt/ultra`). Elle a été retirée : le blob-store
-> vivait sur le **même disque** que les sources (protégeait seulement contre la
-> suppression accidentelle — usb/hetzner couvrent déjà ça), dupliquait ~440 Go
-> d'Immich sur l'USB via son propre backup, et son seul autre contenu (le store
-> barman) est remplacé par pgBackRest. Données gelées jusqu'à ~2026-07-18 :
-> `/mnt/ultra/rustfs` et `/mnt/usb/restic/rustfs`, puis suppression manuelle.
+## Sources sauvegardées
+
+`backups.sources.<nom>` (module `modules/features/storage/restic.nix`) :
+
+| Source | Emplacement | Cibles |
+|---|---|---|
+| `adguard` | `/var/lib/private/AdGuardHome` | usb + hetzner + local |
+| `grafana` | état Grafana | usb + local |
+| `immich` | `/mnt/ultra/immich` (hors `cache/`,`thumbs/`,`encoded-video`) | usb + hetzner |
+| `jellyfin` | `/mnt/ultra/jellyfin` (hors `log/`,`cache/`,`transcodes`) | usb + hetzner + local |
+| `mealie` | `/var/lib/private/mealie` | usb + hetzner |
+| `mosquitto` | `/var/lib/mosquitto` | usb + hetzner |
+| `n8n` | `/var/lib/private/n8n` | usb + hetzner |
+| `paperless` | `/mnt/local/paperless` | usb + hetzner |
+| `pg-dump` | `/mnt/ultra/pg-dump` (pg_dumpall 01:30) | usb + hetzner |
+| `prowlarr` / `radarr` / `sonarr` | `/mnt/ultra/<app>` | usb + hetzner + local |
+| `qbittorrent` | profil + état | usb + hetzner |
+| `rankoder` | `/var/lib/rankoder` (état seul, pas le retentionDir) | usb + hetzner |
+| `sabnzbd` | `/var/lib/sabnzbd` | usb + hetzner |
+| `seerr` | `/var/lib/private/jellyseerr` | usb + hetzner + local |
+| `traefik` | `acme.json` (copie live) | usb + hetzner |
+| `unifi` | `/var/lib/unifi/data/backup/autobackup` (`.unf`) | usb + local |
+| `vaultwarden` | `/var/lib/vaultwarden` (+ postgres) | usb + hetzner + local |
+| `zigbee2mqtt` | state z2m (`database.db`, coordinator) | usb + hetzner + local |
+
+## Non sauvegardées (assumé)
+
+- **Syncthing** : les folders sont déclaratifs (repris à neuf au déploiement),
+  les certificats vivent dans agenix ; rien d'unique à sauvegarder.
+- **sonicmaster** : l'hôte est offline depuis des mois, volontairement non
+  supervisé **et** non sauvegardé (cf. `hosts/sonicmaster/configuration.nix`).
+- **Dossier `consume` Paperless** (`/mnt/local/paperless/consume`) : inbox
+  Syncthing 777, transitoire (Paperless consomme puis supprime).
+
+> **Historique — rustfs (décommissionné 2026-07-04).** L'ancienne cible `s3`
+> (store objet rustfs sur `/mnt/ultra`) a été retirée (blob-store sur le même
+> disque que les sources, ~440 Go dupliqués). `usb + hetzner` la remplacent.
 
 ## Cas particuliers (importants)
 
-### Immich (~440 Go de médias)
+### Immich (~480 Go de médias)
 Source `immich` → `usb + hetzner`. Avec le live, ça fait 3 copies, 2 supports,
 1 offsite — le 3-2-1 canonique.
 
@@ -47,7 +77,7 @@ authelia, *arr). Deux mécanismes complémentaires :
    (asynchrone, spool) + base backup full hebdo (dim. 03:30, rétention 8 fulls)
    vers **deux repos chiffrés aes-256-cbc** : `repo1` = `/mnt/usb/pgbackrest`
    (posix) et `repo2` = Storage Box Hetzner (sftp) → **PITR offsite**.
-   Module : `modules/features/storage/pgbackrest.nix`. Passphrase de chiffrement
+   Module : `modules/features/storage/pgbackrest/`. Passphrase de chiffrement
    dans agenix (`pgbackrest.env`) **et en copie dans Vaultwarden** — sans elle,
    repos illisibles. Attention : la box **bannit l'IP** en cas d'excès de
    connexions (archive-push limité à 1 process pour ça).
@@ -55,10 +85,6 @@ authelia, *arr). Deux mécanismes complémentaires :
    (rôles + toutes les bases, ~960 Mo) écrit dans `/mnt/ultra/pg-dump/pg-dumpall.sql`
    (nom fixe, écrasé), puis restic → **hetzner + usb**. Restauration avec psql
    seul — aucune dépendance à pgBackRest ni à sa passphrase.
-
-(barman-cloud → rustfs, l'ancien mécanisme PITR on-site only, a été remplacé par
-pgBackRest le 2026-07-04 ; son store reste gelé dans `/mnt/ultra/rustfs/pg-backups`
-jusqu'à ~2026-07-18.)
 
 ## Résumé 3-2-1
 
@@ -72,7 +98,7 @@ jusqu'à ~2026-07-18.)
 
 - **Exporters Prometheus** : un `prometheus-restic-exporter-<source>-<cible>` par repo
   (`modules/features/monitoring/restic.nix`) → âge/taille des snapshots dans Grafana.
-- **Drills hebdo** (`modules/features/monitoring/restore-drill.nix`, topic ntfy
+- **Drills hebdo** (`modules/features/monitoring/restore-drill/`, topic ntfy
   `backup-verify`) : intégrité de tous les repos restic, restore canary offsite
   (zigbee ← Hetzner), restore Postgres réel **pgBackRest ← Hetzner**, et read-data
   tournant sur les gros repos. Détails + procédures manuelles :
