@@ -30,10 +30,15 @@
 
       systemd.tmpfiles.rules = [
         "d /mnt/storage/medias 2755 logikdev media - -"
+        # Bindery imports here; setgid so new files inherit the media group.
+        "d /mnt/storage/medias/books 2775 logikdev media - -"
+        "d /mnt/storage/medias/audiobooks 2775 logikdev media - -"
         "d /mnt/ultra 2755 logikdev media - -"
       ];
 
       imports = with inputs.self.modules.nixos; [
+        audiobookshelf
+        bindery
         jellyfin
         jellyseerr
         prowlarr

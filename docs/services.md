@@ -13,9 +13,11 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 | `seerr` | 5055 | Médias | oui | SQLite (`/var/lib/private/jellyseerr`) |
 | `radarr` | 7878 | Médias | oui | Postgres (main+logs), `/mnt/ultra` |
 | `sonarr` | 8989 | Médias | oui | Postgres (main+logs), `/mnt/ultra` |
-| `prowlarr` | 9696 | Médias | oui | Postgres, derrière AirVPN (indexers) |
+| `prowlarr` | 9696 | Médias | oui | Postgres, derrière AirVPN (indexers) ; dataDir défaut `/var/lib/private/prowlarr` (DynamicUser) |
 | `sabnzbd` | 8088 | Médias | oui | `/mnt/storage/medias` |
 | `qbittorrent` | 8090 | Médias | oui | AirVPN (kill-switch), `/mnt/storage/medias` |
+| `audiobookshelf` | 13378 | Médias | **non** (apps natives) | `/var/lib/audiobookshelf` (DB/meta), bibliothèques `/mnt/storage/medias/{books,audiobooks}` |
+| `bindery` | 8787 | Médias | oui | **containeur podman** (`--network=host`, UID 1000:991) ; Prowlarr/qBittorrent/SABnzbd ; config `/mnt/ultra/bindery`, **mount unique** `/mnt/storage/medias` (hardlinks downloads→bibliothèques, chemins identiques à l'hôte → pas de remap) |
 | `rankoder` | 8765 | Médias | oui | MQTT, GPU, `/mnt/storage/medias/rankoder` |
 | `hass` | 8123 | Maison | **non** (auth propre) | **VM libvirt** `192.168.21.181` (bridge `br-iot`) |
 | `mealie` | 9999 | Maison | oui | Postgres, `/var/lib/private/mealie` |
@@ -32,11 +34,18 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 Hors glossaire (non catégorisés) : `auth` (portail Authelia 9091) et `home`
 (Glance 3004) — exclus du dashboard.
 
+Stack livres : **Bindery** (containeur podman ; acquisition/renommage via Prowlarr +
+qBittorrent/SABnzbd existants) dépose ses imports dans
+`/mnt/storage/medias/{books,audiobooks}`, servis par **Audiobookshelf** (audiobooks +
+podcasts + ebooks). Bindery ne passe pas par le VPN (Prowlarr porte le trafic
+indexeurs) ; `BINDERY_DOWNLOAD_ALLOW_LOOPBACK=1` est requis car Prowlarr est sur
+loopback. Remplace **Readarr** (projet archivé le 2025-06-27, backend métadonnées mort).
+
 ## Exceptions Authelia
 
 Volontairement sans forwardAuth (clients natifs ne gèrent pas une redirection) :
-**Immich, Jellyfin, Vaultwarden, Home Assistant, ntfy**. Chacun a sa propre auth
-(app, API token ou mot de passe). Traefik `stripAuthHeaders` empêche toute
+**Audiobookshelf, Immich, Jellyfin, Vaultwarden, Home Assistant, ntfy**. Chacun a sa
+propre auth (app, API token ou mot de passe). Traefik `stripAuthHeaders` empêche toute
 usurpation de `Remote-User`. Détails : [security.md](security.md).
 
 ## Dépendances internes
