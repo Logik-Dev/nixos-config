@@ -17,12 +17,11 @@ _: {
 
       traefik.services.prowlarr = {
         port = 9696;
-        # Reached across the veth once Prowlarr moves into the VPN namespace.
-        # Its Postgres access is unaffected: _servarr.nix uses the Unix socket,
-        # which is a filesystem object and ignores network namespaces.
-        host = lib.mkIf (
-          config.vpn.airvpn.enable && config.vpn.airvpn.isolation == "netns"
-        ) config.vpn.airvpn.netns.namespaceAddress;
+        # Prowlarr lives in the VPN namespace (indexer queries must exit through
+        # the same IP as qBittorrent), so Traefik reaches it across the veth. Its
+        # Postgres access is unaffected: _servarr.nix uses the Unix socket, which
+        # is a filesystem object and ignores network namespaces.
+        host = lib.mkIf config.vpn.airvpn.enable config.vpn.airvpn.netns.namespaceAddress;
         enableAuthelia = true;
         category = "Médias";
         icon = "di:prowlarr";
@@ -36,8 +35,6 @@ _: {
 
       notify.services = [ "prowlarr" ];
 
-      # Indexer queries must exit through the same IP as qBittorrent (tracker
-      # consistency), so Prowlarr joins the namespace too. Inert in "uid" mode.
       vpn.airvpn.netns.services = lib.mkIf config.vpn.airvpn.enable [ "prowlarr" ];
 
       # DynamicUser + StateDirectory: /var/lib/prowlarr is a symlink to

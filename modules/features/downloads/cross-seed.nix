@@ -56,10 +56,9 @@ _: {
 
         notify.services = [ "cross-seed" ];
 
-        # Join the VPN namespace (isolation = "netns"); inert in "uid" mode,
-        # where cross-seed is covered by routedUsers instead. Declared here
-        # rather than in vpn.nix so the unit is only ever referenced when this
-        # module is actually enabled (no phantom unit, cf. FAC-5).
+        # Join the VPN namespace. Declared here rather than in vpn.nix so the
+        # unit is only ever referenced when this module is actually enabled
+        # (no phantom unit, cf. FAC-5).
         vpn.airvpn.netns.services = [ "cross-seed" ];
       };
     };

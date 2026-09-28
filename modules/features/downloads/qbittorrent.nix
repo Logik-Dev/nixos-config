@@ -13,10 +13,10 @@ _: {
     {
       traefik.services.qbittorrent = lib.mkIf vpnCfg.enable {
         port = webuiPort;
-        # In netns mode qBittorrent no longer listens on the host's loopback:
-        # Traefik reaches it across the veth. glance derives its check-url from
-        # this same field, so the dashboard follows automatically.
-        host = lib.mkIf (vpnCfg.isolation == "netns") vpnCfg.netns.namespaceAddress;
+        # qBittorrent lives in the VPN namespace, so it does not listen on the
+        # host's loopback: Traefik reaches it across the veth. glance derives its
+        # check-url from this same field, so the dashboard follows automatically.
+        host = vpnCfg.netns.namespaceAddress;
         enableAuthelia = true;
         category = "Médias";
         icon = "di:qbittorrent";
@@ -24,8 +24,8 @@ _: {
 
       notify.services = lib.mkIf vpnCfg.enable [ "qbittorrent" ];
 
-      # Join the VPN namespace (isolation = "netns"); inert in "uid" mode, where
-      # qBittorrent is covered by routedUsers instead.
+      # Join the VPN namespace. Declared here rather than in vpn.nix so the unit
+      # is only ever referenced when this module is enabled (no phantom unit).
       vpn.airvpn.netns.services = lib.mkIf vpnCfg.enable [ "qbittorrent" ];
 
       backups.sources.qbittorrent = lib.mkIf vpnCfg.enable {
@@ -40,41 +40,24 @@ _: {
         "d /mnt/ultra/qbittorrent 2755 qbittorrent media - -"
       ];
 
-      # In netns mode the ordering and the namespace membership come from the
-      # shared drop-in in vpn.nix; the UID units below do not exist there.
-      systemd.services.qbittorrent = lib.mkIf vpnCfg.enable (
-        {
-          serviceConfig.UMask = lib.mkForce "0002";
-        }
-        // lib.optionalAttrs (vpnCfg.isolation == "netns") {
-          # qBittorrent enumerates interfaces at start-up and binds its listener
-          # per address; it never re-binds. If wg0 is recreated underneath it —
-          # any activation that restarts wireguard-wg0 — it keeps listening on lo
-          # and the veth only, the forwarded port becomes unreachable from the
-          # outside, and the ratio silently goes to zero with **no failed unit**.
-          # Verified: `ss -tlnp` in the namespace showed no wg0 listener and
-          # ifconfig.co reported reachable:false until a restart.
-          #
-          # partOf propagates the stop, wantedBy the start. Both are needed:
-          # partOf alone does not pull the unit back up — the exact asymmetry
-          # that silently dropped the kill-switch after the Prowlarr backup
-          # (cf. AGENTS.md, commit cb6d146).
-          partOf = [ "wireguard-wg0.service" ];
-          wantedBy = [ "wireguard-wg0.service" ];
-        }
-        // lib.optionalAttrs (vpnCfg.isolation == "uid") {
-          after = [
-            "wireguard-wg0.service"
-            "vpn-policy-routing.service"
-            "vpn-killswitch.service"
-          ];
-          wants = [
-            "wireguard-wg0.service"
-            "vpn-policy-routing.service"
-            "vpn-killswitch.service"
-          ];
-        }
-      );
+      # Ordering and namespace membership come from the shared drop-in in vpn.nix.
+      systemd.services.qbittorrent = lib.mkIf vpnCfg.enable {
+        serviceConfig.UMask = lib.mkForce "0002";
+
+        # qBittorrent enumerates interfaces at start-up and binds its listener
+        # per address; it never re-binds. If wg0 is recreated underneath it — any
+        # activation that restarts wireguard-wg0 — it keeps listening on lo and
+        # the veth only, the forwarded port becomes unreachable from the outside,
+        # and the ratio silently goes to zero with **no failed unit**. Verified:
+        # `ss -tlnp` in the namespace showed no wg0 listener and ifconfig.co
+        # reported reachable:false until a restart.
+        #
+        # partOf propagates the stop, wantedBy the start. Both are needed: partOf
+        # alone does not pull the unit back up — the exact asymmetry that once
+        # silently dropped the kill-switch after the Prowlarr backup (cb6d146).
+        partOf = [ "wireguard-wg0.service" ];
+        wantedBy = [ "wireguard-wg0.service" ];
+      };
 
       # Older manual experiments left files owned by logikdev in the profile
       # directory; qBittorrent aborts if it cannot create its config dirs.

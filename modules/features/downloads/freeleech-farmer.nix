@@ -19,13 +19,12 @@ _: {
       config = lib.mkIf (config.age.secrets ? "cross-seed-secrets.json") {
         systemd.services.freeleech-farmer = {
           description = "Freeleech ratio farmer";
+          # The VPN ordering (namespace + tunnel) comes from the shared drop-in in
+          # vpn.nix, which this unit gets by being in vpn.airvpn.netns.services.
           after = [
             "cross-seed.service"
             "qbittorrent.service"
-          ]
-          # Only exists in uid mode; netns mode gets its ordering from the shared
-          # drop-in in vpn.nix.
-          ++ lib.optional (config.vpn.airvpn.isolation == "uid") "vpn-killswitch.service";
+          ];
           wants = [ "qbittorrent.service" ];
           unitConfig.RequiresMountsFor = [ "/mnt/storage" ];
           serviceConfig = {
@@ -66,7 +65,7 @@ _: {
 
         # Same rationale as cross-seed.nix: the unit only exists when this module
         # is enabled, so it adds itself to the namespace rather than being listed
-        # in vpn.nix.
+        # in vpn.nix (which would create a phantom unit, cf. FAC-5).
         vpn.airvpn.netns.services = [ "freeleech-farmer" ];
       };
     };

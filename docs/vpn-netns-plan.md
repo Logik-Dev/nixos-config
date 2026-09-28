@@ -4,10 +4,10 @@
 actuelle (**policy routing par UID + kill-switch nft**) vers un **network
 namespace dédié** (`vpn`).
 
-- Statut : **lots A, B et C déployés, persistés et validés par deux reboots**
-  le 2026-09-28. Restent le **lot D** (table nft dans le netns, `ignoreIP`
-  fail2ban) et le **lot E** (suppression de la machinerie UID), dont la partie
-  documentaire est commune et doit partir dans le même commit.
+- Statut : **migration terminée** le 2026-09-28. Lots A→E déployés, persistés
+  et validés par deux reboots. `docs/torrent-vpn.md` et les *Known quirks* d'
+  `AGENTS.md` décrivent désormais l'état netns ; ce document reste l'historique
+  du raisonnement et des sept pièges rencontrés.
 - Périmètre : `modules/features/downloads/{vpn,qbittorrent,cross-seed,freeleech-farmer}.nix`,
   `modules/features/networking/traefik/`, config runtime Sonarr/Radarr/Prowlarr/Bindery.
 - Référence de l'implémentation actuelle : `docs/torrent-vpn.md`.
@@ -376,6 +376,32 @@ Correctif en deux temps :
 Vérifier `systemctl is-system-running` **et**
 `journalctl -b | grep "ordering cycle"`.
 
+### 8. qBittorrent envoie du trafic pair sur la veth
+
+Découvert en instrumentant la table `vpn_guard` du lot D. qBittorrent lie un
+listener à **chaque** interface du namespace, veth comprise — `ss -tlnp` montre
+`10.200.0.2%veth-vpn:47594`, la notation `%iface` signalant un
+`SO_BINDTODEVICE` — et émet depuis cette socket du UDP pair/DHT vers des
+adresses publiques. Mesuré : **~460 paquets dans les 40 s suivant un restart du
+tunnel**.
+
+**Ce n'est pas une fuite**, et il faut le vérifier plutôt que le supposer : le
+`/30` n'est pas masqueradé (le `MASQUERADE` de netavark est scopé à
+`10.88.0.0/16`, `iptables -t nat -S POSTROUTING` le confirme) et un `tcpdump`
+sur le lien WAN filtré sur `src net 10.200.0.0/30` capture **zéro paquet**. Ces
+paquets mouraient à l'hôte. La règle `vpn_guard` les arrête une étape plus tôt.
+
+**Correction propre, côté UI** : fixer l'interface réseau de qBittorrent sur
+`wg0` (Options → Avancé). C'était déconseillé avant la migration parce que le
+bind cassait la résolution MagicDNS ; l'objection est levée puisque le namespace
+résout par le tunnel.
+
+Deux outils à connaître pour ce genre d'enquête : le `log` nft d'un namespace
+**non-init est jeté en silence** tant que `net.netfilter.nf_log_all_netns=1`
+n'est pas positionné sur l'hôte ; et le compteur de la règle ne bouge que si l'on
+reproduit la bonne condition (ici, un restart du tunnel, pas un simple
+rechargement de la table).
+
 ## Plan d'action
 
 ### Lot A — l'ossature, sans déplacer de service
@@ -603,7 +629,7 @@ c'est cette interaction d'ordre et de capacités qui est fragile.
    si le garde-fou SSRF accepte `10.200.0.2` ou s'il faut élargir
    `BINDERY_DOWNLOAD_ALLOW_LOOPBACK`.
 
-### Lot D — durcissement et documentation
+### Lot D — durcissement et documentation ✅
 
 1. Table nft dans le netns (restriction du veth au `/30`), et éventuellement le
    drop de forwarding depuis `veth-vpn-host` côté hôte.
@@ -619,7 +645,7 @@ c'est cette interaction d'ordre et de capacités qui est fragile.
 > § piège 5 — irréalisable sans toucher au rôle de subnet router, et sans effet
 > sur le netns.
 
-### Lot E — supprimer la machinerie UID
+### Lot E — supprimer la machinerie UID ✅
 
 **Prérequis : levé.** Le mode netns a survécu à un boot à froid complet le
 2026-09-28 (tunnel, port forward, listener `wg0`, isolation, Bindery — voir le
@@ -719,17 +745,31 @@ mort. Y verser aussi les deux tests qui mentent (un `curl` depuis hyper vers sa
 propre IP LAN passe par `lo` donc est accepté et ne prouve rien sur un port ;
 Traefik n'écoute que sur `192.168.10.100`, un test loopback renvoie `000`).
 
-#### Test d'acceptation — inhabituellement fort
+#### Test d'acceptation — fort, mais pas « 0 octet »
 
-**Tout ce qui est supprimé est déjà inerte** en mode netns : les deux unités sont
-gatées off, `table`/`fwMark`/`checkReversePath`/`firewall.interfaces.wg0` ne sont
-déjà pas définis, et les `optionalAttrs` produisent déjà le résultat
-inconditionnel. Le nettoyage ne devrait donc **rien changer au système
-construit**.
+**Tout ce qui est supprimé est déjà inerte** en mode netns, donc le nettoyage ne
+doit **rien changer au comportement**. La formulation initiale de ce test —
+« `nh os switch` doit annoncer 0 octet » — était **trop stricte**, et l'exécution
+l'a montré : le chemin du système a changé pour deux raisons parfaitement
+bénignes, qu'il faut anticiper pour ne pas s'alarmer.
 
-Concrètement : **`nh os switch` doit annoncer un diff de 0 octet**, ou quasi. Un
-diff significatif = quelque chose d'involontaire a changé → regarder avant
-d'activer. C'est bien plus discriminant qu'une liste de vérifications runtime.
+1. Les **commentaires vivent dans la dérivation du script** d'une unité : toute
+   reformulation change son hash.
+2. Retirer des options change le **manuel NixOS généré**, qui fait partie de la
+   clôture (`documentation.nixos.enable = true`).
+
+La bonne formulation : **aucun changement fonctionnel**, vérifiable précisément.
+
+```bash
+# Chaque unité doit être identique au bit près, hors diffs de commentaires
+nix eval --raw '.#nixosConfigurations.hyper.config.systemd.units."<u>.service".text'
+# et pour l'unité dont le script a changé, comparer la logique seule :
+diff <(grep -vE '^\s*#|^\s*$' ancien) <(grep -vE '^\s*#|^\s*$' nouveau)
+```
+
+Résultat obtenu : `wireguard-wg0.service` et `qbittorrent.service` **identiques
+au bit près**, `netns-vpn.service` différant uniquement par des commentaires
+(logique identique confirmée par diff). Puis `nh os switch` : `-32 bytes`.
 
 En complément : `nix eval` doit confirmer l'absence de
 `vpn-policy-routing`/`vpn-killswitch` (déjà le cas), les quatre

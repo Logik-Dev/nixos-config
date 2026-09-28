@@ -13,6 +13,9 @@
         "192.168.10.0/24"
         "192.168.21.0/24"
         "100.64.0.0/10"
+        # veth of the VPN network namespace (vpn.airvpn.netns): precaution only,
+        # the single jail today is sshd and nothing in the namespace talks to it.
+        "10.200.0.0/30"
       ];
 
       bantime = "1h";

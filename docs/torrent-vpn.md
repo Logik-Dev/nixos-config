@@ -1,30 +1,47 @@
 # Torrent + VPN (qBittorrent / AirVPN) — hôte hyper
 
-Stack d'acquisition torrent, isolée du reste du réseau par un tunnel AirVPN
-avec kill-switch fail-closed. Usenet (SABnzbd) reste le chemin principal ;
-le torrent sert pour les trackers privés/alternatifs.
+Stack d'acquisition torrent, isolée du reste de l'hôte par un **network
+namespace dédié** contenant le tunnel AirVPN. Usenet (SABnzbd) reste le chemin
+principal ; le torrent sert pour les trackers privés/alternatifs.
 
 ## Vue d'ensemble
 
+Stack d'acquisition torrent, isolée du reste de l'hôte par un **network
+namespace dédié** (`vpn`) dans lequel vit le tunnel AirVPN. Usenet (SABnzbd)
+reste le chemin principal ; le torrent sert pour les trackers privés/alternatifs.
+
 ```
-Internet ──UDP 1637──> AirVPN (wg0, table 4242, fwMark 0x4242)
-                            │
-        ip rule pref 200 : uid qbittorrent/prowlarr ──> table 4242
-                            │
-   nft « vpn_killswitch » (output) : accepte fwmark, lo, LAN, wg0 ; droppe le reste
-                            │
-   qBittorrent (natif, group media) ── port forward AirVPN TCP+UDP ──> peers
-   Prowlarr (DynamicUser) ── requêtes indexers via VPN, LAN direct autorisé
+                 namespace hôte                 │        namespace « vpn »
+                                                │
+Internet ──UDP 1637──> socket WireGuard ────────┼──> wg0 (10.150.11.114/32)
+                       (reste ici !)            │     └─ default dev wg0
+                                                │
+   Traefik ─── 10.200.0.2:8090/9696 ────────────┼──> qBittorrent, Prowlarr,
+   Sonarr/Radarr <── 10.200.0.1:8989/7878 ──────┼──   cross-seed, freeleech-farmer
+                    veth-vpn-host   veth-vpn    │
+                    10.200.0.1/30   10.200.0.2/30
 ```
 
-Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) garde la route
-normale : aucune route par défaut n'est ajoutée à la table `main`.
+**Le fail-closed est structurel** : la seule route par défaut du namespace est
+`wg0`. Si le tunnel tombe, il ne reste que le `/30` connecté — les services
+reçoivent `ENETUNREACH`, il n'y a aucune règle de pare-feu à maintenir correcte.
+Ils restent vivants (dépendance `wants`, jamais `requires`) et repartent seuls.
+
+Seule l'**interface** part dans le namespace : la **socket de transport**
+WireGuard reste côté hôte et suit la route normale. C'est le montage canonique
+de <https://www.wireguard.com/netns/>, et c'est ce qui explique plusieurs pièges
+plus bas.
+
+Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) est intouché.
+
+> Historique de la migration, avec les sept pièges rencontrés et les tests
+> d'acceptation : `docs/vpn-netns-plan.md`.
 
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
-| `modules/features/downloads/vpn.nix` | `flake.modules.nixos.vpn-torrent` : interface wg0, routage par UID, kill-switch, firewall |
+| `modules/features/downloads/vpn.nix` | `flake.modules.nixos.vpn-torrent` : namespace `vpn`, veth, wg0, resolv.conf d'amorçage, drop-in partagé des services |
 | `modules/features/downloads/qbittorrent.nix` | `flake.modules.nixos.qbittorrent` : service, Traefik/Authelia, permissions, backup, notify |
 | `modules/hosts/hyper/configuration.nix` | imports + valeurs AirVPN (`vpn.airvpn`) + chemins des secrets |
 | `secrets/hosts/hyper/airvpn-private.key.age` | clé privée WireGuard (agenix) |
@@ -73,54 +90,48 @@ vpn.airvpn = {
   ce dernier contient les générations internes).
 - Ajout/renouvellement : `agenix -e secrets/hosts/hyper/airvpn-private.key.age`
   puis `nix run .#agenix-rekey`, `git add` (flake = arbre git).
-- L'interface utilise `table = "4242"`, `fwMark = "0x4242"`, `mtu = 1320`,
+- L'interface utilise `interfaceNamespace = "vpn"` (`socketNamespace` reste
+  `null` : la socket de transport demeure côté hôte), `mtu = 1320`,
   `persistentKeepalive = 15` et `dynamicEndpointRefreshSeconds = 3600`.
+  **Ni `table` ni `fwMark`** : la table `main` *du namespace* est la bonne, et
+  la marque n'existait que pour tromper le kill-switch, supprimé.
   `nl3.vpn.airdns.org` est un **pool d'entry IP** : une re-résolution trop
   fréquente (ex. 300 s) bascule sur un autre serveur → l'IP de sortie change
   et les connexions pairs tombent. 1 h garde une IP stable tout en conservant
   le failover DNS.
+## Isolation (network namespace)
 
-## Routage (policy routing)
+Tout est dans `vpn.airvpn.netns.*` :
 
-| Priorité | Sélecteur | Table | Rôle |
-|---|---|---|---|
-| 50 | `fwmark 0x4242` | `main` | paquets de transport WireGuard (ne jamais les router dans le tunnel) |
-| 100 | `uidrange <uid>` + `to <LAN>` | `main` | exceptions LAN des UIDs routés |
-| 100 | `uidrange <uid>` + `to <Tailscale>` | `52` | MagicDNS (100.100.100.100) des UIDs routés |
-| 200 | `uidrange <uid>` | `4242` | trafic applicatif des UIDs routés |
+| Option | Défaut | Rôle |
+|---|---|---|
+| `name` | `vpn` | nom du namespace ; dérive `veth-vpn-host` / `veth-vpn` (15 car. max) |
+| `hostAddress` | `10.200.0.1` | bout hôte de la veth |
+| `namespaceAddress` | `10.200.0.2` | bout namespace — l'adresse où Traefik joint qBittorrent/Prowlarr |
+| `prefixLength` | `30` | un /30 : la route connectée ne couvre que le pair, donc aucun chemin vers le LAN ou le WAN par la veth |
+| `resolver` | `10.128.0.1` | résolveur **dans le tunnel** pour les services |
+| `hostPorts` | `[8989 7878]` | ports hôte ouverts **sur la veth seulement** (synchro d'apps Prowlarr → Sonarr/Radarr) |
+| `services` | `[ ]` | unités déplacées dans le namespace — **chaque module s'ajoute lui-même** |
 
-- Table 4242 : `default dev wg0` (ajoutée par le module WireGuard via `table`).
-- `lanNetworks` par défaut : `192.168.10.0/24`, `192.168.21.0/24`.
-- `tailscaleNetworksV4/V6` : `100.64.0.0/10`, `fd7a:115c:a1e0::/48`, routés
-  vers la **table 52** de Tailscale. Indispensable car **Tailscale MagicDNS
-  (100.100.100.100) est le resolver système** sur hyper (`/etc/resolv.conf`
-  généré par resolvconf) : sans cette exception, les requêtes DNS des UIDs
-  routés partent dans wg0 et timeout → les trackers renvoient
-  « Host not found (non-authoritative) » (`EAI_AGAIN`) et le torrent ne démarre
-  jamais.
-- **Ne jamais ajouter `100.64.0.0/10` à `lanNetworks`** : la règle serait
-  globale et pointerait vers `main` (au lieu de la table 52), ce qui écrase la
-  policy routing de Tailscale (priorité 5210) et coupe le mesh/SSH distant.
-- Les règles sont scopées par UID : le reste de l'hôte n'est pas affecté.
+`netns-vpn.service` crée le namespace une fois et **ne le détruit jamais** : un
+`ip netns del` laisserait les services attachés dans un namespace fantôme, sans
+route et **sans échouer**. L'unité n'a aucune option de sandboxing (le
+bind-mount de `/run/netns` doit rester visible) et est idempotente.
 
-## Kill-switch (nftables)
+Une table nft `vpn_guard` dans le namespace épingle la veth à son pair. Elle
+n'est pas que défensive : qBittorrent lie un listener au device veth et y envoie
+du trafic pair, que cette règle jette (voir Pièges).
 
-Table dédiée `inet vpn_killswitch` (⚠️ ne pas activer `networking.nftables.enable`
-globalement : casserait libvirt/podman). Chaîne `output`, ordre des règles :
+## Ce qui traverse la frontière
 
-1. `meta mark 0x4242 accept` — transport WireGuard
-2. `meta skuid != { <uids routés> } accept` — tout le reste de l'hôte
-3. `oifname "lo" accept`
-4. `ip daddr <LAN> accept`
-5. `oifname "wg0" accept` — trafic applicatif encapsulé
-6. `counter drop`
-
-Comportement **fail-closed** : si wg0 tombe, les routes de la table 4242
-disparaissent et le drop s'applique → aucune fuite WAN.
-
-> ⚠️ Sans le `fwMark`, les paquets de transport WireGuard (générés par le noyau)
-> sont droppés par la règle 6 : handshake impossible. C'est le bug qui a coûté
-> le plus cher lors de la mise en place.
+| Sens | Chemin |
+|---|---|
+| Traefik → qBittorrent / Prowlarr | `10.200.0.2:8090` / `:9696` (`traefik.services.<n>.host`) |
+| Prowlarr → Sonarr / Radarr (synchro d'apps) | `10.200.0.1:8989` / `:7878` |
+| Sonarr / Radarr → qBittorrent | `10.200.0.2:8090` (runtime, UI) |
+| Bindery → qBittorrent / Prowlarr | `10.200.0.2:8090` / `:9696` (runtime, UI) |
+| cross-seed / freeleech-farmer → qBittorrent | `127.0.0.1:8090` — **inchangé**, même namespace |
+| Prowlarr → PostgreSQL | socket Unix `/var/run/postgresql` — **inchangé**, indifférent au réseau |
 
 ## qBittorrent
 
@@ -134,9 +145,11 @@ disparaissent et le drop s'applique → aucune fuite WAN.
 - `serverConfig = {}` volontairement : le `qBittorrent.conf` reste inscriptible
   par l'UI (sinon tmpfiles le remplace par un symlink en lecture seule à chaque
   activation et les réglages UI sont perdus).
-- **Ne pas binder l'interface réseau sur `wg0`** (Options → Avancé) : les
-  requêtes DNS sortiraient avec la source `wg0` et MagicDNS ne répondrait pas.
-  Le kill-switch assure déjà l'étanchéité, le bind est inutile.
+- **Binder l'interface réseau sur `wg0`** (Options → Avancé) est désormais
+  **recommandé**, et ne l'était pas avant : l'ancienne objection (la source `wg0`
+  cassait la résolution MagicDNS) est levée puisque le namespace résout par le
+  tunnel. Sans ce bind, qBittorrent écoute aussi sur la veth et y envoie du
+  trafic pair pour rien (jeté par `vpn_guard`, cf. Pièges).
   Config actuelle : `Session\Interface=` vide.
 - `extraArgs = [ "--confirm-legal-notice" ]` (évite le prompt au premier boot).
 - `systemd.services.qbittorrent-permissions` : `chown -R qbittorrent:media`
@@ -167,9 +180,9 @@ télécharger** (gros levier de ratio, aucun risque de H&R).
   nécessaire).
 - Le module s'active dès que le secret existe (`config.age.secrets ? …`) :
   créer le secret, `nix run .#agenix-rekey`, `git add`, puis déployer.
-- cross-seed est dans `vpn.airvpn.routedUsers` (uid 972) : ses requêtes
-  trackers (via Prowlarr) sortent par le VPN, comme qBittorrent, et il est
-  couvert par le kill-switch.
+- cross-seed est dans `vpn.airvpn.netns.services` : il vit dans le même
+  namespace que qBittorrent et Prowlarr, donc ses requêtes trackers sortent par
+  le VPN et ses appels `127.0.0.1:8090` / `:9696` fonctionnent inchangés.
 - Ajouter un tracker = ajouter son URL Torznab Prowlarr dans le secret + rekey.
 - Vérifs : `journalctl -u cross-seed`, torrents dans la catégorie
   `cross-seed-link` de qBittorrent.
@@ -182,8 +195,8 @@ les 30 min) qui interroge les Torznab de la config cross-seed, ne garde que le
 **freeleech** (`downloadvolumefactor=0`) et l'ajoute à qBittorrent dans la
 catégorie `freeleech`.
 
-- Tourne sous l'utilisateur `cross-seed` (uid 972, déjà routé VPN +
-  kill-switch) ; réutilise le secret `cross-seed-secrets.json.age`
+- Tourne sous l'utilisateur `cross-seed`, dans le namespace VPN (il s'y ajoute
+  via `vpn.airvpn.netns.services`) ; réutilise le secret `cross-seed-secrets.json.age`
   (`torznab` + `torrentClients`).
 - Filtres/limites (env du service) : `FARMER_MAX_ADDS=5`,
   `FARMER_MAX_SIZE_GB=20`, `FARMER_MAX_TOTAL_GB=100`, `FARMER_MIN_FREE_GB=200`,
@@ -196,45 +209,64 @@ catégorie `freeleech`.
 - Logs : `journalctl -u freeleech-farmer` ; test manuel :
   `sudo systemctl start freeleech-farmer`.
 
-## Prowlarr (DynamicUser)
+## Prowlarr (DynamicUser) — un non-problème désormais
 
 `services.prowlarr` tourne en **DynamicUser** : son UID n'existe qu'à partir du
-démarrage de l'unité. Les services `vpn-policy-routing` et `vpn-killswitch` sont
-donc :
+démarrage de l'unité. C'était la faiblesse centrale de l'ancienne isolation par
+UID (règles à réappliquer à chaque restart, d'où une fuite WAN silencieuse quand
+le backup restic faisait `stop`/`start`).
 
-- `after = [ "prowlarr.service" ]` (résolution de l'UID correcte),
-- `partOf = [ "prowlarr.service" ]` (réapplication à chaque restart de Prowlarr),
-- `before = [ "qbittorrent.service" ]` (fail-closed avant qBittorrent).
-
-qBittorrent, lui, est un utilisateur système classique (uid stable).
-
+L'appartenance au namespace étant fixée **par unité** au démarrage
+(`NetworkNamespacePath`), rien de tout cela ne subsiste : Prowlarr est traité
+exactement comme les autres. Son accès PostgreSQL passe par la socket Unix,
+insensible au namespace réseau.
 ## Exploitation / diagnostics
 
+> **`wg0` n'apparaît plus dans un `ip a` sur l'hôte** — c'est normal, il est dans
+> le namespace. Presque toute commande réseau doit être préfixée.
+
 ```bash
-# Tunnel
-sudo wg show wg0                       # handshake + transfert + fwmark
-ip rule show                           # 50 / 100 / 200
-ip route show table 4242               # default dev wg0
+# Tunnel (wg0 vit dans le namespace)
+sudo ip netns exec vpn wg show wg0        # handshake + transfert
+sudo ip netns exec vpn ip route           # default dev wg0 + 10.200.0.0/30
+sudo ip netns exec vpn ip -br a           # lo UP, veth-vpn, wg0
 
-# Kill-switch (nft n'est pas dans le PATH utilisateur)
-N=$(ls -d /nix/store/*-nftables-*/bin/nft | head -1)
-sudo "$N" list table inet vpn_killswitch
+# Sortie effective
+sudo ip netns exec vpn curl -s https://api.ipify.org   # IP AirVPN
+curl -s https://api.ipify.org                          # IP WAN de l'hôte
 
-# Sortie effective par UID
-sudo -u qbittorrent /run/current-system/sw/bin/curl -s https://api.ipify.org
-sudo -u prowlarr    /run/current-system/sw/bin/curl -s https://api.ipify.org
-# → IP de sortie AirVPN ; l'utilisateur logikdev doit voir l'IP WAN
+# Ce que voit un service donné (son namespace réseau ET son resolv.conf)
+P=$(systemctl show -p MainPID --value qbittorrent)
+sudo nsenter -t "$P" -n -- curl -s https://api.ipify.org   # doit être l'IP AirVPN
+sudo nsenter -t "$P" -m cat /etc/resolv.conf              # doit être 10.128.0.1
+sudo readlink /proc/"$P"/ns/net                            # != celui de /proc/1/ns/net
 
-# Test fail-closed
+# Port forward (critique pour le ratio)
+sudo ip netns exec vpn curl -s https://ifconfig.co/port/47594   # reachable:true
+sudo ip netns exec vpn ss -tlnp | grep 47594  # DOIT inclure un listener sur wg0
+
+# Fail-closed (structurel : plus de route du tout)
 sudo systemctl stop wireguard-wg0
-sudo -u qbittorrent curl --max-time 5 https://api.ipify.org   # doit timeout
-curl -s -o /dev/null -w '%{http_code}' http://192.168.10.100:8090  # LAN OK
+sudo ip netns exec vpn ip route               # plus que le /30
+sudo ip netns exec vpn curl --max-time 5 https://api.ipify.org  # échoue
 sudo systemctl start wireguard-wg0
 
-# Capture bas niveau (handshake)
-TCP=$(nix build --no-link --print-out-paths nixpkgs#tcpdump)/bin/tcpdump
-sudo timeout 30 "$TCP" -ni management udp port 1637
+# Garde-fou veth
+N=$(ls -d /nix/store/*-nftables-*/bin/nft | head -1)
+sudo ip netns exec vpn "$N" list table inet vpn_guard
+# Pour voir *quoi* est droppé, le `log` nft d'un namespace non-init est
+# silencieusement jeté : sudo sysctl -w net.netfilter.nf_log_all_netns=1
+
+# Santé du boot — `systemctl --failed` vide ne suffit PAS
+systemctl is-system-running
+sudo journalctl -b | grep "ordering cycle"    # doit être vide
 ```
+
+> ⚠️ **Deux tests qui mentent.** Un `curl` lancé *depuis hyper* vers sa propre IP
+> LAN passe par `lo` et est accepté par le pare-feu : il ne prouve rien sur
+> l'ouverture d'un port — tester depuis une autre machine, ou lire `iptables -S`.
+> Et Traefik n'écoute que sur `192.168.10.100`, donc `https://127.0.0.1` renvoie
+> `000` sans que rien ne soit cassé.
 
 ## Configuration *arr (runtime, non déclarative)
 
@@ -284,26 +316,53 @@ refusées (comportement existant).
 Plafonds de taille (MB/min) : 2160p WEBDL/WEBRip 220, Bluray 320, Remux 480 ;
 1080p Bluray 150, Remux 250 ; Sonarr Remux 1080p 220.
 
-## Ajouter un utilisateur au VPN
+## Ajouter un service au VPN
 
-1. Ajouter le nom dans `vpn.airvpn.routedUsers` (défaut :
-   `[ "qbittorrent" "prowlarr" "cross-seed" ]`).
-2. Si le service est un **DynamicUser**, ajouter son unité aux listes
-   `after`/`partOf` de `vpn-policy-routing` et `vpn-killswitch` (voir Prowlarr).
-3. Redéployer, puis vérifier `ip rule show` et la sortie effective
-   (`sudo -u <user> curl ifconfig.me`).
+C'est désormais **par unité**, pas par utilisateur.
+
+1. Dans le module du service, ajouter `vpn.airvpn.netns.services = [ "<unite>" ];`
+   — **depuis son propre module**, pas depuis `vpn.nix`, pour qu'une unité
+   conditionnellement activée ne laisse pas d'unité fantôme (cf. FAC-5).
+2. Si le service doit joindre un service de l'hôte, ajouter son port à
+   `vpn.airvpn.netns.hostPorts` (ouvert **sur la veth uniquement**).
+3. S'il **écoute** pour des connexions entrantes par le tunnel, lui ajouter
+   `partOf` + `wantedBy` sur `wireguard-wg0.service` (voir qBittorrent) : sinon
+   il ne se réattachera pas à un `wg0` recréé et son port deviendra injoignable
+   en silence.
+4. Redéployer, puis vérifier :
+   `sudo readlink /proc/$(systemctl show -p MainPID --value <unite>)/ns/net`
+   (différent de `/proc/1/ns/net`) et la sortie effective via `nsenter -n`.
+
+> ⚠️ Ne **jamais** donner un défaut non vide à `vpn.airvpn.netns.services` : un
+> défaut n'est pas une définition, les contributions des modules le
+> **remplaceraient** au lieu de l'étendre, et des services sortiraient du
+> namespace sans que rien ne le signale.
 
 ## Pièges connus / leçons
 
-- **fwMark obligatoire** : sans lui, le kill-switch droppe le transport
-  WireGuard (handshake OK sans kill-switch, KO avec).
-- **DNS & Tailscale** : hyper résout via **Tailscale MagicDNS**
-  (100.100.100.100, `/etc/resolv.conf` géré par resolvconf). Les UIDs routés
-  ont besoin de l'exception scopée vers la table 52 (`tailscaleNetworksV4/V6`),
-  sinon leurs requêtes DNS partent dans wg0 → `EAI_AGAIN` → les trackers
-  répondent « Host not found (non-authoritative) » et le torrent ne démarre pas.
-- **Jamais `100.64.0.0/10` dans `lanNetworks`** : règle globale vers `main`,
-  écrase Tailscale (priorité 5210) et coupe le mesh/SSH distant (vécu).
+- **`systemctl --failed` vide ≠ boot sain.** Un cycle d'ordonnancement systemd
+  fait *supprimer* un job de démarrage sans aucune unité en échec : le tunnel ne
+  démarrait pas du tout au boot (`is-system-running` = `degraded`, `--failed`
+  vide). Ne jamais remettre d'ordonnancement DNS sur `wireguard-wg0` — créer
+  l'interface ne résout aucun nom. Vérifier `journalctl -b` sur « ordering cycle ».
+- **qBittorrent ne se réattache pas à un `wg0` recréé.** Il énumère les
+  interfaces au démarrage ; si le tunnel est recréé sous lui il n'écoute plus que
+  sur `lo`/veth, le port forwardé devient injoignable et **le ratio tombe à zéro
+  sans unité en échec**. D'où `partOf` + `wantedBy` sur `wireguard-wg0.service`.
+  Vérif : `ip netns exec vpn ss -tlnp | grep wg0`.
+- **qBittorrent envoie du trafic pair sur la veth.** Il lie un listener au device
+  veth (`10.200.0.2%veth-vpn:47594`) et y émet du UDP pair/DHT vers des adresses
+  publiques — ~460 paquets dans les 40 s suivant un restart du tunnel. Ça ne
+  fuite pas (le `/30` n'est pas masqueradé, `tcpdump` sur le WAN le confirme),
+  mais c'est du trafic mort ; la table `vpn_guard` le jette. **Correction propre,
+  à faire côté UI** : fixer l'interface réseau de qBittorrent sur `wg0`
+  (Options → Avancé), ce qui est désormais sans risque — l'ancienne objection
+  (le bind cassait MagicDNS) est levée puisque le namespace résout par le tunnel.
+- **`wg show` ment sur l'émission** : il compte les octets remis à la pile, pas
+  ceux réellement partis. Le seul diagnostic fiable d'un transport bloqué est
+  `tcpdump -nni management udp port 1637`.
+- **Le `log` nft d'un namespace non-init est jeté en silence** : pour voir ce que
+  `vpn_guard` droppe, `sudo sysctl -w net.netfilter.nf_log_all_netns=1`.
 - **Redémarrer qBittorrent après un changement de routage DNS** : son cache
   négatif de résolution persiste (« Host not found ») même une fois le DNS
   réparé.
@@ -314,8 +373,13 @@ Plafonds de taille (MB/min) : 2160p WEBDL/WEBRip 220, Bluray 320, Remux 480 ;
 - **Handshake ≠ données** : un handshake réussi ne garantit pas la validité de
   l'adresse ; mais une clé/adresse d'un autre device donne handshake OK et zéro
   donnée.
-- **DNS non tunnelisé** : qBittorrent/Prowlarr résolvent via AdGuard (DoT Quad9
-  depuis l'IP WAN). Pas de fuite en clair, mais pas d'isolation DNS totale.
+- **DNS tunnelisé** (depuis la migration netns) : les services résolvent via
+  `10.128.0.1`, le résolveur AirVPN, *dans* le tunnel. Deux `resolv.conf`
+  distincts coexistent — celui du namespace (`/etc/netns/vpn/resolv.conf` →
+  AdGuard par la veth) sert à l'**amorçage**, parce que `wg set … endpoint`
+  s'exécute dans le namespace et doit résoudre avant que le tunnel existe.
+  `NetworkNamespacePath` ne bind-montant pas `/etc/netns/*`, les services ont le
+  leur par `BindReadOnlyPaths`. Un bind raté ne fuite pas : il donne un timeout.
 - **IP de sortie mutualisée** : certains trackers privés la tolèrent plus ou
   moins ; le port dédié améliore la connectabilité.
 - **Torrents cross-seed en rouge (`state=error`)** : le log qBittorrent
@@ -329,15 +393,14 @@ Plafonds de taille (MB/min) : 2160p WEBDL/WEBRip 220, Bluray 320, Remux 480 ;
   sur `cross-seed.service` (+ règle tmpfiles `Z` pour rattraper les dossiers
   existants). cross-seed ne reprend pas ces torrents lui-même (« Will not
   resume ... state is error ») : les `resume` une fois les droits corrigés.
-- **Kill-switch / policy routing tombés après le backup Prowlarr** : le backup
-  restic de Prowlarr fait `systemctl stop prowlarr` puis `start`
-  (`restic.nix`, `manageService`). Comme `vpn-policy-routing` et
-  `vpn-killswitch` ont `partOf=prowlarr.service`, le **stop** se propage mais
-  pas le **start** : les règles `ip rule` et la table nft sont supprimées et ne
-  reviennent pas → qBittorrent/Prowlarr/cross-seed sortent par l'IP WAN
-  (fuite) jusqu'au reboot. Fix : ajouter `wantedBy = [ "prowlarr.service" ]` aux
-  deux unités pour qu'un `start` de Prowlarr les remonte. Vérif :
-  `systemctl status vpn-policy-routing vpn-killswitch` + `ip rule show`.
+- **Historique — fuite au backup Prowlarr** (résolue par la migration) : le
+  backup restic fait `stop` puis `start` de Prowlarr ; les unités d'isolation
+  avaient `partOf=prowlarr.service`, qui propage le **stop** mais pas le
+  **start** → règles `ip rule` et table nft supprimées jusqu'au reboot, et
+  sortie par l'IP WAN. C'est cette classe de bug — l'isolation recalculée à
+  partir d'un UID à l'exécution — que le namespace élimine par construction.
+  La leçon `partOf` sans `wantedBy` reste valable ailleurs (cf. qBittorrent et
+  `wireguard-wg0`).
 - **ACME dépend du DNS public** : si `logikdev.fr` ne résout pas publiquement
   (zone Cloudflare `moved`, `clientHold` registraire…), Traefik sert son
   certificat par défaut (`ERR_CERT_AUTHORITY_INVALID`) pour tout nouveau
