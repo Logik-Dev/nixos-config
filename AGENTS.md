@@ -22,7 +22,7 @@
 |---|---|
 | Build/check all | `nix flake check` (treefmt + checks d'éval des hôtes du système courant) ; `nix flake check --all-systems --no-build` pour tout évaluer |
 | Format | `nix fmt` (nixfmt + deadnix + statix, auto via jj pre-commit hook) |
-| Deploy to hyper | `nh os switch --hostname hyper --target-host logikdev@hyper --build-host logikdev@hyper` (depuis m4) |
+| Deploy to hyper | `nh os switch --hostname hyper --target-host logikdev@hyper --build-host logikdev@hyper -e passwordless` (depuis m4 ; `-e passwordless` car hyper a sudo NOPASSWD, sinon nh réclame un mot de passe sudo sur un stdin non-TTY) |
 | Deploy to m4 | `sudo darwin-rebuild switch --flake .#m4` (local) |
 | Deploy to sonicmaster | `nh os switch --hostname sonicmaster` (local, sshd désactivé) |
 | Enter devshell | `nix develop` |
