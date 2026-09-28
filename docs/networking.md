@@ -106,16 +106,26 @@ Sauvegarde via les `.unf` auto (copie live, contrôleur non arrêté).
 `features/downloads/{vpn,qbittorrent,cross-seed,freeleech-farmer}.nix` — doc complète :
 [torrent-vpn.md](torrent-vpn.md)
 
-- wg0 (AirVPN) : routes isolées dans la table `4242`, `fwMark 0x4242`, MTU 1320.
-- Routage par UID (qbittorrent + prowlarr + cross-seed) vers 4242 ; exceptions
-  LAN scopées.
-- Kill-switch nft `inet vpn_killswitch` (fail-closed) : accepte le fwmark, `lo`,
-  le LAN et wg0, droppe le reste des UIDs routés.
-- Port forward AirVPN (TCP+UDP) → port d'écoute qBittorrent.
-- DNS de hyper = Tailscale MagicDNS (`100.100.100.100`) : les UIDs routés ont
-  une exception scopée vers la table 52 (`vpn.airvpn.tailscaleNetworksV4/V6`),
-  sinon `EAI_AGAIN` sur les trackers. Ne jamais mettre `100.64.0.0/10` dans
-  `lanNetworks` (règle globale vers `main` = mesh/SSH cassés).
+- **Network namespace dédié `vpn`** : wg0 y est déplacé
+  (`interfaceNamespace`), la socket de transport restant côté hôte. La seule
+  route par défaut du namespace est le tunnel → **fail-closed structurel**, plus
+  aucune règle de pare-feu à maintenir correcte. MTU 1320.
+- Y vivent qBittorrent, Prowlarr, cross-seed et freeleech-farmer, placés par
+  unité (`vpn.airvpn.netns.services`) et non plus par UID.
+- Frontière : veth `10.200.0.0/30` — `10.200.0.1` côté hôte, `10.200.0.2` côté
+  namespace. Traefik joint les WebUI sur `.2` ; `8989`/`7878` (Sonarr/Radarr)
+  sont ouverts **sur la veth uniquement**. Table nft `vpn_guard` dans le
+  namespace qui épingle la veth à son pair.
+- DNS : les services résolvent via `10.128.0.1` (résolveur AirVPN, **dans le
+  tunnel**) ; `/etc/netns/vpn/resolv.conf` pointe sur AdGuard par la veth et
+  sert uniquement à l'**amorçage** (`wg set … endpoint` résout dans le namespace
+  avant que le tunnel existe). Le MagicDNS Tailscale de l'hôte n'entre plus en
+  jeu pour ces services.
+- Port forward AirVPN (TCP+UDP) → port d'écoute qBittorrent, dont l'interface
+  réseau doit rester fixée sur `wg0`.
+- ⚠️ **Aucune supervision** du tunnel à ce jour : une panne ne produit ni unité
+  en échec ni alerte (vécu — un cycle d'ordonnancement systemd a supprimé le job
+  de démarrage au boot). Voir `docs/vpn-netns-plan.md`.
 
 ## SSH
 

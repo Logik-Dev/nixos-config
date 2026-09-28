@@ -13,9 +13,9 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 | `seerr` | 5055 | Médias | oui | SQLite (`/var/lib/private/jellyseerr`) |
 | `radarr` | 7878 | Médias | oui | Postgres (main+logs), `/mnt/ultra` |
 | `sonarr` | 8989 | Médias | oui | Postgres (main+logs), `/mnt/ultra` |
-| `prowlarr` | 9696 | Médias | oui | Postgres, derrière AirVPN (indexers) ; dataDir défaut `/var/lib/private/prowlarr` (DynamicUser) |
+| `prowlarr` | 9696 | Médias | oui | Postgres (socket Unix), **network namespace `vpn`** (joint sur `10.200.0.2:9696`) ; dataDir défaut `/var/lib/private/prowlarr` (DynamicUser) |
 | `sabnzbd` | 8088 | Médias | oui | `/mnt/storage/medias` |
-| `qbittorrent` | 8090 | Médias | oui | AirVPN (kill-switch), `/mnt/storage/medias` |
+| `qbittorrent` | 8090 | Médias | oui | AirVPN, **network namespace `vpn`** (joint sur `10.200.0.2:8090`), `/mnt/storage/medias` |
 | `audiobookshelf` | 13378 | Médias | **non** (apps natives) | `/var/lib/audiobookshelf` (DB/meta), bibliothèques `/mnt/storage/medias/{books,audiobooks}` |
 | `bindery` | 8787 | Médias | oui | **containeur podman** (`--network=host`, UID 1000:991) ; Prowlarr/qBittorrent/SABnzbd ; config `/mnt/ultra/bindery`, **mount unique** `/mnt/storage/medias` (hardlinks downloads→bibliothèques, chemins identiques à l'hôte → pas de remap) |
 | `rankoder` | 8765 | Médias | oui | MQTT, GPU, `/mnt/storage/medias/rankoder` |

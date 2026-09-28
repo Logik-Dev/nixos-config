@@ -868,6 +868,30 @@ ip netns exec vpn curl -s https://ifconfig.co/port/47594        # reachable:true
 sudo systemctl restart netns-vpn && systemctl --failed
 ```
 
+## Reste à faire
+
+La migration elle-même est close (lots A→E déployés, persistés, validés par deux
+reboots). Un point reste **ouvert**, et il n'est pas cosmétique :
+
+**Aucune supervision du tunnel.** Vérifié : rien dans `modules/features/monitoring/`
+ne mentionne wireguard, wg0, le netns ou AirVPN, et `notify.services` ne contient
+aucune de ces unités. Or `notify.services` câble un `onFailure` — il n'aurait de
+toute façon **pas** attrapé la panne vécue au boot, où systemd a *supprimé* le job
+de démarrage du tunnel sans qu'aucune unité n'échoue.
+
+Conséquence : si le tunnel tombe, le fail-closed protège (aucune fuite), mais
+personne n'est prévenu — la stack télécharge à zéro jusqu'à ce que quelqu'un
+regarde. Pistes, de la moins à la plus intrusive :
+
+- une sonde **blackbox** ou un petit timer qui compare l'IP de sortie du netns à
+  l'IP WAN de l'hôte (les deux doivent différer) ;
+- une métrique textfile node_exporter sur `wg show wg0 latest-handshakes` (âge du
+  dernier handshake) + alerte Prometheus si trop ancien ;
+- une alerte sur la joignabilité du port forwardé, qui couvre aussi la régression
+  du § piège 6 (listener non réattaché à un `wg0` recréé).
+
+À arbitrer avec les IDs `MON-*` de `docs/audit-2026-09.md`.
+
 ## Références
 
 - <https://www.wireguard.com/netns/> — montage socket dehors / interface dedans.
