@@ -868,29 +868,28 @@ ip netns exec vpn curl -s https://ifconfig.co/port/47594        # reachable:true
 sudo systemctl restart netns-vpn && systemctl --failed
 ```
 
-## Reste à faire
+## Supervision (fait — 2026-09-28)
 
-La migration elle-même est close (lots A→E déployés, persistés, validés par deux
-reboots). Un point reste **ouvert**, et il n'est pas cosmétique :
+Le seul point resté ouvert à la clôture est traité : `vpn-monitor.timer` publie
+six métriques textfile toutes les 5 min et quatre alertes Prometheus les
+exploitent (`VpnTunnelDown`, `VpnTrafficLeak`, `VpnListenerUnbound`,
+`VpnMonitorMissing`). Détail dans `docs/torrent-vpn.md` § Supervision.
 
-**Aucune supervision du tunnel.** Vérifié : rien dans `modules/features/monitoring/`
-ne mentionne wireguard, wg0, le netns ou AirVPN, et `notify.services` ne contient
-aucune de ces unités. Or `notify.services` câble un `onFailure` — il n'aurait de
-toute façon **pas** attrapé la panne vécue au boot, où systemd a *supprimé* le job
-de démarrage du tunnel sans qu'aucune unité n'échoue.
+Deux pièges rencontrés en l'écrivant, tous deux du même genre — une supervision
+qui ment est pire que pas de supervision :
 
-Conséquence : si le tunnel tombe, le fail-closed protège (aucune fuite), mais
-personne n'est prévenu — la stack télécharge à zéro jusqu'à ce que quelqu'un
-regarde. Pistes, de la moins à la plus intrusive :
+1. **NixOS préfixe le script d'une unité par `set -e`**, qu'un `set -uo pipefail`
+   écrit ensuite n'annule pas. Résultat au premier test d'injection de panne : le
+   script s'arrêtait sur l'échec de `wg show` avant d'écrire quoi que ce soit, et
+   le fichier `.prom` conservait ses valeurs précédentes — **tunnel mort,
+   métriques saines**. Corrigé par un `set +e` en première ligne.
+2. **`absent()` ne détecte pas un moniteur planté** : le collecteur textfile de
+   node_exporter sert un `.prom` indéfiniment. Le dead-man doit tester la
+   *fraîcheur* de l'horodatage écrit à chaque exécution.
 
-- une sonde **blackbox** ou un petit timer qui compare l'IP de sortie du netns à
-  l'IP WAN de l'hôte (les deux doivent différer) ;
-- une métrique textfile node_exporter sur `wg show wg0 latest-handshakes` (âge du
-  dernier handshake) + alerte Prometheus si trop ancien ;
-- une alerte sur la joignabilité du port forwardé, qui couvre aussi la régression
-  du § piège 6 (listener non réattaché à un `wg0` recréé).
-
-À arbitrer avec les IDs `MON-*` de `docs/audit-2026-09.md`.
+Validé de bout en bout : injection de panne (handshake 0, route 0, listener 0,
+unité qui ne plante pas), rétablissement, puis vérification que Prometheus
+scrape bien les six séries et charge les quatre règles.
 
 ## Références
 

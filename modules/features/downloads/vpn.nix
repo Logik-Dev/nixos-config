@@ -278,6 +278,103 @@ _: {
               }
             ];
 
+            # Health reporting. The tunnel had NO supervision at all until now, and
+            # that blind spot is exactly how a boot failure went unnoticed: systemd
+            # deleted wireguard-wg0's start job to break an ordering cycle, which
+            # produces **no failed unit** — so `onFailure`/notify.services could
+            # never have caught it. Fail-closed means an outage is silent by
+            # design: nothing leaks, the stack simply downloads nothing.
+            #
+            # Runs in the HOST namespace on purpose: it needs to compare the two
+            # sides (`ip netns exec` for the namespace, plain calls for the host).
+            systemd.services.vpn-monitor = {
+              description = "VPN tunnel health metrics (${ns})";
+              after = [ "netns-${ns}.service" ];
+              wants = [ "netns-${ns}.service" ];
+              path = with pkgs; [
+                iproute2
+                wireguard-tools
+                curl
+                coreutils
+                gawk
+                gnugrep
+              ];
+              serviceConfig.Type = "oneshot";
+              script = ''
+                # `set +e` is load-bearing and must come first: NixOS prepends its
+                # own `set -e` to the generated script, so writing `set -uo
+                # pipefail` here does NOT disable it. Learned the hard way — with
+                # the tunnel down, `wg show` failed, the script aborted before
+                # writing anything, and the .prom file kept its previous values:
+                # a dead tunnel reported as perfectly healthy. Every command below
+                # must be allowed to fail and still reach the write at the end.
+                # No `-u` either: an unbound variable kills the shell regardless
+                # of `-e`, which would resurrect the same failure mode.
+                set +e
+
+                dir=/var/lib/node-exporter-textfile
+                file="$dir/vpn-tunnel.prom"
+                tmp="$file.tmp"
+
+                # Unix timestamp of the last handshake, 0 if wg0 does not even
+                # exist (the ordering-cycle case).
+                hs=$(ip netns exec ${ns} wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}' | head -1)
+                case "''${hs:-}" in "" | *[!0-9]*) hs=0 ;; esac
+
+                # The namespace must have exactly one default route, through the
+                # tunnel. Anything else means isolation is not what we think.
+                if ip netns exec ${ns} ip route show default 2>/dev/null | grep -q 'dev wg0'; then
+                  route=1
+                else
+                  route=0
+                fi
+
+                # qBittorrent binds per address and never re-binds: a wg0 recreated
+                # underneath it leaves the forwarded port unreachable and the ratio
+                # at zero, with no failed unit (cf. its partOf/wantedBy).
+                if ip netns exec ${ns} ss -tlnH 2>/dev/null | grep -q "wg0:${toString cfg.forwardedPort}"; then
+                  listener=1
+                else
+                  listener=0
+                fi
+
+                # End-to-end ground truth: the namespace must not exit through the
+                # host's WAN address. Deliberately tolerant — if either lookup
+                # fails we report the check as unusable rather than claim a leak,
+                # so a flaky third party cannot page anyone at 3am.
+                ns_ip=$(ip netns exec ${ns} curl -s --max-time 10 https://api.ipify.org 2>/dev/null)
+                host_ip=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null)
+                if [ -n "$ns_ip" ] && [ -n "$host_ip" ]; then
+                  check=1
+                  if [ "$ns_ip" = "$host_ip" ]; then isolated=0; else isolated=1; fi
+                else
+                  check=0
+                  isolated=1
+                fi
+
+                {
+                  printf 'vpn_tunnel_handshake_timestamp_seconds %s\n' "$hs"
+                  printf 'vpn_tunnel_default_route %s\n' "$route"
+                  printf 'vpn_tunnel_listener_bound %s\n' "$listener"
+                  printf 'vpn_exit_ip_check_success %s\n' "$check"
+                  printf 'vpn_exit_ip_isolated %s\n' "$isolated"
+                  printf 'vpn_monitor_timestamp_seconds %s\n' "$(date +%s)"
+                } > "$tmp"
+                mv -f "$tmp" "$file"
+              '';
+            };
+
+            systemd.timers.vpn-monitor = {
+              wantedBy = [ "timers.target" ];
+              timerConfig = {
+                OnCalendar = "*:0/5";
+                RandomizedDelaySec = "1m";
+                Persistent = true;
+              };
+            };
+
+            notify.services = [ "vpn-monitor" ];
+
             # Persistent, never-recreated network namespace. Everything about this
             # unit is deliberate:
             #  - no sandboxing options: `ip netns add` creates a bind mount under

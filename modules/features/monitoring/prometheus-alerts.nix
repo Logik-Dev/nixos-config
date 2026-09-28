@@ -328,6 +328,69 @@ _: {
                       description = "Fewer than ${toString expectedResticMetrics} restic repositories reported a backup timestamp — a backup unit may have stopped running.";
                     };
                   }
+                  {
+                    # The VPN tunnel is fail-closed by construction, so an outage
+                    # leaks nothing — and is therefore completely silent: the
+                    # download stack just stops working. Worse, the failure that
+                    # actually happened (systemd deleting wireguard-wg0's start
+                    # job to break an ordering cycle) leaves **no failed unit**,
+                    # so onFailure/notify could not have caught it either.
+                    # Handshake timestamp is 0 when wg0 does not exist at all.
+                    alert = "VpnTunnelDown";
+                    expr = "time() - vpn_tunnel_handshake_timestamp_seconds > 300";
+                    for = "10m";
+                    labels.severity = "critical";
+                    annotations = {
+                      summary = "VPN torrent tunnel down";
+                      description = "No WireGuard handshake for over 5 minutes (0 = wg0 absent). The download stack is fail-closed, so nothing leaks, but nothing downloads either. Check `journalctl -b` for \"ordering cycle\" and `systemctl status wireguard-wg0 netns-vpn`.";
+                    };
+                  }
+                  {
+                    # Ground truth rather than a proxy: the namespace must not exit
+                    # through the host's WAN address. Gated on the check having
+                    # succeeded so a flaky third party cannot page anyone.
+                    alert = "VpnTrafficLeak";
+                    expr = "vpn_exit_ip_check_success == 1 and vpn_exit_ip_isolated == 0";
+                    for = "5m";
+                    labels.severity = "critical";
+                    annotations = {
+                      summary = "VPN leak: torrent traffic exits through the WAN";
+                      description = "The VPN namespace reports the same public IP as the host. Isolation is broken — stop qbittorrent and investigate the namespace routing before anything else.";
+                    };
+                  }
+                  {
+                    # qBittorrent binds per address at start-up and never re-binds:
+                    # a recreated wg0 leaves it listening on lo/veth only, the
+                    # forwarded port unreachable and the ratio at zero — silently.
+                    alert = "VpnListenerUnbound";
+                    expr = "vpn_tunnel_listener_bound == 0";
+                    for = "15m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "qBittorrent not listening on the tunnel";
+                      description = "No listener bound to wg0 for the forwarded port: peers cannot reach it and the ratio is going to zero. Usually fixed by `systemctl restart qbittorrent`; it should have been automatic via partOf/wantedBy on wireguard-wg0.";
+                    };
+                  }
+                  {
+                    # Dead-man switch: every alert above reads a metric the monitor
+                    # writes, so a monitor that stopped running would make them all
+                    # silently un-evaluable.
+                    #
+                    # Staleness, NOT `absent()` alone: node_exporter's textfile
+                    # collector keeps serving a .prom file forever, so a monitor
+                    # that crashed leaves its last values exposed and looking
+                    # healthy indefinitely — `absent()` would never fire. The
+                    # timestamp the monitor writes on every run is the only thing
+                    # that can distinguish fresh from frozen.
+                    alert = "VpnMonitorMissing";
+                    expr = "absent(vpn_monitor_timestamp_seconds) or (time() - vpn_monitor_timestamp_seconds > 1800)";
+                    for = "10m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "VPN monitor not reporting";
+                      description = "vpn_monitor_timestamp_seconds is missing or older than 30 minutes — vpn-monitor.timer may have stopped or the script may be crashing, which would leave every other VPN alert reading frozen values.";
+                    };
+                  }
                 ];
               }
             ];

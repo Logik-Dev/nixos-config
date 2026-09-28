@@ -223,6 +223,51 @@ L'appartenance au namespace étant fixée **par unité** au démarrage
 (`NetworkNamespacePath`), rien de tout cela ne subsiste : Prowlarr est traité
 exactement comme les autres. Son accès PostgreSQL passe par la socket Unix,
 insensible au namespace réseau.
+## Supervision
+
+Une panne de tunnel ne fuite rien (fail-closed) — elle est donc **totalement
+silencieuse** : la stack cesse simplement de télécharger. Et la panne réellement
+vécue (cycle d'ordonnancement systemd supprimant le job de démarrage) ne produit
+**aucune unité en échec**, donc `notify.services`/`onFailure` n'aurait rien vu.
+
+`vpn-monitor.timer` (toutes les 5 min) publie des métriques textfile lues par
+node_exporter, dans `/var/lib/node-exporter-textfile/vpn-tunnel.prom` :
+
+| Métrique | Sens |
+|---|---|
+| `vpn_tunnel_handshake_timestamp_seconds` | date du dernier handshake ; **0 = wg0 n'existe pas** |
+| `vpn_tunnel_default_route` | 1 si la route par défaut du netns passe par wg0 |
+| `vpn_tunnel_listener_bound` | 1 si un listener est lié au port forwardé sur wg0 |
+| `vpn_exit_ip_check_success` | 1 si la comparaison d'IP a pu être faite |
+| `vpn_exit_ip_isolated` | 1 si l'IP de sortie du netns diffère de l'IP WAN de l'hôte |
+| `vpn_monitor_timestamp_seconds` | horodatage de la dernière exécution (dead-man) |
+
+Quatre alertes dans `prometheus-alerts.nix` : `VpnTunnelDown` (critique),
+`VpnTrafficLeak` (critique, comparaison d'IP de sortie), `VpnListenerUnbound`
+(avertissement — le ratio tombe à zéro en silence) et `VpnMonitorMissing`.
+
+Deux choix non évidents, chèrement acquis :
+
+- Le script commence par **`set +e`**, et c'est porteur : NixOS préfixe le script
+  généré par son propre `set -e`, qu'un `set -uo pipefail` écrit ensuite
+  **n'annule pas**. Sans ça, tunnel coupé, `wg show` échoue, le script s'arrête
+  avant d'écrire, et le `.prom` garde ses valeurs précédentes : **un tunnel mort
+  rapporté comme parfaitement sain**. Pas de `-u` non plus (une variable non liée
+  tue le shell même sans `-e`).
+- `VpnMonitorMissing` teste la **fraîcheur**, pas `absent()` : le collecteur
+  textfile sert un `.prom` indéfiniment, donc un moniteur planté laisse ses
+  dernières valeurs exposées pour toujours et `absent()` ne se déclencherait
+  jamais.
+
+Test d'injection de panne (à rejouer après toute modification) :
+
+```bash
+sudo systemctl stop wireguard-wg0 && sudo systemctl start vpn-monitor
+sudo cat /var/lib/node-exporter-textfile/vpn-tunnel.prom
+# attendu : handshake 0, default_route 0, listener_bound 0 — et l'unité NE DOIT PAS échouer
+sudo systemctl start wireguard-wg0
+```
+
 ## Exploitation / diagnostics
 
 > **`wg0` n'apparaît plus dans un `ip a` sur l'hôte** — c'est normal, il est dans
