@@ -337,19 +337,19 @@ _: {
                 # Pin the veth to its peer: nothing may leave it except towards the
                 # host end of the /30.
                 #
-                # This is NOT merely defensive — it drops real traffic. qBittorrent
-                # binds a listener to every interface in the namespace, the veth
-                # included (`ss -tlnp` shows `10.200.0.2%veth-vpn:47594`, i.e.
-                # SO_BINDTODEVICE), and sends peer/DHT UDP from it towards public
-                # addresses. Measured: ~460 such packets in the 40s following a
-                # tunnel restart. They never reached the internet — 10.200.0.0/30 is
-                # not masqueraded (netavark's MASQUERADE is scoped to 10.88.0.0/16)
-                # and tcpdump on the WAN link shows zero packets with that source —
-                # so this is not plugging a leak, it stops the namespace from
-                # spraying dead traffic at the host. The proper fix is to point
-                # qBittorrent's network interface at wg0 (Options -> Advanced),
-                # which is now safe: the old objection (binding broke MagicDNS) is
-                # gone since the namespace resolves through the tunnel.
+                # Defensive today — the counter sits at zero. It earned its keep at
+                # setup time by exposing a real problem: qBittorrent used to bind a
+                # listener to every interface in the namespace, the veth included
+                # (`ss -tlnp` showed `10.200.0.2%veth-vpn:47594`, i.e.
+                # SO_BINDTODEVICE), and sent peer/DHT UDP from it towards public
+                # addresses — ~460 packets in the 40s after a tunnel restart. Never
+                # a leak (10.200.0.0/30 is not masqueraded, netavark's MASQUERADE
+                # being scoped to 10.88.0.0/16, and tcpdump on the WAN link showed
+                # zero packets with that source), just dead traffic sprayed at the
+                # host. Fixed at the source by pointing qBittorrent's network
+                # interface at wg0 (Options -> Advanced) — safe since the namespace
+                # resolves through the tunnel, unlike before the migration. If this
+                # counter starts climbing again, check that setting first.
                 #
                 # It also closes the one residual escape route: the host forwards
                 # (net.ipv4.conf.all.forwarding, set by tailscale's

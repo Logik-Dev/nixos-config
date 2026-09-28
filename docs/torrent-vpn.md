@@ -118,9 +118,10 @@ Tout est dans `vpn.airvpn.netns.*` :
 route et **sans échouer**. L'unité n'a aucune option de sandboxing (le
 bind-mount de `/run/netns` doit rester visible) et est idempotente.
 
-Une table nft `vpn_guard` dans le namespace épingle la veth à son pair. Elle
-n'est pas que défensive : qBittorrent lie un listener au device veth et y envoie
-du trafic pair, que cette règle jette (voir Pièges).
+Une table nft `vpn_guard` dans le namespace épingle la veth à son pair :
+purement défensive aujourd'hui (compteur à zéro), elle couvre le cas d'une route
+ajoutée par inadvertance, l'hôte ayant `ip_forward` activé. Elle a servi à
+diagnostiquer un vrai problème au moment de sa mise en place (voir Pièges).
 
 ## Ce qui traverse la frontière
 
@@ -145,12 +146,14 @@ du trafic pair, que cette règle jette (voir Pièges).
 - `serverConfig = {}` volontairement : le `qBittorrent.conf` reste inscriptible
   par l'UI (sinon tmpfiles le remplace par un symlink en lecture seule à chaque
   activation et les réglages UI sont perdus).
-- **Binder l'interface réseau sur `wg0`** (Options → Avancé) est désormais
-  **recommandé**, et ne l'était pas avant : l'ancienne objection (la source `wg0`
-  cassait la résolution MagicDNS) est levée puisque le namespace résout par le
-  tunnel. Sans ce bind, qBittorrent écoute aussi sur la veth et y envoie du
-  trafic pair pour rien (jeté par `vpn_guard`, cf. Pièges).
-  Config actuelle : `Session\Interface=` vide.
+- **L'interface réseau est bindée sur `wg0`** (Options → Avancé,
+  `Session\Interface=wg0`) — à garder. C'était déconseillé avant la migration
+  (la source `wg0` cassait la résolution MagicDNS) ; l'objection est levée
+  puisque le namespace résout par le tunnel. Sans ce bind, qBittorrent écoute
+  aussi sur la veth et y envoie du trafic pair pour rien (cf. Pièges).
+  Vérif : `ip netns exec vpn ss -tlnp | grep 47594` ne doit montrer **que** wg0.
+  Le bind ne touche pas la WebUI, qui reste sur `*` — Traefik la joint toujours
+  par la veth.
 - `extraArgs = [ "--confirm-legal-notice" ]` (évite le prompt au premier boot).
 - `systemd.services.qbittorrent-permissions` : `chown -R qbittorrent:media`
   du profil avant démarrage (reliquats d'anciens tests).
@@ -350,14 +353,15 @@ C'est désormais **par unité**, pas par utilisateur.
   sur `lo`/veth, le port forwardé devient injoignable et **le ratio tombe à zéro
   sans unité en échec**. D'où `partOf` + `wantedBy` sur `wireguard-wg0.service`.
   Vérif : `ip netns exec vpn ss -tlnp | grep wg0`.
-- **qBittorrent envoie du trafic pair sur la veth.** Il lie un listener au device
-  veth (`10.200.0.2%veth-vpn:47594`) et y émet du UDP pair/DHT vers des adresses
-  publiques — ~460 paquets dans les 40 s suivant un restart du tunnel. Ça ne
-  fuite pas (le `/30` n'est pas masqueradé, `tcpdump` sur le WAN le confirme),
-  mais c'est du trafic mort ; la table `vpn_guard` le jette. **Correction propre,
-  à faire côté UI** : fixer l'interface réseau de qBittorrent sur `wg0`
-  (Options → Avancé), ce qui est désormais sans risque — l'ancienne objection
-  (le bind cassait MagicDNS) est levée puisque le namespace résout par le tunnel.
+- **qBittorrent envoyait du trafic pair sur la veth** — *corrigé le 2026-09-28*.
+  Tant que son interface réseau n'était pas fixée, il liait un listener au device
+  veth (`10.200.0.2%veth-vpn:47594`) et y émettait du UDP pair/DHT vers des
+  adresses publiques : ~460 paquets dans les 40 s suivant un restart du tunnel.
+  Ça ne fuitait pas (le `/30` n'est pas masqueradé, `tcpdump` sur le WAN le
+  confirme), mais c'était du trafic mort, jeté par `vpn_guard`. Le bind sur `wg0`
+  l'a supprimé à la source : **compteur figé, 0 paquet sur 90 s et 0 après un
+  restart du tunnel** (la condition qui produisait le pic). Si le compteur
+  `vpn_guard` se remet à monter, c'est le premier réglage à vérifier.
 - **`wg show` ment sur l'émission** : il compte les octets remis à la pile, pas
   ceux réellement partis. Le seul diagnostic fiable d'un transport bloqué est
   `tcpdump -nni management udp port 1637`.

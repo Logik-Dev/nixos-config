@@ -376,7 +376,7 @@ Correctif en deux temps :
 Vérifier `systemctl is-system-running` **et**
 `journalctl -b | grep "ordering cycle"`.
 
-### 8. qBittorrent envoie du trafic pair sur la veth
+### 8. qBittorrent envoyait du trafic pair sur la veth (corrigé)
 
 Découvert en instrumentant la table `vpn_guard` du lot D. qBittorrent lie un
 listener à **chaque** interface du namespace, veth comprise — `ss -tlnp` montre
@@ -391,10 +391,22 @@ tunnel**.
 sur le lien WAN filtré sur `src net 10.200.0.0/30` capture **zéro paquet**. Ces
 paquets mouraient à l'hôte. La règle `vpn_guard` les arrête une étape plus tôt.
 
-**Correction propre, côté UI** : fixer l'interface réseau de qBittorrent sur
-`wg0` (Options → Avancé). C'était déconseillé avant la migration parce que le
-bind cassait la résolution MagicDNS ; l'objection est levée puisque le namespace
+**Corrigé le 2026-09-28** en fixant l'interface réseau de qBittorrent sur `wg0`
+(Options → Avancé). C'était déconseillé avant la migration parce que le bind
+cassait la résolution MagicDNS ; l'objection est levée puisque le namespace
 résout par le tunnel.
+
+Mesuré après coup : `ss -tlnp` dans le namespace ne montre plus que
+`10.150.11.114%wg0:47594` (TCP et UDP), le listener veth a disparu, et le
+compteur de `vpn_guard` est **figé** — 0 paquet sur 90 s, et 0 après un restart
+de `wireguard-wg0`, qui était justement la condition produisant le pic. Le bind
+ne touche pas la WebUI (toujours sur `*`), donc Traefik la joint sans changement,
+et le port forward reste `reachable: true`. `vpn_guard` redevient purement
+défensive : si son compteur repart, ce réglage est le premier à vérifier.
+
+> Méthode : le `reset counters` de nft n'a pas remis le compteur à zéro ici — la
+> mesure fiable est un **delta** entre deux lectures espacées, pas une valeur
+> absolue.
 
 Deux outils à connaître pour ce genre d'enquête : le `log` nft d'un namespace
 **non-init est jeté en silence** tant que `net.netfilter.nf_log_all_netns=1`
