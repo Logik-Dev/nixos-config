@@ -99,9 +99,27 @@ let
           pkgs.coreutils
         ];
         unitConfig.RequiresMountsFor = [ "/mnt/usb" ] ++ sourceValue.paths;
-        serviceConfig.ExecStart = lib.mkForce [
-          (toString (mkScript sourceName sourceValue))
-        ];
+        serviceConfig = {
+          ExecStart = lib.mkForce [
+            (toString (mkScript sourceName sourceValue))
+          ];
+
+          # Backups are the second source of measured IO pressure after
+          # snapraid, and their window (02:05 + up to 5h of random delay) can
+          # still overlap late-evening streaming. These three settings only
+          # became effective with BFQ on the rotational disks — see
+          # system/io-scheduler.nix; on the NVMe sources the scheduler is "none"
+          # and IOSchedulingClass is a no-op.
+          #
+          # idle IO rather than best-effort is safe here, unlike for nix-daemon:
+          # nothing else competes inside the nightly window except the other
+          # restic jobs, which are in the same class and so share fairly.
+          # Nice/batch keeps restic's compression and encryption off the latency
+          # path of Jellyfin and Postgres.
+          Nice = 19;
+          CPUSchedulingPolicy = "batch";
+          IOSchedulingClass = "idle";
+        };
       };
 
       source = lib.types.submodule {

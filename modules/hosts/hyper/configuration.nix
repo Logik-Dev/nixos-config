@@ -17,6 +17,7 @@ let
       hetznerStoragebox
       mealie
       immich
+      io-scheduler
       kvm-intel
       logikdev
       blackbox
