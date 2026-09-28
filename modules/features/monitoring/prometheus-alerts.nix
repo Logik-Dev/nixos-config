@@ -106,6 +106,54 @@ _: {
                     };
                   }
                   {
+                    # Resource-control tripwire (docs/resource-control-plan.md, C5).
+                    # hyper has no cgroup limits at all: the kernel OOM killer is
+                    # the only backstop and it does not distinguish Postgres from
+                    # a restic job. Baseline measured over 7 days: exactly zero
+                    # kills, which is why the plan deliberately stops at alerting
+                    # instead of imposing MemoryMax caps. A single kill is the
+                    # signal that the slices+limits spec (plan annexe A) is needed.
+                    alert = "HostOOMKill";
+                    expr = "increase(node_vmstat_oom_kill[15m]) > 0";
+                    labels.severity = "critical";
+                    annotations = {
+                      summary = "Kernel OOM killer fired on {{ $labels.instance }}";
+                      description = "The kernel killed at least one process for memory in the last 15 minutes. Nothing on this host protects critical services from the global OOM killer — identify the victim with `journalctl -k --grep oom` and see docs/resource-control-plan.md annexe A.";
+                    };
+                  }
+                  {
+                    # PSI, not free memory: this is the fraction of wall time at
+                    # least one task spent stalled waiting on memory reclaim.
+                    # Distinct from HighMemoryPressure above, which only watches
+                    # MemAvailable and stays quiet while the kernel thrashes to
+                    # keep it high. Threshold is ~7x the measured 7-day peak
+                    # (0.014), so it reports a regime change, not normal load.
+                    alert = "MemoryStallSustained";
+                    expr = "rate(node_pressure_memory_waiting_seconds_total[10m]) > 0.1";
+                    for = "15m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "Sustained memory stalls on {{ $labels.instance }}";
+                      description = "Tasks have been stalling on memory reclaim for 15 minutes (PSI some/avg > 10%, measured 7-day peak was 1.4%). Check /proc/pressure/memory and `systemd-cgtop -m`.";
+                    };
+                  }
+                  {
+                    # IO is the contention that actually exists on this host:
+                    # 7-day peak 0.51, in bursts at 01-02h (restic window) and
+                    # 10h (snapraid-sync, 340 GB read). Those bursts are brief, so
+                    # the alert deliberately requires a 30-minute plateau — it
+                    # fires on a batch job that stopped yielding, not on the
+                    # nightly window doing its job.
+                    alert = "IoStallSustained";
+                    expr = "rate(node_pressure_io_waiting_seconds_total[10m]) > 0.4";
+                    for = "30m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "Sustained IO stalls on {{ $labels.instance }}";
+                      description = "Tasks have been stalling on IO for 30 minutes (PSI some/avg > 40%). Expected sources are the restic window and snapraid-sync; a plateau means one is not yielding. See docs/resource-control-plan.md C3.";
+                    };
+                  }
+                  {
                     # Authelia-protected vhosts redirect to the portal (2xx/401),
                     # so this mainly covers the unprotected services (Immich,
                     # Jellyfin, Vaultwarden, ntfy) plus Traefik/TLS itself.
