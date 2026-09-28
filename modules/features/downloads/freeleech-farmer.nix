@@ -36,9 +36,16 @@ _: {
             Environment = [
               "FARMER_MAX_ADDS=15"
               "FARMER_MIN_SEEDERS=1"
-              # 0 = accept any freeleech, but sort by leechers so items that can
-              # actually be uploaded are picked first.
+              # No leecher floor: a brand-new release legitimately shows 0
+              # leechers, and swarm_score()'s freshness term is what keeps it in
+              # the running. Ranking is by scarcity (leechers per seeder) plus
+              # freshness — NOT by raw leecher count, which used to pick the most
+              # crowded swarms available (105 seeders for 111 leechers) where our
+              # share of the demand was ~1%.
               "FARMER_MIN_LEECHERS=0"
+              # Weight of freshness vs scarcity, and its half-life in hours.
+              "FARMER_FRESH_WEIGHT=2.0"
+              "FARMER_FRESH_HALFLIFE_H=6"
               "FARMER_MAX_SIZE_GB=20"
               "FARMER_MAX_TOTAL_GB=300"
               "FARMER_MIN_FREE_GB=200"

@@ -391,6 +391,57 @@ _: {
                       description = "vpn_monitor_timestamp_seconds is missing or older than 30 minutes — vpn-monitor.timer may have stopped or the script may be crashing, which would leave every other VPN alert reading frozen values.";
                     };
                   }
+                  {
+                    # The gap every other VPN/torrent alert left open: they all
+                    # check *reachability*, and all of them stayed green while the
+                    # upload ceiling sat at 10 KiB/s for days because the
+                    # alternative speed limits had been toggled on by hand with the
+                    # scheduler off. Nothing failed; the ratio just went to 0.03.
+                    #
+                    # Alerts on the *outcome* — a crippled ceiling — not on the
+                    # mechanism, so a stray turtle click, a bad up_limit and a
+                    # mis-set scheduler window are all caught by this one rule.
+                    #
+                    # The `> 0` half is load-bearing: qBittorrent reports 0 for
+                    # *unlimited*, so a bare `< 1048576` would fire permanently on
+                    # a perfectly healthy uncapped client. 30m of `for` rides out
+                    # the scheduler's own transitions at 02:00 and 07:00.
+                    alert = "QbittorrentUploadThrottled";
+                    expr = "qbt_up_limit_effective_bytes > 0 and qbt_up_limit_effective_bytes < 1048576";
+                    for = "30m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "qBittorrent upload ceiling crippled";
+                      description = "The effective upload limit is under 1 MB/s ({{ $value }} B/s) — the ratio is going nowhere and nothing else will report it. Check the turtle icon (alternative speed limits) and the scheduler window in Options -> Speed.";
+                    };
+                  }
+                  {
+                    # The throttle alert above reads a metric that only exists if
+                    # the scrape worked; a failing login would make it silently
+                    # un-evaluable while the stale .prom still looked healthy.
+                    alert = "QbittorrentScrapeFailing";
+                    expr = "qbt_scrape_success == 0";
+                    for = "30m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "qBittorrent API scrape failing";
+                      description = "qbittorrent-monitor cannot read the WebUI API (credentials in the cross-seed secret, or the WebUI is down). The upload-ceiling alert cannot be evaluated while this is firing.";
+                    };
+                  }
+                  {
+                    # Dead-man switch, same rationale as VpnMonitorMissing: the
+                    # textfile collector keeps serving a .prom forever, so a
+                    # monitor that stopped running leaves its last values exposed
+                    # and looking healthy — absent() alone would never fire.
+                    alert = "QbittorrentMonitorMissing";
+                    expr = "absent(qbt_monitor_timestamp_seconds) or (time() - qbt_monitor_timestamp_seconds > 1800)";
+                    for = "10m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "qBittorrent monitor not reporting";
+                      description = "qbt_monitor_timestamp_seconds is missing or older than 30 minutes — qbittorrent-monitor.timer may have stopped, which would leave the upload-ceiling alert reading frozen values.";
+                    };
+                  }
                 ];
               }
             ];

@@ -66,9 +66,14 @@ Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) est intouché.
 
 > ⚠️ Le port forward est lié à la clé/device : si la clé change, réassigner le
 > port au nouveau device. Les clés serveur AirVPN (`PyLC...`) sont globales.
-> Vérifier la joignabilité : `sudo -u qbittorrent curl -s
-> https://ifconfig.co/port/47594` doit renvoyer `reachable:true` (ou bouton
-> *TCP Test* vert sur AirVPN).
+> Vérifier la joignabilité **depuis le namespace** : `sudo ip netns exec vpn
+> curl -s https://ifconfig.co/port/47594` doit renvoyer `reachable:true` (ou
+> bouton *TCP Test* vert sur AirVPN).
+>
+> Le `sudo -u qbittorrent curl …` d'avant la migration netns **ne marche plus** :
+> il sort par le WAN de l'hôte, où le port n'est évidemment pas ouvert, et
+> renvoie donc *toujours* `reachable:false`. Un faux négatif qui fait chercher un
+> port forward cassé pendant que tout fonctionne.
 
 ### Côté NixOS (hyper)
 
@@ -162,6 +167,41 @@ diagnostiquer un vrai problème au moment de sa mise en place (voir Pièges).
 - Backups : `backups.sources.qbittorrent = /mnt/ultra/qbittorrent` ;
   `notify.services = [ "qbittorrent" ]`.
 
+
+### Débits et limites de vitesse
+
+Débits mesurés le 2026-09-28 (`librespeed-cli` **dans le namespace**, serveur
+Amsterdam) et pics observés sur 30 j dans Prometheus :
+
+| Chemin | Descente | Montée |
+|---|---|---|
+| Tunnel AirVPN (mesure directe) | 116 Mb/s | **153 Mb/s** (≈ 19 MB/s) |
+| wg0, pic 30 j | 178 Mb/s | — (jamais sollicitée, cf. plus bas) |
+| WAN `management`, pic 30 j | 483 Mb/s | 133 Mb/s (backups Hetzner) |
+
+Les limites sont **runtime** (UI/API), pas déclaratives : `serverConfig = {}`
+garde le `qBittorrent.conf` inscriptible (cf. plus haut). Valeurs en place :
+
+| Réglage | Valeur | Pourquoi |
+|---|---|---|
+| `up_limit` (jour) | 12 MB/s | ≈ 96 Mb/s, ~⅔ du tunnel |
+| `alt_up_limit` (nuit) | 3 MB/s | fenêtre de backups |
+| `alt_dl_limit` | 20 MB/s | |
+| planificateur | 02:00 → 07:00, tous les jours | les timers restic tournent ~02 h-07 h, **hors tunnel** mais sur le même lien montant |
+| `max_ratio_enabled` | `false` | mettait en pause à ratio 10, soit précisément les torrents qui rapportent |
+| `dht` / `pex` / `lsd` | `false` | trackers privés |
+
+> ⚠️ **Le piège de la tortue.** Ces limites alternatives étaient activées **à la
+> main** (bouton tortue) avec le planificateur **désactivé** : rien ne les
+> désactivait jamais. `alt_up_limit` valait alors 10 KiB/s (le défaut qBittorrent),
+> soit un plafond d'upload de 864 Mo/jour — l'upload est resté collé dessus
+> pendant des jours, ratio global 0,028. Aucune unité en échec, port joignable,
+> tunnel vert : **toutes** les alertes existantes étaient au vert, parce qu'elles
+> ne couvrent que la joignabilité. D'où `qbittorrent-monitor` (ci-dessous).
+>
+> `alt_up_limit` est désormais à 3 MB/s : un clic involontaire sur la tortue coûte
+> un facteur 4, plus un facteur 1900.
+
 ## cross-seed (ratio automatique)
 
 `modules/features/downloads/cross-seed.nix` — croise la bibliothèque avec les
@@ -194,24 +234,45 @@ télécharger** (gros levier de ratio, aucun risque de H&R).
 ## freeleech-farmer (ratio sans rien chercher)
 
 `modules/features/downloads/freeleech-farmer.{nix,py}` — timer systemd (toutes
-les 30 min) qui interroge les Torznab de la config cross-seed, ne garde que le
+les 10 min) qui interroge les Torznab de la config cross-seed, ne garde que le
 **freeleech** (`downloadvolumefactor=0`) et l'ajoute à qBittorrent dans la
 catégorie `freeleech`.
 
 - Tourne sous l'utilisateur `cross-seed`, dans le namespace VPN (il s'y ajoute
   via `vpn.airvpn.netns.services`) ; réutilise le secret `cross-seed-secrets.json.age`
   (`torznab` + `torrentClients`).
-- Filtres/limites (env du service) : `FARMER_MAX_ADDS=5`,
-  `FARMER_MAX_SIZE_GB=20`, `FARMER_MAX_TOTAL_GB=100`, `FARMER_MIN_FREE_GB=200`,
-  `FARMER_CLEAN_RATIO=2.0`, `FARMER_CLEAN_DAYS=14`, catégories Torznab
-  autorisées (préfixes 2/3/5/7, XXX exclu).
+- Filtres/limites (env du service) : `FARMER_MAX_ADDS=15`,
+  `FARMER_MIN_SEEDERS=1`, `FARMER_MAX_SIZE_GB=20`, `FARMER_MAX_TOTAL_GB=300`,
+  `FARMER_MIN_FREE_GB=200`, catégories Torznab autorisées (préfixes 2/3/5/7,
+  XXX exclu).
 - Nettoyage : les torrents `freeleech` sont supprimés (fichiers compris) au
-  ratio ≥ 2 ou après 14 jours.
+  ratio ≥ 3 (`FARMER_CLEAN_RATIO`) ou après 30 jours (`FARMER_CLEAN_DAYS`).
 - Cible principale : YggReborn (freeleech auto sur les torrents peu seedés) ;
   C411 a peu de freeleech mais est scanné aussi.
 - Logs : `journalctl -u freeleech-farmer` ; test manuel :
   `sudo systemctl start freeleech-farmer`.
 
+### Classement des candidats (`swarm_score`)
+
+Deux termes **additionnés**, pour que chacun suffise seul à faire remonter un
+item (`FARMER_FRESH_WEIGHT=2.0`, `FARMER_FRESH_HALFLIFE_H=6`) :
+
+- **rareté** = `leechers / (seeders + 1)`. Être le 3ᵉ seeder face à 81 leechers
+  rapporte ; être le 106ᵉ face à 111 leechers ne rapporte quasi rien.
+- **fraîcheur** = décroissance en `1/(1 + âge/demi-vie)` sur le `pubDate`.
+  L'essentiel de l'upload d'un torrent se joue dans ses premières heures. Une
+  sortie toute neuve affiche légitimement 0 leecher : sans ce terme, la rareté
+  seule la classerait dernière.
+
+> ⚠️ **Le piège `peers`.** En Torznab, `peers` est le total de l'essaim
+> (`seeders + leechers`) — vérifié sur les deux indexeurs : C411 renvoie
+> 22S/44P et 98S/203P, YggReborn 9S/9P et 12S/12P (donc aucun leecher).
+> Le code lisait `attrs.get("peers") or attrs.get("leechers")`, prenait donc
+> `peers` **en priorité** et l'appelait `leechers` : il annonçait 44 leechers
+> là où il y en avait 22, et 9 là où il n'y en avait aucun. Combiné au tri par
+> `-leechers`, le farmer classait par **taille totale d'essaim** et allait
+> chercher les plus encombrés — l'inverse exact du but. Corrigé dans
+> `leechers_of()` : `leechers = peers - seeders` à défaut d'attribut explicite.
 ## Prowlarr (DynamicUser) — un non-problème désormais
 
 `services.prowlarr` tourne en **DynamicUser** : son UID n'existe qu'à partir du
@@ -245,6 +306,34 @@ node_exporter, dans `/var/lib/node-exporter-textfile/vpn-tunnel.prom` :
 Quatre alertes dans `prometheus-alerts.nix` : `VpnTunnelDown` (critique),
 `VpnTrafficLeak` (critique, comparaison d'IP de sortie), `VpnListenerUnbound`
 (avertissement — le ratio tombe à zéro en silence) et `VpnMonitorMissing`.
+
+### Supervision du ratio (`qbittorrent-monitor`)
+
+Les cinq métriques ci-dessus couvrent la **joignabilité**, et rien d'autre. Un
+qBittorrent joignable qui uploade à 10 KiB/s les laisse toutes au vert (cf. le
+piège de la tortue). `qbittorrent-monitor.timer` (toutes les 5 min, **dans le
+namespace** car la WebUI n'est sur 127.0.0.1 que depuis là) publie
+`/var/lib/node-exporter-textfile/qbittorrent.prom` :
+
+| Métrique | Sens |
+|---|---|
+| `qbt_up_limit_effective_bytes` | plafond d'upload **réellement en force** ; **0 = illimité** |
+| `qbt_alt_speed_limits_active` | 1 si les limites alternatives sont actives (tortue ou planificateur) |
+| `qbt_up_limit_bytes` / `qbt_alt_up_limit_bytes` | les deux plafonds configurés |
+| `qbt_uploaded_bytes` / `qbt_downloaded_bytes` | cumuls sur les torrents présents (→ ratio) |
+| `qbt_session_uploaded_bytes` / `…downloaded…` | compteurs de session |
+| `qbt_torrents_total` / `qbt_torrents_seeding` | taille du parc |
+| `qbt_scrape_success` | 1 si l'API a répondu (identifiants = secret cross-seed) |
+| `qbt_monitor_timestamp_seconds` | horodatage (dead-man) |
+
+Trois alertes : `QbittorrentUploadThrottled` (plafond effectif < 1 MB/s pendant
+30 min), `QbittorrentScrapeFailing` et `QbittorrentMonitorMissing`.
+
+> `QbittorrentUploadThrottled` porte sur l'**effet** (un plafond bridé), pas sur
+> le mécanisme : tortue, `up_limit` mal réglé et fenêtre de planificateur fausse
+> déclenchent la même règle. Le `> 0` de l'expression est **porteur** :
+> qBittorrent rapporte `0` pour *illimité*, donc un simple `< 1048576` hurlerait
+> en permanence sur un client sain.
 
 Deux choix non évidents, chèrement acquis :
 

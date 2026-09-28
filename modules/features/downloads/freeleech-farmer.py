@@ -9,6 +9,7 @@ qBittorrent under the "freeleech" category and removes them once seeded.
 Runs as the cross-seed user (already VPN-routed + kill-switched).
 """
 
+import email.utils
 import json
 import os
 import sys
@@ -29,6 +30,11 @@ MAX_TOTAL = int(os.environ.get("FARMER_MAX_TOTAL_GB", "100")) * 1024**3
 MIN_FREE = int(os.environ.get("FARMER_MIN_FREE_GB", "200")) * 1024**3
 CLEAN_RATIO = float(os.environ.get("FARMER_CLEAN_RATIO", "2.0"))
 CLEAN_DAYS = float(os.environ.get("FARMER_CLEAN_DAYS", "14"))
+# Weight of the freshness term relative to scarcity in swarm_score(), and the
+# age at which freshness has decayed to half. See swarm_score() for why they are
+# added rather than multiplied.
+FRESH_WEIGHT = float(os.environ.get("FARMER_FRESH_WEIGHT", "2.0"))
+FRESH_HALFLIFE_H = float(os.environ.get("FARMER_FRESH_HALFLIFE_H", "6"))
 CATEGORY = "freeleech"
 SAVE_PATH = os.environ.get("FARMER_SAVE_PATH", "/mnt/storage/medias/downloads/freeleech")
 # Allowed Torznab category prefixes: 2xxx Movies, 3xxx Audio, 5xxx TV, 7xxx Books.
@@ -117,19 +123,100 @@ def parse_items(xml_bytes):
             else:
                 attrs[name] = value
         enclosure = item.find("enclosure")
+        seeders = int(attrs.get("seeders") or 0)
         items.append(
             {
                 "title": item.findtext("title") or "",
                 "link": enclosure.get("url") if enclosure is not None else None,
-                "size": int(attrs.get("size") or 0),
-                "seeders": int(attrs.get("seeders") or 0),
-                "leechers": int(attrs.get("peers") or attrs.get("leechers") or 0),
+                "size": size_of(item, attrs, enclosure),
+                "seeders": seeders,
+                "leechers": leechers_of(attrs, seeders),
+                "published": published_of(item),
                 "hash": (attrs.get("infohash") or "").lower(),
                 "cats": cats,
                 "freeleech": attrs.get("downloadvolumefactor") == "0",
             }
         )
     return items
+
+
+def size_of(item, attrs, enclosure):
+    """Torrent size in bytes, from wherever the indexer actually put it.
+
+    Prowlarr does NOT emit a `torznab:attr name="size"`: it puts the size in the
+    `<size>` element and in `enclosure length`. Reading only the attr — as this
+    did — therefore yielded 0 for **every** item, and the `size == 0` guard in
+    main() then rejected the entire freeleech feed. The farmer had been
+    structurally unable to add anything.
+    """
+    for candidate in (
+        attrs.get("size"),
+        item.findtext("size"),
+        enclosure.get("length") if enclosure is not None else None,
+    ):
+        try:
+            value = int(candidate)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return 0
+
+
+def leechers_of(attrs, seeders):
+    """Leecher count, working around the Torznab `peers` convention.
+
+    In Torznab, `peers` is the *total* swarm size: seeders + leechers. Verified
+    on both indexers in use — C411 reports 22S/44P, 98S/203P, and YggReborn
+    reports 9S/9P, 12S/12P (i.e. no leechers at all).
+
+    This used to read `attrs.get("peers") or attrs.get("leechers")`, which took
+    `peers` first and called it `leechers`: it claimed 44 leechers where there
+    were 22, and 9 where there were none. Combined with a sort on `-leechers`,
+    the farmer was ranking by total swarm size — actively preferring the most
+    crowded swarms, which is the exact opposite of what earns ratio.
+    """
+    if attrs.get("leechers") is not None:
+        return max(0, int(attrs["leechers"]))
+    if attrs.get("peers") is not None:
+        return max(0, int(attrs["peers"]) - seeders)
+    return 0
+
+
+def published_of(item):
+    """Item publication time as a Unix timestamp, or None if unusable."""
+    raw = item.findtext("pubDate")
+    if not raw:
+        return None
+    try:
+        return email.utils.parsedate_to_datetime(raw).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def swarm_score(item, now):
+    """Rank candidates by how much upload they can plausibly earn.
+
+    Two independent sources of ratio, added rather than multiplied so that
+    either one alone is enough to rank an item highly:
+
+    - *scarcity*: leechers per seeder. Being one of 2 seeders facing 20 leechers
+      earns upload; being the 98th seeder facing 105 leechers earns almost none.
+      This is why the raw leecher count is the wrong key — it ignores the
+      competition.
+    - *freshness*: most of a torrent's lifetime upload happens in its first
+      hours, while peers still need pieces few others have. A brand-new release
+      legitimately shows 0 seeders and 0 leechers, so scarcity alone would rank
+      it last; the additive freshness term is what keeps it in the running.
+    """
+    scarcity = item["leechers"] / (item["seeders"] + 1)
+    published = item.get("published")
+    if published is None:
+        freshness = 0.0
+    else:
+        age_hours = max(0.0, (now - published) / 3600)
+        freshness = 1.0 / (1.0 + age_hours / FRESH_HALFLIFE_H)
+    return scarcity + FRESH_WEIGHT * freshness
 
 
 def free_space(path):
@@ -192,8 +279,8 @@ def main():
             seen.add(item["hash"])
             candidates.append(item)
 
-    # Upload potential first: most leechers, then fewest seeders.
-    candidates.sort(key=lambda i: (-i["leechers"], i["seeders"]))
+    # Upload potential first: scarcity + freshness (see swarm_score).
+    candidates.sort(key=lambda i: -swarm_score(i, now))
 
     added = 0
     for item in candidates:
@@ -223,9 +310,11 @@ def main():
         except Exception as exc:  # noqa: BLE001
             log(f"ERROR adding {item['title'][:50]}: {exc}")
             continue
+        age = "?" if item.get("published") is None else f"{(now - item['published']) / 3600:.0f}h"
         log(
             f"added: {item['title'][:70]} ({item['size'] / 1024**3:.2f} GiB, "
-            f"{item['seeders']}S/{item['leechers']}L)"
+            f"{item['seeders']}S/{item['leechers']}L, {age}, "
+            f"score={swarm_score(item, now):.2f})"
         )
         have.add(item["hash"])
         total += item["size"]
