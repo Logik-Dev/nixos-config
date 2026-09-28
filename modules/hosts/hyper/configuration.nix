@@ -80,9 +80,17 @@ let
         {
           vpn.airvpn = {
             enable = true;
+            # Lot A of docs/vpn-netns-plan.md: wg0 moves into the `vpn` netns.
+            # The download stack is still UID-routed (and therefore offline but
+            # fail-closed) until lot B moves the services in.
+            isolation = "netns";
             address = "10.150.11.114/32";
             publicKey = "PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=";
             endpoint = "nl3.vpn.airdns.org:1637";
+            # Must match the AirVPN forwarded public port (Client Area ->
+            # Forwarded ports, with "Local" left equal to the public port).
+            # qBittorrent announces this port, so public != local = unreachable.
+            forwardedPort = 47594;
             privateKeyFile = config.age.secrets."airvpn-private.key".path;
             presharedKeyFile = config.age.secrets."airvpn-psk.key".path;
           };

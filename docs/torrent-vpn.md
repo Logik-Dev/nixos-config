@@ -40,11 +40,18 @@ normale : aucune route par défaut n'est ajoutée à la table `main`.
 2. **Config Generator** → WireGuard : récupérer `Address`, `PrivateKey`,
    `PresharedKey`, `PublicKey` (serveur), `Endpoint`.
 3. **Ports** : demander un port forward **TCP+UDP** (≥ 2048), lié **au device
-   dédié**, champ `Local` = `51413` (port d'écoute qBittorrent).
-   Le port public est mappé vers 51413 : rien à mettre dans NixOS.
+   dédié**. Un forward AirVPN a un **port public** (celui que les pairs
+   joignent) et un champ `Local` (port d'écoute côté machine). **Ils doivent
+   être égaux** : qBittorrent annonce son port d'écoute aux trackers, donc si
+   `Local` diffère du public, il annonce un port fermé → **injoignable**.
+   Port actuel : **47594** (public = local), reporté dans
+   `vpn.airvpn.forwardedPort`.
 
 > ⚠️ Le port forward est lié à la clé/device : si la clé change, réassigner le
 > port au nouveau device. Les clés serveur AirVPN (`PyLC...`) sont globales.
+> Vérifier la joignabilité : `sudo -u qbittorrent curl -s
+> https://ifconfig.co/port/47594` doit renvoyer `reachable:true` (ou bouton
+> *TCP Test* vert sur AirVPN).
 
 ### Côté NixOS (hyper)
 
@@ -56,6 +63,7 @@ vpn.airvpn = {
   address = "10.150.11.114/32";
   publicKey = "PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=";
   endpoint = "nl3.vpn.airdns.org:1637";
+  forwardedPort = 47594;
   privateKeyFile = config.age.secrets."airvpn-private.key".path;
   presharedKeyFile = config.age.secrets."airvpn-psk.key".path;
 };
@@ -66,8 +74,11 @@ vpn.airvpn = {
 - Ajout/renouvellement : `agenix -e secrets/hosts/hyper/airvpn-private.key.age`
   puis `nix run .#agenix-rekey`, `git add` (flake = arbre git).
 - L'interface utilise `table = "4242"`, `fwMark = "0x4242"`, `mtu = 1320`,
-  `persistentKeepalive = 15` et `dynamicEndpointRefreshSeconds = 300`
-  (le endpoint DNS est re-résolu périodiquement).
+  `persistentKeepalive = 15` et `dynamicEndpointRefreshSeconds = 3600`.
+  `nl3.vpn.airdns.org` est un **pool d'entry IP** : une re-résolution trop
+  fréquente (ex. 300 s) bascule sur un autre serveur → l'IP de sortie change
+  et les connexions pairs tombent. 1 h garde une IP stable tout en conservant
+  le failover DNS.
 
 ## Routage (policy routing)
 
@@ -118,7 +129,8 @@ disparaissent et le drop s'applique → aucune fuite WAN.
 - `profileDir = /mnt/ultra/qbittorrent` (config + état, sauvegardé).
 - WebUI : `8090` → `https://qbittorrent.hyper.logikdev.fr` (Traefik + Authelia,
   catégorie Glance « Médias », icône `di:qbittorrent`).
-- `torrentingPort = 51413` (doit correspondre au champ `Local` du port forward).
+- `torrentingPort = 47594` (dérivé de `vpn.airvpn.forwardedPort`, doit
+  correspondre au **port public** du forward AirVPN).
 - `serverConfig = {}` volontairement : le `qBittorrent.conf` reste inscriptible
   par l'UI (sinon tmpfiles le remplace par un symlink en lecture seule à chaque
   activation et les réglages UI sont perdus).
@@ -129,7 +141,7 @@ disparaissent et le drop s'applique → aucune fuite WAN.
 - `extraArgs = [ "--confirm-legal-notice" ]` (évite le prompt au premier boot).
 - `systemd.services.qbittorrent-permissions` : `chown -R qbittorrent:media`
   du profil avant démarrage (reliquats d'anciens tests).
-- Firewall : port 51413 TCP+UDP ouvert **sur wg0 uniquement** ;
+- Firewall : port 47594 TCP+UDP ouvert **sur wg0 uniquement** ;
   `checkReversePath = "loose"` (sinon le rp_filter strict droppe l'ingress P2P).
 - Backups : `backups.sources.qbittorrent = /mnt/ultra/qbittorrent` ;
   `notify.services = [ "qbittorrent" ]`.

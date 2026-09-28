@@ -11,3 +11,5 @@ result-*
 **/generated/**
 AirVPN_*.conf
 .syncthing.*.tmp
+__pycache__/
+*.pyc

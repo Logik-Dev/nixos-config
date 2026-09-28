@@ -23,6 +23,7 @@ SECRET = os.environ.get("FARMER_SECRET", os.path.join(CREDENTIALS_DIR, "crossSee
 
 MAX_ADDS = int(os.environ.get("FARMER_MAX_ADDS", "5"))
 MIN_SEEDERS = int(os.environ.get("FARMER_MIN_SEEDERS", "1"))
+MIN_LEECHERS = int(os.environ.get("FARMER_MIN_LEECHERS", "0"))
 MAX_SIZE = int(os.environ.get("FARMER_MAX_SIZE_GB", "20")) * 1024**3
 MAX_TOTAL = int(os.environ.get("FARMER_MAX_TOTAL_GB", "100")) * 1024**3
 MIN_FREE = int(os.environ.get("FARMER_MIN_FREE_GB", "200")) * 1024**3
@@ -122,6 +123,7 @@ def parse_items(xml_bytes):
                 "link": enclosure.get("url") if enclosure is not None else None,
                 "size": int(attrs.get("size") or 0),
                 "seeders": int(attrs.get("seeders") or 0),
+                "leechers": int(attrs.get("peers") or attrs.get("leechers") or 0),
                 "hash": (attrs.get("infohash") or "").lower(),
                 "cats": cats,
                 "freeleech": attrs.get("downloadvolumefactor") == "0",
@@ -167,10 +169,9 @@ def main():
         log(f"only {free_space('/mnt/storage') / 1024**3:.0f} GiB free, skipping")
         return
 
-    added = 0
+    candidates = []
+    seen = set()
     for base in torznab:
-        if added >= MAX_ADDS or total >= MAX_TOTAL:
-            break
         sep = "&" if "?" in base else "?"
         try:
             items = parse_items(http_get(f"{base}{sep}t=search&limit=100"))
@@ -178,44 +179,57 @@ def main():
             log(f"ERROR fetching {base.split('?')[0]}: {exc}")
             continue
         for item in items:
-            if added >= MAX_ADDS or total >= MAX_TOTAL:
-                break
             if not item["freeleech"] or not item["link"] or not item["hash"]:
                 continue
-            if item["hash"] in have or item["size"] > MAX_SIZE or item["size"] == 0:
+            if item["hash"] in have or item["hash"] in seen:
                 continue
-            if item["seeders"] < MIN_SEEDERS:
+            if item["size"] > MAX_SIZE or item["size"] == 0:
+                continue
+            if item["seeders"] < MIN_SEEDERS or item["leechers"] < MIN_LEECHERS:
                 continue
             if not any(c.startswith(ALLOWED_PREFIXES) for c in item["cats"]):
                 continue
-            # YggReborn serves .torrent via www -> 302 to api with an
-            # HTML-escaped (&amp;) Location that qBittorrent cannot follow, and
-            # its parallel fetch gets rate-limited. Fetch it ourselves and
-            # upload the file instead.
-            link = item["link"].replace("://www.yggreborn.org/", "://api.yggreborn.org/")
-            try:
-                blob = http_get(link)
-                if not blob.startswith(b"d"):
-                    raise ValueError("not a bencoded torrent")
-                qbt_add_file(
-                    qbt_url, sid, blob, f"{item['hash']}.torrent",
-                    {"category": CATEGORY, "tags": "freeleech", "savepath": SAVE_PATH},
-                )
-                time.sleep(1)
-            except urllib.error.HTTPError as exc:
-                if exc.code == 409:  # already in qBittorrent
-                    log(f"already in client: {item['title'][:60]}")
-                    have.add(item["hash"])
-                    continue
-                log(f"ERROR adding {item['title'][:50]}: {exc}")
+            seen.add(item["hash"])
+            candidates.append(item)
+
+    # Upload potential first: most leechers, then fewest seeders.
+    candidates.sort(key=lambda i: (-i["leechers"], i["seeders"]))
+
+    added = 0
+    for item in candidates:
+        if added >= MAX_ADDS or total >= MAX_TOTAL:
+            break
+        # YggReborn serves .torrent via www -> 302 to api with an
+        # HTML-escaped (&amp;) Location that qBittorrent cannot follow, and
+        # its parallel fetch gets rate-limited. Fetch it ourselves and
+        # upload the file instead.
+        link = item["link"].replace("://www.yggreborn.org/", "://api.yggreborn.org/")
+        try:
+            blob = http_get(link)
+            if not blob.startswith(b"d"):
+                raise ValueError("not a bencoded torrent")
+            qbt_add_file(
+                qbt_url, sid, blob, f"{item['hash']}.torrent",
+                {"category": CATEGORY, "tags": "freeleech", "savepath": SAVE_PATH},
+            )
+            time.sleep(1)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 409:  # already in qBittorrent
+                log(f"already in client: {item['title'][:60]}")
+                have.add(item["hash"])
                 continue
-            except Exception as exc:  # noqa: BLE001
-                log(f"ERROR adding {item['title'][:50]}: {exc}")
-                continue
-            log(f"added: {item['title'][:70]} ({item['size'] / 1024**3:.2f} GiB, {item['seeders']} seeders)")
-            have.add(item["hash"])
-            total += item["size"]
-            added += 1
+            log(f"ERROR adding {item['title'][:50]}: {exc}")
+            continue
+        except Exception as exc:  # noqa: BLE001
+            log(f"ERROR adding {item['title'][:50]}: {exc}")
+            continue
+        log(
+            f"added: {item['title'][:70]} ({item['size'] / 1024**3:.2f} GiB, "
+            f"{item['seeders']}S/{item['leechers']}L)"
+        )
+        have.add(item["hash"])
+        total += item["size"]
+        added += 1
 
     log(f"done: {added} added, {len(have)} freeleech torrents, {total / 1024**3:.1f} GiB")
 

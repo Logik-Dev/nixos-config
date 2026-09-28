@@ -21,8 +21,12 @@ _: {
           description = "Freeleech ratio farmer";
           after = [
             "cross-seed.service"
-            "vpn-killswitch.service"
-          ];
+            "qbittorrent.service"
+          ]
+          # Only exists in uid mode; netns mode gets its ordering from the shared
+          # drop-in in vpn.nix.
+          ++ lib.optional (config.vpn.airvpn.isolation == "uid") "vpn-killswitch.service";
+          wants = [ "qbittorrent.service" ];
           unitConfig.RequiresMountsFor = [ "/mnt/storage" ];
           serviceConfig = {
             Type = "oneshot";
@@ -31,13 +35,16 @@ _: {
             LoadCredential = "crossSeedSecret:${config.age.secrets."cross-seed-secrets.json".path}";
             ExecStart = "${farmer}/bin/freeleech-farmer";
             Environment = [
-              "FARMER_MAX_ADDS=5"
+              "FARMER_MAX_ADDS=15"
               "FARMER_MIN_SEEDERS=1"
+              # 0 = accept any freeleech, but sort by leechers so items that can
+              # actually be uploaded are picked first.
+              "FARMER_MIN_LEECHERS=0"
               "FARMER_MAX_SIZE_GB=20"
-              "FARMER_MAX_TOTAL_GB=100"
+              "FARMER_MAX_TOTAL_GB=300"
               "FARMER_MIN_FREE_GB=200"
-              "FARMER_CLEAN_RATIO=2.0"
-              "FARMER_CLEAN_DAYS=14"
+              "FARMER_CLEAN_RATIO=3.0"
+              "FARMER_CLEAN_DAYS=30"
             ];
           };
         };
@@ -45,7 +52,7 @@ _: {
         systemd.timers.freeleech-farmer = {
           wantedBy = [ "timers.target" ];
           timerConfig = {
-            OnCalendar = "*:0/30";
+            OnCalendar = "*:0/10";
             RandomizedDelaySec = "2m";
             Persistent = true;
           };
@@ -56,6 +63,11 @@ _: {
         ];
 
         notify.services = [ "freeleech-farmer" ];
+
+        # Same rationale as cross-seed.nix: the unit only exists when this module
+        # is enabled, so it adds itself to the namespace rather than being listed
+        # in vpn.nix.
+        vpn.airvpn.netns.services = [ "freeleech-farmer" ];
       };
     };
 }
