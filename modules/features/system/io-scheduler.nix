@@ -26,6 +26,14 @@ _: {
     # CONFIG_BFQ_GROUP_IOSCHED=y, so this is also the prerequisite that would
     # make a per-slice IOWeight meaningful if the limits plan is ever needed
     # (plan annexe A).
+    #
+    # Caveat verified on deploy: a `switch` alone does NOT apply this to disks
+    # that are already present, because no add|change event fires for them — the
+    # rule is installed and correct (`udevadm test /sys/block/sda` confirms the
+    # write) but nothing replays it until the next boot. To apply it live, per
+    # device: `udevadm trigger --action=change /sys/block/sdX`. Switching the
+    # elevator on a mounted disk is a supported online operation; it was done
+    # one disk at a time on 2026-09-28 with no IO error and no mount lost.
     services.udev.extraRules = ''
       ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
     '';

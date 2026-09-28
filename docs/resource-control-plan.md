@@ -311,6 +311,13 @@ Constats d'implémentation (2026-09-28) :
   un lien vers l'unit du paquet nix (`systemd.packages`), et NixOS écrit les
   surcharges dans `nix-daemon.service.d/overrides.conf`. Vérifier là, pas dans
   l'unit.
+- **Un `switch` ne suffit pas à activer BFQ.** La règle udev ne se déclenche que
+  sur `add|change` : les disques déjà présents restent sur `mq-deadline` jusqu'au
+  prochain redémarrage, alors que la règle est bien installée et correcte
+  (`udevadm test /sys/block/sda` le confirme). Application à chaud, un disque à
+  la fois : `udevadm trigger --action=change /sys/block/sdX`. Fait le 2026-09-28
+  sur les cinq rotatifs, sans erreur IO ni montage perdu — les deux NVMe restent
+  en `none` comme voulu.
 - **Le module neuf doit être suivi par git avant le switch** : les flakes
   ignorent les fichiers non suivis, et `nixos-rebuild --flake '.#hyper'` échoue
   sur `undefined variable 'io-scheduler'`. Contourner en validation avec
