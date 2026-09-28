@@ -43,10 +43,18 @@
       backups.sources.jellyfin = {
         paths = [ config.services.jellyfin.dataDir ];
         # Logs and regenerable cache/transcode data — not worth shipping.
+        #
+        # metadata/ is only partly regenerable, so it is split deliberately:
+        # People (2.3 GB of actor headshots) and Studio are pure provider
+        # caches, re-fetched on demand. metadata/library (338 MB) is NOT
+        # excluded — it holds the per-item images and .nfo, which is where a
+        # manual metadata edit would live.
         exclude = [
           "${config.services.jellyfin.dataDir}/log"
           "${config.services.jellyfin.dataDir}/cache"
           "${config.services.jellyfin.dataDir}/transcodes"
+          "${config.services.jellyfin.dataDir}/metadata/People"
+          "${config.services.jellyfin.dataDir}/metadata/Studio"
         ];
       };
     };

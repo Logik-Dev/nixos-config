@@ -42,6 +42,14 @@ _: {
       # API key (config.xml); the DB itself is in postgres.
       backups.sources.prowlarr = {
         paths = [ "/var/lib/private/prowlarr" ];
+        # Definitions (4.7 MB) are indexer definitions Prowlarr re-syncs from
+        # upstream, and logs (5 MB) churn daily. Small in absolute terms, but
+        # they are the only things in this 9.7 MB state dir that change every
+        # day — excluding them makes snapshots essentially free.
+        exclude = [
+          "/var/lib/private/prowlarr/Definitions"
+          "/var/lib/private/prowlarr/logs"
+        ];
       };
     };
 }

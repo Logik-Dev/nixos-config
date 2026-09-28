@@ -31,6 +31,14 @@ _: {
 
       backups.sources.radarr = {
         paths = [ config.services.radarr.dataDir ];
+        # MediaCover (1.3 GB) is a poster/fanart cache Radarr re-fetches on
+        # demand, and it churns daily — so every snapshot stored new chunks,
+        # which is why the repo had grown to 3.9 GB for 1.4 GB of state. The
+        # database (~10 MB) is the only part a restore actually needs.
+        exclude = [
+          "${config.services.radarr.dataDir}/MediaCover"
+          "${config.services.radarr.dataDir}/logs"
+        ];
       };
     };
 }
