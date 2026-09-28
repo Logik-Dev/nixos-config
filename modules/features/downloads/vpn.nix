@@ -151,7 +151,14 @@ _: {
             "cross-seed.service"
           ];
           partOf = [ "prowlarr.service" ];
-          wantedBy = [ "multi-user.target" ];
+          # `partOf` stops us whenever Prowlarr stops (e.g. the nightly restic
+          # backup does `systemctl stop prowlarr`), but the follow-up `start`
+          # does not pull us back up — hence the explicit wantedBy, so starting
+          # Prowlarr re-applies the rules (and the kill-switch stays up).
+          wantedBy = [
+            "multi-user.target"
+            "prowlarr.service"
+          ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
@@ -240,7 +247,10 @@ _: {
           ];
           partOf = [ "prowlarr.service" ];
           wants = [ "vpn-policy-routing.service" ];
-          wantedBy = [ "multi-user.target" ];
+          wantedBy = [
+            "multi-user.target"
+            "prowlarr.service"
+          ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;

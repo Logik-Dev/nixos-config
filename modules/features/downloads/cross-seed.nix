@@ -40,9 +40,18 @@ _: {
           };
         };
 
+        # qBittorrent (group media) must be able to create the files cross-seed
+        # could not link (e.g. the .nfo absent from the library). Without a
+        # group-writable umask the per-torrent link dirs are created 2755 and
+        # qBittorrent gets EACCES -> torrents stuck in "error".
+        systemd.services.cross-seed.serviceConfig.UMask = "0002";
+
         systemd.tmpfiles.rules = [
           "d /mnt/medias1/cross-seed-links 2775 cross-seed media - -"
           "d /mnt/medias2/cross-seed-links 2775 cross-seed media - -"
+          # Fix link dirs created before the umask above (2755 -> 2775).
+          "Z /mnt/medias1/cross-seed-links 2775 cross-seed media - -"
+          "Z /mnt/medias2/cross-seed-links 2775 cross-seed media - -"
         ];
 
         notify.services = [ "cross-seed" ];

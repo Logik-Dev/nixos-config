@@ -306,6 +306,26 @@ Plafonds de taille (MB/min) : 2160p WEBDL/WEBRip 220, Bluray 320, Remux 480 ;
   depuis l'IP WAN). Pas de fuite en clair, mais pas d'isolation DNS totale.
 - **IP de sortie mutualisée** : certains trackers privés la tolèrent plus ou
   moins ; le port dédié améliore la connectabilité.
+- **Torrents cross-seed en rouge (`state=error`)** : le log qBittorrent
+  (`/api/v2/log/main`) montre `file_open (.../<release>.nfo) error: Permission
+  non accordée`. Cause : cross-seed crée les sous-dossiers de
+  `cross-seed-links/` avec `UMask=0022` → mode **2755** (groupe `media` sans
+  écriture). Les torrents YggReborn/C411 embarquent un `.nfo` absent de la
+  bibliothèque (l'import *arr ne garde que le `.mkv`), donc qBittorrent doit le
+  créer/télécharger, mais il tourne en `qbittorrent:media` et n'a pas le droit
+  d'écriture sur le dossier → `EACCES` → torrent en `error`. Fix : `UMask=0002`
+  sur `cross-seed.service` (+ règle tmpfiles `Z` pour rattraper les dossiers
+  existants). cross-seed ne reprend pas ces torrents lui-même (« Will not
+  resume ... state is error ») : les `resume` une fois les droits corrigés.
+- **Kill-switch / policy routing tombés après le backup Prowlarr** : le backup
+  restic de Prowlarr fait `systemctl stop prowlarr` puis `start`
+  (`restic.nix`, `manageService`). Comme `vpn-policy-routing` et
+  `vpn-killswitch` ont `partOf=prowlarr.service`, le **stop** se propage mais
+  pas le **start** : les règles `ip rule` et la table nft sont supprimées et ne
+  reviennent pas → qBittorrent/Prowlarr/cross-seed sortent par l'IP WAN
+  (fuite) jusqu'au reboot. Fix : ajouter `wantedBy = [ "prowlarr.service" ]` aux
+  deux unités pour qu'un `start` de Prowlarr les remonte. Vérif :
+  `systemctl status vpn-policy-routing vpn-killswitch` + `ip rule show`.
 - **ACME dépend du DNS public** : si `logikdev.fr` ne résout pas publiquement
   (zone Cloudflare `moved`, `clientHold` registraire…), Traefik sert son
   certificat par défaut (`ERR_CERT_AUTHORITY_INVALID`) pour tout nouveau
