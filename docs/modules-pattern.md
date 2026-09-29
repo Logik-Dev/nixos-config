@@ -29,6 +29,13 @@ ajoutant à ces listes nommées.
 > `git ls-files --error-unmatch <fichier>`. Un fichier déjà suivi qu'on modifie
 > n'a pas ce problème : le contenu suffit. Vécu deux fois le 2026-09-29, sur les
 > deux seuls modules créés ce jour-là.
+>
+> Piège voisin, même jour : la condition d'attente doit matcher ce qui est
+> **nouveau**, pas ce qui est simplement **présent**. Attendre une chaîne qui
+> figurait déjà dans un commentaire de la version précédente fait sortir la
+> boucle aussitôt, et le déploiement évalue le fichier inchangé — symptôme :
+> **chemin de store identique et génération non incrémentée**, sans la moindre
+> erreur.
 
 ### Exemple simple (module body direct)
 

@@ -88,7 +88,8 @@ rankoder).
 
 La liste des clients attendus est explicite dans le module, pas déduite des
 connexions observées : **on ne détecte pas une absence à partir de ce qui est
-présent**. `home-assistant.service` s'y ajoute au lot C de la migration HA.
+présent**. Elle compte trois entrées depuis le 2026-09-29 —
+`home-assistant.service` (natif), `zigbee2mqtt.service` et `rankoder.service`.
 
 Vérifié par test négatif le 2026-09-29 (arrêt bref de rankoder) : la jauge tombe
 bien à 0 pour le client coupé **et reste à 1 pour l'autre** — la règle discrimine

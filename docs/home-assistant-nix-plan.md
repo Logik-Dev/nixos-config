@@ -870,13 +870,32 @@ Déployé et persisté (génération 512). Les 6 automatisations sont enregistr�
 au journal sont `mqtt_not_setup_cannot_subscribe` sur les déclencheurs MQTT de
 rankoder — **attendu**, l'intégration MQTT n'étant pas encore configurée.
 
-Trois dépendances restent à recréer côté UI pour que tout s'anime :
+Dépendances à recréer côté UI pour que tout s'anime :
 
-| Dépendance | Débloque |
-|---|---|
-| Intégration **MQTT** | les 3 automatisations rankoder, les 8 capteurs, et la vanne via Zigbee2MQTT |
-| Intégration **meteo_france** | `binary_sensor.il_va_pleuvoir`, donc les conditions d'arrosage |
-| Enregistrement **`mobile_app`** du téléphone | toutes les notifications |
+| Dépendance | Débloque | État |
+|---|---|---|
+| Intégration **MQTT** | les 3 automatisations rankoder, les 8 capteurs, la vanne via Zigbee2MQTT | **faite le 2026-09-29** |
+| Intégration **meteo_france** | `binary_sensor.il_va_pleuvoir`, donc les conditions d'arrosage | à faire |
+| Enregistrement **`mobile_app`** du téléphone | toutes les notifications | à faire |
+
+### MQTT : ce que la connexion a effectivement débloqué (2026-09-29)
+
+L'instance native est devenue cliente du courtier, et **la découverte a fait le
+reste** sans intervention :
+
+- les **8 capteurs `rankoder/status`** déclarés en nix sont apparus ;
+- toute la **vanne Sonoff** est remontée par Zigbee2MQTT — 15 entités, dont
+  **`switch.vanne_sonoff` sous exactement l'id que les automatisations
+  ciblent**, ce qui valide la reprise sans retouche ;
+- les entités du pont zigbee2mqtt (version, log level, permit join, état de
+  connexion) ;
+- les erreurs `mqtt_not_setup_cannot_subscribe` ont disparu du journal.
+
+**MON-11 fermé dans la foulée** : `home-assistant.service` ajouté à la liste
+`expected` du relevé (génération 513). Prometheus suit les 3 clients, les deux
+règles sont `inactive`/`health=ok`. C'est pour cette ligne que le module
+existait — le natif porte désormais tout le Zigbee, un décrochage silencieux
+coûterait ce qu'a coûté P0-9.
 
 ## Références internes
 

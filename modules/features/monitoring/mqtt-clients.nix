@@ -18,16 +18,18 @@ _: {
   flake.modules.nixos.mqtt-clients =
     { lib, pkgs, ... }:
     let
-      # La VM Home Assistant (192.168.21.181) n'y est PAS, sciemment : elle est
-      # décrochée depuis le 2026-09-27 (P0-9), c'est constaté et assumé, et elle
-      # doit disparaître. L'y mettre créerait une alerte en échec permanent,
-      # c'est-à-dire du bruit qu'on apprendrait à ignorer — exactement ce qui
-      # rend une supervision inutile.
+      # La VM Home Assistant n'y figure pas et n'y figurera jamais : elle a été
+      # arrêtée le 2026-09-29, et c'est l'instance **native** qui tient désormais
+      # le courtier — ajoutée ici le même jour, dès que son intégration MQTT a
+      # été créée.
       #
-      # `home-assistant.service` s'ajoute ici **au lot C**, quand l'instance
-      # native prendra le courtier. C'est à ce moment que ce module vaudra le
-      # plus : le même silence coûterait alors le même prix.
+      # C'est précisément pour cette ligne que le module existe. Le natif porte
+      # maintenant tout le Zigbee et les trois automatisations rankoder ; un
+      # décrochage silencieux coûterait exactement ce qu'a coûté P0-9 — 2,5 jours
+      # de domotique muette sans qu'une seule alerte ne parte, parce que la
+      # supervision regardait l'unité du courtier et jamais ses clients.
       expected = [
+        "home-assistant.service"
         "zigbee2mqtt.service"
         "rankoder.service"
       ];
