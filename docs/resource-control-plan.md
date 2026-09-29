@@ -1,7 +1,7 @@
 # Plan — maîtrise des ressources sur hyper
 
-> Statut : planification (aucune modification appliquée).
-> Date : 2026-09-28 · **révision 3 (recadrage sur mesures 7 jours)**.
+> Statut : C1, C3 et C5 déployés le 2026-09-28. C2 et C4 non entamés.
+> Date : 2026-09-29 · **révision 4 (première relecture des mesures post-C3)**.
 > Portée : hôte `hyper` (i7-9700K, 62 GiB, zram 15,7 G, P4000 8 Go).
 > **Décision r3 : le chantier « cgroups/mémoire » des révisions 1-2 est abandonné
 > comme projet.** Sur 7 jours : 0 OOM kill, pression mémoire à 1,4 % au pic.
@@ -17,6 +17,9 @@
   inopérantes et un plafond qui aurait cassé les backups.
 - **r3** — recadrage : mesure de la pression réelle sur 7 jours + audit du
   contenu des sauvegardes. Le plan change de cible.
+- **r4** — relecture des mesures 14 h après C1+C3 (§C3, « Premier retour de
+  mesure »). La porte de sortie de C3 est **remplacée** : la PSI IO de l'hôte ne
+  peut pas valider un changement d'ordonnanceur (R8).
 
 ### 0.1 Corrections apportées en r2 (conservées : elles motivent l'abandon)
 
@@ -29,6 +32,7 @@
 | R5 | `vm.overcommit_memory=1` présenté comme un défaut subi | C'est **le module redis de nixpkgs** (`redis.nix:466`, `services.redis.*.vmOvercommit` défaut `true`, tiré par `redis-immich`). Le revenir est une régression redis, et c'est sans objet : `memory.max` s'applique quel que soit l'overcommit |
 | R6 | zram = « soupape » de 15,7 G | zram, c'est de la **RAM compressée**, pas de la capacité ; et `memory.max` **ne limite pas le swap** : un cgroup plafonné à 4 G continue à consommer de la RAM via zram jusqu'à `memory.swap.max`. Tout plafond exige `MemorySwapMax` |
 | R7 | Budget « 33 G + 15,6 G + infra ≈ 48,6 G < 62 G » | Arithmétique non fondée : additionner des `MemoryMax` frères ne borne rien quand l'infra est non plafonnée et que snapraid (12,5 G) et la VM sont hors somme |
+| R8 *(r4)* | Porte de sortie de C3 = pic de `rate(node_pressure_io_waiting_seconds_total[10m])` aux fenêtres 02 h / 10 h | **Métrique invalide pour ce changement** : elle est à l'échelle de l'hôte et compte *toute* tâche bloquée sur l'IO, snapraid inclus. BFQ qui fonctionne — faire attendre le batch — la fait **monter**. Elle ne distingue pas la victime du coupable. Remplacée par `cgroup_pressure_io_*` par cgroup (`monitoring/cgroup-pressure.nix`) |
 
 ## 1. Contexte
 
@@ -290,6 +294,7 @@ régime), HA fonctionnel, add-ons démarrés, `free -g` sur l'hôte.
 | `system/io-scheduler.nix` **(nouveau)** | règle udev : `ACTION=="add\|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"` — NVMe laissé en `none` | **Prérequis** : sans BFQ, `IOWeight` *et* les `ionice` déjà posés par nixpkgs sont des no-op (R4). C'est ce qui rend effectif le `IOSchedulingPriority=7` que snapraid porte déjà |
 | `system/nix.nix` | `nix.daemonCPUSchedPolicy = "idle"` + `nix.daemonIOSchedClass = "idle"` (côté NixOS) | Un build cesse de concurrencer Jellyfin/Postgres. Options NixOS de première classe (`nix-daemon.nix:95,129`), effet immédiat — `SCHED_IDLE` ne dépend pas de l'ordonnanceur bloc |
 | `storage/restic.nix` | `IOSchedulingClass = "idle"`, `CPUSchedulingPolicy = "batch"`, `Nice = 19` sur les jobs | Les jobs cèdent le passage au streaming ; devient réel avec BFQ sur les cibles rotatives |
+| `monitoring/cgroup-pressure.nix` **(nouveau, r4)** | boucle d'échantillonnage 30 s → `cgroup_pressure_{io,cpu,memory}_{waiting,stalled}_seconds_total{cgroup=…}` dans le textfile de node_exporter | **L'instrument qui manquait** (R8). Victimes : jellyfin, postgresql, `system-immich.slice`, `system-paperless.slice`, `machine.slice`. Batch : snapraid-sync, `restic-backups-*`, nix-daemon. Les cgroups de oneshots n'existent que pendant le run — exactement la fenêtre à mesurer |
 
 Constats d'implémentation (2026-09-28) :
 
@@ -323,16 +328,78 @@ Constats d'implémentation (2026-09-28) :
   sur `undefined variable 'io-scheduler'`. Contourner en validation avec
   `--flake 'path:.#hyper'` ; pour déployer, commiter (jj) d'abord.
 
+#### Premier retour de mesure (2026-09-29, ~14 h après la bascule)
+
+**Le mécanisme est en place et honoré.** Les cinq rotatifs sont sur `[bfq]`, le
+module est chargé (refcount 5), les deux NVMe restent sur `[none]`, aucune erreur
+IO au journal. `systemctl show` confirme que les réglages sont désormais
+effectifs : `snapraid-sync` en `IOSchedulingClass=2`/prio 7 + `SCHED_BATCH` +
+`Nice=19`, `nix-daemon` en `SCHED_IDLE` (policy 5) + best-effort prio 7,
+`restic-backups-*` en `IOSchedulingClass=3` (idle) + batch + `Nice=19`.
+
+**Aucun résultat probant, et l'ancienne porte de sortie ne pouvait pas en
+produire.** Trois raisons, dans l'ordre d'importance :
+
+1. **C1 et C3 ont été déployés le même jour, et C1 explique la nuit.** Les
+   excludes ont supprimé le travail au lieu de le réordonner :
+
+   | job | 28/09 (avant) | 29/09 (après) |
+   |---|---|---|
+   | `restic-backups-adguard` | 4,7 G lus, **2,6 G** de pic mémoire | 14 M lus, **73,6 M** |
+   | `restic-backups-jellyfin` | 870,9 M lus | 420,7 M lus |
+   | `restic-backups-pg-dump` | 3,4 G lus | 3,4 G lus (hors périmètre C1) |
+
+   La baisse du pic 01-03 h (0,443 → 0,279) n'est donc pas imputable à BFQ. Le
+   gain C1 est en revanche net : pic mémoire d'adguard divisé par 35.
+
+2. **La métrique de la porte mesurait la mauvaise chose** (R8). Côté snapraid
+   elle est plate : 0,432 contre 0,425 / 0,410 / 0,407 les 26-28/09, et la
+   pression déborde maintenant sur 11 h (0,234 → 0,432) parce que le sync dure
+   plus longtemps — 29 min 17 contre 24 min 57 pour un volume comparable
+   (332 G lus contre 340 G), soit 395 Mo/s contre 473. Mais l'historique va de
+   265 à 473 Mo/s selon la forme du tableau : ce −16 % est dans le bruit et ne
+   démontre pas plus une régression de débit.
+
+3. **n = 1, et les nuits ne sont pas comparables entre elles.** Avec
+   `RandomizedDelaySec = "5h"` (C4, non traité), la charge atterrit à 02 h ou à
+   06 h selon la nuit : 7 des 9 nuits de référence ont un pic 01-03 h quasi nul
+   (0,012-0,027) simplement parce que rien n'y tournait. Comparer une moyenne
+   horaire post-changement à cette moyenne diluée n'a pas de sens — **C4 est donc
+   aussi un prérequis de mesure**, pas seulement un confort d'exploitation.
+
+Point de départ pour la prochaine lecture (totaux PSI IO `full` par cgroup, 22 h
+d'uptime, donc sans référence pré-BFQ — les compteurs repartent au démarrage de
+l'unité) : jellyfin 9,7 s · postgresql 72,6 s · `system-immich.slice` 13,5 s ·
+`machine.slice` 9,4 s · nix-daemon 1,6 s.
+
 Optionnel, si la pression IO reste visible après coup : `IOReadBandwidthMax` /
 `IOWriteBandwidthMax` (`io.max`) sur les jobs lourds — fonctionne **quel que
 soit** l'ordonnanceur, y compris sur le NVMe resté en `none`.
 
 Validation : `cat /sys/block/sda/queue/scheduler`, `ionice -p <pid>` pendant un
-sync, et surtout **comparaison avant/après du pic de
-`rate(node_pressure_io_waiting_seconds_total[10m])` aux fenêtres 02 h et 10 h**
-(référence : 0,45 et 0,44).
+sync, et surtout la **comparaison par cgroup sur la fenêtre snapraid (10 h-12 h),
+sur au moins 7 jours** :
+
+```promql
+# doit BAISSER — les victimes attendent moins
+rate(cgroup_pressure_io_waiting_seconds_total{cgroup=~"jellyfin.service|postgresql.service|system-immich.slice"}[10m])
+# doit MONTER — c'est BFQ qui fait attendre le batch, donc la preuve qu'il agit
+rate(cgroup_pressure_io_waiting_seconds_total{cgroup="snapraid-sync.service"}[10m])
+```
+
+Critère secondaire, indépendant des cgroups : la latence des rotatifs pendant la
+fenêtre, `rate(node_disk_read_time_seconds_total[10m]) / rate(node_disk_reads_completed_total[10m])`
+sur `sd[a-e]`.
+
+**Ne pas utiliser** `node_pressure_io_waiting_seconds_total` comme porte de
+sortie (R8) : la référence 0,45 / 0,44 reste un point de repère historique, pas
+un critère de réussite.
 
 ### C4 — Sérialiser la fenêtre nocturne
+
+> **Promu en prérequis de mesure en r4.** Tant que la fenêtre est aléatoire, deux
+> nuits ne sont pas comparables (§C3, point 3) : aucune porte de sortie portant
+> sur la nuit n'est évaluable. À faire avant de conclure quoi que ce soit sur C3.
 
 `storage/restic.nix:82` : `RandomizedDelaySec = "5h"` sur 22 timers pointés à
 `02:05`. Remplacer par un échelonnement déterministe (`OnCalendar` décalés) ou un
@@ -408,10 +475,10 @@ sur la base d'un incident réel et de chiffres à jour, pas d'un pronostic.
 
 | Étape | Contenu | Porte de sortie |
 |---|---|---|
-| 1 | **C5** (fil-piège d'alertes seul) — **fait, construit, non déployé** (2026-09-28) | 3 alertes ajoutées (`HostOOMKill`, `MemoryStallSustained`, `IoStallSustained`), validées par `promtool` au build. La 4ᵉ (`HostMemoryAvailableLow`) a été **abandonnée** : `HighMemoryPressure` couvrait déjà le seuil `MemAvailable` |
-| 2 | **C1** (hygiène de sauvegarde) — **fait, construit, non déployé** (2026-09-28) | Excludes en place sur adguard/jellyfin/radarr/sonarr/prowlarr + `querylog.interval = "7d"`. Reste à vérifier après une nuit : `restic stats` en baisse, pic mémoire adguard effondré, **restauration testée** pour chaque source modifiée |
+| 1 | **C5** (fil-piège d'alertes seul) — **déployé** (2026-09-28) | 3 alertes ajoutées (`HostOOMKill`, `MemoryStallSustained`, `IoStallSustained`), validées par `promtool` au build. La 4ᵉ (`HostMemoryAvailableLow`) a été **abandonnée** : `HighMemoryPressure` couvrait déjà le seuil `MemAvailable` |
+| 2 | **C1** (hygiène de sauvegarde) — **déployé** (2026-09-28) | Excludes en place sur adguard/jellyfin/radarr/sonarr/prowlarr + `querylog.interval = "7d"`. Reste à vérifier après une nuit : `restic stats` en baisse, pic mémoire adguard effondré, **restauration testée** pour chaque source modifiée |
 | 3 | **C2** (VM HA) | `dommemstat unused > 2 G`, HA + add-ons OK, ~11 G rendus sur l'hôte |
-| 4a | **C3** (priorité batch) — **fait, construit, non déployé** (2026-09-28) | `io-scheduler.nix` (BFQ sur les 5 rotatifs + `boot.kernelModules`), `nix-daemon` en `CPUSchedulingPolicy=idle` / `IOSchedulingClass=best-effort` prio 7, jobs restic en `Nice=19` + `batch` + `IOSchedulingClass=idle`. Vérifié dans le système construit. Porte de sortie : pic de pression IO à 02 h et 10 h en baisse vs référence (0,45 / 0,44) |
+| 4a | **C3** (priorité batch) — **déployé** (2026-09-28) | `io-scheduler.nix` (BFQ sur les 5 rotatifs + `boot.kernelModules`), `nix-daemon` en `CPUSchedulingPolicy=idle` / `IOSchedulingClass=best-effort` prio 7, jobs restic en `Nice=19` + `batch` + `IOSchedulingClass=idle` ; rotatifs basculés à chaud. Porte de sortie **remplacée en r4** (R8) : `rate(cgroup_pressure_io_waiting_seconds_total[10m])` en baisse sur jellyfin/postgresql/immich pendant 10 h-12 h **et** en hausse sur `snapraid-sync.service`, sur ≥ 7 jours. Bloqué par C4 : sans fenêtre déterministe, les nuits ne sont pas comparables |
 | 4b | **C4** (sérialisation de la fenêtre) | aucune fenêtre batch allongée au point de déborder |
 | 5 | **C5** volet protecteur (`MemoryMin`, `ManagedOOMPreference`, `OOMScoreAdjust`) | `systemctl show <unit> -p MemoryMin -p ManagedOOMPreference` conforme |
 
