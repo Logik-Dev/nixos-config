@@ -77,6 +77,21 @@ Topics ntfy : `homelab-alerts` (Alertmanager), `service-failure` (notify),
 `backup-verify` (drills). La route publique Traefik est **lecture seule**
 (`GET/HEAD/OPTIONS`) ; seule la publication locale (`localhost:2586`) écrit.
 
+**Publication garantie** : `push_ntfy` (`monitoring/lib/_ntfy.nix`) réessaie
+~28 s puis **met en attente dans `/var/lib/ntfy-spool`** (drop-box `1733` : les
+publieurs non-root, comme le drill postgres, y déposent sans pouvoir lister).
+`ntfy-spool-drain.timer` (2 min) rejoue les messages et expose
+`ntfy_spool_pending` / `ntfy_spool_oldest_age_seconds` /
+`ntfy_spool_drain_timestamp_seconds` → alertes `NtfySpoolStuck` et
+`NtfySpoolDrainMissing`. Motif : un `curl` sans reprise perdait des alertes en
+silence au boot (ntfy-sh écoute après les premières unités en échec) — cf.
+[notifications-plan.md](notifications-plan.md) §2.1.
+
+Le `--collector.systemd.unit-include` de node_exporter (`monitoring/node.nix`)
+est construit par **union** de motifs larges et de `config.notify.services` :
+la liste écrite à la main avait dérivé et laissait 15 unités notifiées hors de
+portée de `SystemdUnitFailed` (§2.4 du même plan).
+
 ## Glance dashboard
 
 `monitoring/glance.nix` auto-génère ses widgets monitor depuis
