@@ -147,6 +147,45 @@ via Traefik, netns `vpn` toujours sur son tunnel (IP de sortie AirVPN).
   en *drop* casserait le **subnet routing Tailscale**, **netavark** et la **veth
   du namespace `vpn`** tant que les règles ne sont pas écrites.
 
+## Home Assistant exposé au WAN sans anti-bourrage (SEC-19)
+
+**Constaté le 2026-09-29.** `ha.hyper.logikdev.fr` résout **publiquement**
+(CNAME vers `logikdev.fr` → l'IP WAN, vérifié contre `1.1.1.1`), et les ports
+80/443 sont redirigés par le routeur. La page de connexion de Home Assistant est
+donc joignable depuis Internet.
+
+| Couche | État |
+|---|---|
+| Authelia | **absente** — choix assumé, les clients natifs ne suivent pas un forwardAuth |
+| Rate-limit Traefik | 150 req/s en moyenne, burst 300 — très large pour du bourrage d'identifiants |
+| Bannissement HA après échecs | **désactivé** : `login_attempts_threshold = -1` |
+
+`ip_ban_enabled` est pourtant à `true` : c'est le seuil à `-1`
+(`NO_LOGIN_ATTEMPT_THRESHOLD`, le défaut de HA) qui neutralise le mécanisme.
+
+### Le correctif, et pourquoi il est sûr ici
+
+Régler `login_attempts_threshold` à une valeur positive (5 est un choix
+raisonnable). HA bannit alors l'IP fautive après N échecs.
+
+Ce qui rend ce bannissement **utile plutôt que dangereux**, c'est que la
+configuration de proxy est correcte : `use_x_forwarded_for = true` et
+`trusted_proxies = ['127.0.0.1/32']`. HA lit donc la **vraie IP du client** dans
+`X-Forwarded-For` et bannit l'attaquant. Sans cela il bannirait `127.0.0.1`,
+c'est-à-dire Traefik — et mettrait tout le monde dehors d'un coup.
+
+⚠️ **À faire dans l'UI, pas en nix** : `.storage/http` est géré par l'interface
+depuis HA 2026.8, et l'YAML n'en est qu'une migration one-shot qu'une promotion
+ratée écarte définitivement. Voir `docs/home-assistant-nix-plan.md` §9.
+
+### Pistes plus fortes, non retenues pour l'instant
+
+- Restreindre la route `ha` au LAN et au tailnet, et passer par Tailscale depuis
+  l'extérieur. Écarté pour l'instant parce que ça change l'usage du téléphone
+  hors du domicile — à arbitrer.
+- Mettre HA derrière Authelia : incompatible avec l'application compagnon, qui
+  ne suit pas la redirection du forwardAuth.
+
 ## Modèle sudo (hyper)
 
 `security.sudo.wheelNeedsPassword = false` (`security/hardening.nix`) : les
@@ -207,6 +246,9 @@ un déverrouillage automatique au boot sans intervention.
   **fermable** (HA passerait en loopback), ce qui retire l'essentiel du sujet —
   voir `docs/home-assistant-nix-plan.md` §3.2 d.
 - **SEC-11** : appliquer le JSON d'ACL Tailscale dans la console.
+- **SEC-19** : Home Assistant joignable depuis Internet sans Authelia **et** sans
+  bannissement après échecs de connexion (section ci-dessus). Correctif = un
+  réglage dans l'UI ; non appliqué à ce jour.
 - **SEC-14** : **corrigé le 2026-09-29** (moitié ciblée déployée, génération
   507). Restent ouverts : le chemin IoT → tailnet (relève des ACL Tailscale,
   SEC-11) et le chantier nftables/`filterForward`.

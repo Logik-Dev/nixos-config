@@ -39,6 +39,35 @@
     {
       notify.services = [ "home-assistant" ];
 
+      # Découverte des objets — **uniquement sur le lien IoT**.
+      #
+      # mDNS (5353) et SSDP (1900) sont du multicast : les réponses n'arrivent
+      # pas sur le tuple de la requête, donc le suivi de connexion ne les
+      # rattrape pas et le pare-feu les jette. Sans ces deux ports, HA émet ses
+      # requêtes et n'entend jamais personne.
+      #
+      # Scopé à `br-iot` et pas ouvert globalement : c'est là que vivent les
+      # objets (§3.2 b), et ça évite d'exposer la découverte au LAN, au tailnet
+      # et aux VLAN 100/200. La contrepartie assumée est qu'un objet compromis
+      # peut annoncer un faux service en mDNS — mais un flux de découverte ne
+      # commande rien tant que personne ne le confirme dans l'UI.
+      #
+      # ⚠️ Ceci ne suffit pas seul. HA choisit son adaptateur mDNS d'après la
+      # route par défaut, donc il se liait à `management` (le LAN) et
+      # n'entendait rien du VLAN IoT. L'adaptateur se sélectionne dans
+      # `.storage/core.network`, via l'UI — Paramètres → Système → Réseau. Il
+      # n'existe aucune option nix pour ça (§3.2 a).
+      #
+      # 8123 reste délibérément FERMÉ sur `br-iot` : la découverte n'en a pas
+      # besoin. Il ne s'ouvrira que le jour où Cast ou Sonos seront ajoutés —
+      # ces appareils vont chercher les URL de média et de TTS *depuis* HA
+      # (§3.2 d) — et ce sera une exposition à décider à ce moment-là, pas une
+      # avance prise « au cas où ».
+      networking.firewall.interfaces."br-iot".allowedUDPPorts = [
+        5353 # mDNS / zeroconf
+        1900 # SSDP / UPnP
+      ];
+
       # Enregistreur sur PostgreSQL plutôt que sur le SQLite par défaut.
       # Tranché le 2026-09-29 : le §6.8 différait ce choix parce qu'il coûtait
       # « une migration d'historique ou sa perte ». En repartant de zéro ce coût
