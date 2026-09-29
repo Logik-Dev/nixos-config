@@ -11,6 +11,14 @@
 > retiré les deux objections qui faisaient pencher vers le conteneur, et le seul
 > point dur (AirSonos) est **résolu : l'add-on est supprimable** (§3.1).
 > **Plus aucun bloqueur technique.**
+>
+> **Décision du 2026-09-29 : on repart de zéro.** Rien de ce que porte la VM
+> n'est jugé essentiel : **aucun `/config` n'est repris** — ni `.storage`, ni
+> les automatisations, ni les registres. Conséquences, qui simplifient
+> massivement le dossier : l'archive chiffrée n'est plus un blocage (§6.3), la
+> reprise de `/config` disparaît (§6.4), et le « non déclarable » du §2 cesse
+> d'être un héritage à transporter pour devenir une surface qu'on reconstruit à
+> la main, une fois. Le découpage en lots est en §8.
 
 ## 1. État des lieux (mesuré)
 
@@ -161,6 +169,13 @@ Cela dit, l'inventaire relativise : 8 intégrations ajoutées à la main et 390
 entités, c'est un `.storage/` modeste. Le « non déclarable » est petit ici — mais
 le gain côté intégrations l'est aussi. **Le gain est dans le YAML (§1.5), pas dans
 les intégrations.**
+
+**Mis à jour le 2026-09-29** : la décision de repartir de zéro change la portée de
+cette section. Ce `.storage/` n'est plus quelque chose à migrer, c'est quelque
+chose à **refaire** : 8 intégrations à recréer par des flux interactifs, plus ce
+que la découverte ramènera seule. Le constat de fond ne bouge pas — une
+configuration HA intégralement déclarative reste impossible, et une sauvegarde
+reste obligatoire dès que l'instance porte un état réel.
 
 ## 3. Les frictions réelles
 
@@ -363,8 +378,17 @@ strict nécessaire) et le durcissement systemd, absent d'un conteneur rootful.
 2. **Supprimer l'add-on AirSonos** (§3.1) — tranché, à faire dès maintenant côté
    HAOS : ça réduit d'autant le périmètre à migrer.
 3. **Extraction** : l'archive est un tar contenant `backup.json`,
-   `homeassistant.tar.gz` (= `/config`) et un tar par add-on (chiffrement possible :
-   conserver la clé).
+   `homeassistant.tar.gz` (= `/config`) et un tar par add-on.
+   ⚠️ **Vérifié le 2026-09-29 sur la copie locale
+   `/mnt/local/ha-backups/ha-7aaaf45a-2026-09-28.tar` : `"protected": true`.**
+   Les tarballs internes sont donc **chiffrés** et l'archive est inexploitable
+   sans la clé — celle-là même qui est à changer et à ranger dans Vaultwarden
+   (§1.4). Trois voies, à trancher :
+   a. fournir la clé actuelle et déchiffrer ;
+   b. produire depuis HA une sauvegarde **sans mot de passe**, à usage unique ;
+   c. **copier `/config` directement depuis la VM** (l'add-on Terminal & SSH est
+      encore là, et la VM reste allumée) — la voie la plus directe tant que la VM
+      tourne en parallèle.
 4. **`/config` → `/var/lib/hass`** (`configDir` par défaut du module) : garder
    `.storage/`, `secrets.yaml`, `automations.yaml`, `scripts.yaml`, `scenes.yaml`,
    `blueprints/`, `www/`. Propriétaire `hass:hass`, `.storage` en 0700.
@@ -391,8 +415,14 @@ strict nécessaire) et le durcissement systemd, absent d'un conteneur rootful.
    sur `br-iot`** une fois HA en loopback (§3.2 d) — après avoir confirmé qu'aucun
    appareil ne publie en MQTT directement. Ajouter le durcissement systemd
    (`IPAddressAllow` 192.168.21.0/24 + loopback, §3.2 c).
-10. **Jamais les deux en parallèle** : deux HA sur le même MQTT commanderaient les
-    appareils deux fois.
+10. **Jamais les deux *en service* en parallèle** : deux HA sur le même MQTT
+    commanderaient les appareils deux fois. Précision apportée le 2026-09-29,
+    parce que la VM est justement conservée en parallèle jusqu'au bout (§8) :
+    ce qui est interdit, ce n'est pas que les deux **existent**, c'est que les
+    deux **possèdent les appareils**. La frontière est le courtier MQTT et les
+    intégrations, pas le processus. Tant que l'instance native n'a ni entrée
+    `mqtt`, ni route Traefik, ni écoute hors loopback, les deux peuvent tourner
+    côte à côte sans risque.
 11. **Rollback** : garder le qcow2 au moins un mois, VM définie mais arrêtée.
 
 Corriger au passage `mealie: auth_failed` (§1.3) — indépendant, mais autant le voir
@@ -437,6 +467,90 @@ lourd sur la sécurité que tout ce qui précède.
 Le compromis de fond, à accepter en conscience : on échangerait « HA immunisé
 contre les déploiements » et « MAJ en un clic » contre « HA déployé et versionné
 comme le reste ». C'est un choix d'exploitation, pas un détail d'implémentation.
+
+## 8. Découpage en lots (décidé le 2026-09-29)
+
+**Deux décisions structurent ce découpage.** (1) La VM est conservée et reste en
+service jusqu'à validation complète ; elle n'est supprimée qu'à la toute fin.
+(2) **On repart de zéro** : aucun `/config` n'est repris.
+
+La seconde supprime le lot le plus lourd — et le seul qui était bloqué.
+
+### Lot A — l'instance native, vide · *fait et déployé le 2026-09-29*
+
+`modules/features/home/home-assistant.nix`, importé par hyper. Ce qui rend la
+cohabitation sûre (§6.10) :
+
+| Garde-fou | Effet |
+|---|---|
+| **Aucune intégration `mqtt`** | le courtier reste à la VM ; deux HA dessus commanderaient tout deux fois |
+| `http.server_host = [ "127.0.0.1" ]` | aucun appareil ne peut joindre l'instance native |
+| Nom d'hôte propre, `hass-native.hyper.logikdev.fr` | `hass.hyper.logikdev.fr` continue de servir la VM, sans conflit |
+| `backups.sources` absent | inutile de secouer une instance sans état réel |
+
+`extraComponents` couvre les 31 entrées du §1.3 — non pour les importer, mais
+pour décrire ce qu'on compte **recréer** ; la liste se taille à la baisse dès
+qu'un usage est abandonné. Les deux cartes HACS sont déclarées aux versions en
+service, et `configWritable` reste à `false`.
+
+Un piège traité au passage : **le module nixpkgs ne crée pas les fichiers que
+l'UI écrit**, et un `!include` sur un fichier absent empêche HA de démarrer. Les
+trois (`automations.yaml`, `scripts.yaml`, `scenes.yaml`) sont donc amorcés vides
+par tmpfiles, qui ne réécrit pas un fichier existant — ce que l'UI y mettra
+survit.
+
+Vérifié : les 30 noms de composants existent dans le nixpkgs épinglé
+(`availableComponents`, 1481 disponibles, 0 absent), et 8123 n'apparaît pas dans
+`allowedTCPPorts`.
+
+Réserve assumée : la découverte zeroconf/SSDP tourne (`default_config`
+l'embarque) et fera apparaître des cartes « découvert » pour des appareils que la
+VM gère encore. C'est inerte — un flux de découverte ne commande rien tant que
+personne ne le confirme — **mais n'en confirmer aucun avant la bascule**.
+
+### Lot B — la reconstruction · *manuel, côté UI*
+
+Onboarding, puis recréation des intégrations utiles une par une sur
+`hass-native.hyper.logikdev.fr`. C'est du geste humain, pas du nix : les *config
+flows* sont interactifs par construction (§2). Le dépôt suit au fur et à mesure —
+`customComponents` pour `alexa_media_player` et `services.music-assistant` ne
+sont déclarés que le jour où l'usage correspondant est recréé.
+
+**À décider avant de supprimer la VM** : les **5 automatisations `rankoder`**
+(§1.5) pilotent le workflow d'approbation d'un service déclaré *dans ce dépôt*
+(`medias/rankoder.nix`, qui publie en MQTT sous le compte `homeassistant`).
+« Repartir de zéro » les fait disparaître. Ce n'est pas un drame — mais c'est la
+seule logique de la VM qui appartienne conceptuellement au dépôt, et le §1.5 en
+faisait *le* gain déclaratif de l'opération. Les relire dans la VM pour les
+**réécrire en nix** (plutôt que les importer) coûte peu et se fait tant que la VM
+tourne. Sans elles, rankoder publie ses demandes d'approbation dans le vide.
+
+### Lot C — la bascule
+
+`http.server_host` ouvert sur `192.168.21.241` en plus du loopback (jamais
+loopback seul, §3.2 d), `traefik.services.hass.host` → `127.0.0.1` et retrait de
+la route `hass-native`, création de l'entrée `mqtt` côté natif **et retrait côté
+VM dans le même geste**, reprise des URL côté appareils et des `mobile_app`, puis
+`backups.sources.home-assistant`. C'est ici, et seulement ici, que la propriété
+des appareils change de main.
+
+### Lot D — le retrait
+
+Fermeture de `1883` sur `br-iot` (vérifié le 2026-09-29 : la VM est le **seul**
+client distant du courtier, cf. SEC-3b), arrêt de la VM, conservation du qcow2 au
+moins un mois, puis suppression.
+
+### Ce que la décision « repartir de zéro » a retiré du dossier
+
+- **L'archive chiffrée n'est plus un blocage.** `/mnt/local/ha-backups/…tar` est
+  `"protected": true` (§6.3) ; on ne l'ouvre pas, donc la clé n'est plus sur le
+  chemin critique. Elle reste à changer et à ranger dans Vaultwarden — mais
+  comme hygiène, plus comme dépendance.
+- **P0-9 cesse d'être bloquant.** HA n'a plus de connexion MQTT depuis le
+  2026-09-27 (`docs/audit-2026-09.md`). Tant qu'on migrait, il fallait le
+  réparer pour pouvoir tester la bascule. En repartant de zéro, c'est l'instance
+  native qui prendra le courtier, et l'état MQTT de la VM n'a plus d'importance
+  — sauf si le Zigbee doit continuer à marcher d'ici là, ce qui reste à trancher.
 
 ## Références internes
 

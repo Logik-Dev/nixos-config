@@ -30,6 +30,7 @@ let
       neovim
       gpu
       hardening
+      home-assistant
       node
       cgroup-pressure
       nvidia
