@@ -15,7 +15,7 @@
 #     bascule. Deux HA sur le même broker commanderaient tout deux fois ;
 #   - **écoute sur loopback seul**, Traefik étant la seule entrée. Aucun
 #     appareil ne peut joindre cette instance, donc aucune commande accidentelle ;
-#   - **son propre nom d'hôte** (`hass-native.hyper.logikdev.fr`), pendant que
+#   - **son propre nom d'hôte** (`ha.hyper.logikdev.fr`), pendant que
 #     `hass.hyper.logikdev.fr` continue de pointer sur la VM
 #     (hosts/hyper/libvirt.nix). Les deux sont joignables, sans conflit.
 #
@@ -42,7 +42,7 @@
       # Nom d'hôte distinct de `hass`, qui reste sur la VM. Pas d'Authelia :
       # HA a son authentification propre, comme les autres clients natifs
       # (docs/security.md § Services hors Authelia).
-      traefik.services.hass-native = {
+      traefik.services.ha = {
         port = 8123;
         host = "127.0.0.1";
         category = "Maison";
@@ -136,15 +136,32 @@
         # configWritable reste à false : configuration.yaml est un lien vers le
         # store, et tout ce que l'UI écrit passe par les `!include` ci-dessous,
         # qui restent mutables dans configDir.
+        #
+        # PAS de bloc `http` ici, et ce n'est pas un oubli. Depuis HA 2026.8 la
+        # configuration `http` vit dans `.storage/http` et l'YAML n'est plus
+        # qu'une **migration one-shot** :
+        #
+        #   - au premier démarrage, l'YAML est importé comme config `pending`,
+        #     l'ancienne restant `stable` ;
+        #   - `pending` doit être **promue dans les 5 minutes** via l'API
+        #     WebSocket, donc depuis une session authentifiée ;
+        #   - sans promotion, HA revient à `stable`, redémarre, et marque la
+        #     pending `error: not_promoted` — *« kept for inspection but never
+        #     applied again »*. Elle est définitivement écartée ;
+        #   - `yaml_migration_done` est alors posé : l'YAML n'est plus relu.
+        #
+        # Sur une instance neuve derrière un proxy, c'est un piège fermé : on ne
+        # peut pas s'authentifier pour promouvoir, puisque HA renvoie 400 à
+        # toute requête portant un `X-Forwarded-For` non fiable — et Traefik en
+        # pose toujours un. Vécu le 2026-09-29 : le 302 initial n'était qu'une
+        # fenêtre de 5 minutes avant révocation.
+        #
+        # Donc : HA démarre sur ses défauts, l'onboarding se fait **hors proxy**
+        # (`ssh -L 8123:127.0.0.1:8123 hyper`), et le reverse proxy se règle
+        # ensuite dans l'UI — Paramètres → Système → Réseau — où la promotion se
+        # fait proprement. 8123 reste absent d'`allowedTCPPorts`, donc le bind
+        # par défaut sur 0.0.0.0 n'est joignable depuis aucune interface.
         config = {
-          http = {
-            # Loopback seul : Traefik est la seule entrée, et il attaque en
-            # 127.0.0.1. S'ouvre sur `br-iot` à la bascule, pas avant.
-            server_host = [ "127.0.0.1" ];
-            use_x_forwarded_for = true;
-            trusted_proxies = [ "127.0.0.1" ];
-          };
-
           automation = "!include automations.yaml";
           script = "!include scripts.yaml";
           scene = "!include scenes.yaml";

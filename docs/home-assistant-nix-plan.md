@@ -395,10 +395,13 @@ strict nécessaire) et le durcissement systemd, absent d'un conteneur rootful.
    **Ne pas reprendre `custom_components/`** : les trois composants passent par
    `customLovelaceModules` / `customComponents`.
 5. **`configuration.yaml` en nix**, avec `!include` pour laisser mutables les
-   fichiers écrits par l'UI. Ajouter `http.use_x_forwarded_for` + `trusted_proxies`
-   pour Traefik, et `http.server_host = [ 127.0.0.1, 192.168.21.241 ]` (§3.2 a/d).
-   La sélection d'adaptateurs de découverte n'est **pas** du YAML : elle se fait à
-   l'UI et atterrit dans `.storage/core.network` (§3.2 a).
+   fichiers écrits par l'UI.
+   ⚠️ **Le conseil d'origine sur `http` est obsolète depuis HA 2026.8** — voir
+   §9. Ne pas déclarer de bloc `http` en nix : il vit désormais dans
+   `.storage/http`, l'YAML n'en est plus qu'une migration one-shot à promouvoir
+   en 5 minutes, et une promotion ratée est définitive.
+   La sélection d'adaptateurs de découverte n'est **pas** du YAML non plus :
+   elle se fait à l'UI et atterrit dans `.storage/core.network` (§3.2 a).
 6. **Les 10 automatisations écrites à la main** (§1.5) : candidates à passer en nix,
    les rankoder à côté de `medias/rankoder.nix`. Les 7 de l'éditeur graphique
    restent dans `automations.yaml` mutable.
@@ -485,7 +488,7 @@ cohabitation sûre (§6.10) :
 |---|---|
 | **Aucune intégration `mqtt`** | le courtier reste à la VM ; deux HA dessus commanderaient tout deux fois |
 | `http.server_host = [ "127.0.0.1" ]` | aucun appareil ne peut joindre l'instance native |
-| Nom d'hôte propre, `hass-native.hyper.logikdev.fr` | `hass.hyper.logikdev.fr` continue de servir la VM, sans conflit |
+| Nom d'hôte propre, `ha.hyper.logikdev.fr` | `hass.hyper.logikdev.fr` continue de servir la VM, sans conflit |
 | `backups.sources` absent | inutile de secouer une instance sans état réel |
 
 `extraComponents` couvre les 31 entrées du §1.3 — non pour les importer, mais
@@ -511,7 +514,7 @@ personne ne le confirme — **mais n'en confirmer aucun avant la bascule**.
 ### Lot B — la reconstruction · *manuel, côté UI*
 
 Onboarding, puis recréation des intégrations utiles une par une sur
-`hass-native.hyper.logikdev.fr`. C'est du geste humain, pas du nix : les *config
+`ha.hyper.logikdev.fr`. C'est du geste humain, pas du nix : les *config
 flows* sont interactifs par construction (§2). Le dépôt suit au fur et à mesure —
 `customComponents` pour `alexa_media_player` et `services.music-assistant` ne
 sont déclarés que le jour où l'usage correspondant est recréé.
@@ -529,7 +532,7 @@ tourne. Sans elles, rankoder publie ses demandes d'approbation dans le vide.
 
 `http.server_host` ouvert sur `192.168.21.241` en plus du loopback (jamais
 loopback seul, §3.2 d), `traefik.services.hass.host` → `127.0.0.1` et retrait de
-la route `hass-native`, création de l'entrée `mqtt` côté natif **et retrait côté
+la route `ha`, création de l'entrée `mqtt` côté natif **et retrait côté
 VM dans le même geste**, reprise des URL côté appareils et des `mobile_app`, puis
 `backups.sources.home-assistant`. C'est ici, et seulement ici, que la propriété
 des appareils change de main.
@@ -551,6 +554,58 @@ moins un mois, puis suppression.
   réparer pour pouvoir tester la bascule. En repartant de zéro, c'est l'instance
   native qui prendra le courtier, et l'état MQTT de la VM n'a plus d'importance
   — sauf si le Zigbee doit continuer à marcher d'ici là, ce qui reste à trancher.
+
+## 9. Le piège `http` de HA 2026.8 (vécu le 2026-09-29)
+
+**Ne pas déclarer de bloc `http` dans `services.home-assistant.config`.** C'est
+contre-intuitif — c'est exactement ce que le §6.5 recommandait — mais le
+mécanisme a changé et la recommandation est devenue un piège fermé.
+
+### Ce qui se passe réellement
+
+Depuis HA 2026.8, la configuration `http` vit dans `.storage/http` sous la forme
+d'un couple `stable` / `pending`, et l'YAML n'en est plus qu'une **migration
+one-shot** :
+
+1. au premier démarrage, l'YAML est importé comme `pending`, l'ancienne
+   configuration restant `stable` ;
+2. `pending` doit être **promue dans les 5 minutes** via l'API WebSocket — donc
+   depuis une session **authentifiée** ;
+3. sans promotion, HA revient à `stable`, redémarre, et marque la pending
+   `error: not_promoted`. La source est explicite : *« kept for inspection but
+   never applied again »* ;
+4. `yaml_migration_done` est alors posé : **l'YAML n'est plus jamais relu**.
+
+### Pourquoi c'est un piège fermé sur une instance neuve derrière un proxy
+
+HA renvoie **400** à toute requête portant un `X-Forwarded-For` venant d'un
+proxy non déclaré — et Traefik en pose toujours un. Donc : pas de reverse proxy
+fiable → pas d'authentification possible → pas de promotion → révocation au bout
+de 5 minutes → configuration définitivement écartée. Le serpent se mord la queue.
+
+### Le faux positif qui l'a masqué
+
+Une vérification faite ~40 s après le démarrage a renvoyé **302** et a été
+comptée comme un succès. C'en était un — mais seulement pendant la fenêtre de
+5 minutes. Le `400` n'est apparu qu'après la révocation automatique, au
+redémarrage suivant. **Leçon de méthode : sur un HA fraîchement démarré, une
+réponse correcte ne prouve rien tant que la fenêtre de promotion n'est pas
+passée.**
+
+### La marche à suivre
+
+1. **Aucun bloc `http` en nix.** HA démarre sur ses défauts : bind `0.0.0.0:8123`,
+   pas de confiance proxy. Ce n'est pas une ouverture réseau — 8123 n'est pas
+   dans `allowedTCPPorts`, donc le port est injoignable depuis toutes les
+   interfaces (vérifié depuis le LAN, le tailnet et le VLAN IoT ; sonde de
+   contrôle sur 1883 pour prouver que le test discrimine).
+2. **Onboarding hors proxy** : `ssh -L 8123:127.0.0.1:8123 hyper`, puis
+   `http://localhost:8123`. Pas de `X-Forwarded-For`, donc pas de 400.
+3. **Puis régler le reverse proxy dans l'UI** (Paramètres → Système → Réseau),
+   où la promotion se fait proprement depuis une session authentifiée. C'est à
+   ce moment que `ha.hyper.logikdev.fr` cesse de renvoyer 400.
+4. Purger `.storage/http` si une pending a déjà échoué : sans ça, la
+   configuration reste marquée `not_promoted` pour toujours.
 
 ## Références internes
 
