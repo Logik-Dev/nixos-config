@@ -243,6 +243,43 @@ _: {
                     };
                   }
                   {
+                    # The alert channel watching itself. _ntfy.nix retries a
+                    # publish for ~28 s then spools to disk; anything still
+                    # pending after 15 minutes means notifications are being
+                    # held, i.e. a real failure may have gone unseen — which is
+                    # exactly what happened on 2026-09-28 (cf-ddns, lost without
+                    # a trace, docs/notifications-plan.md §2.1).
+                    #
+                    # This is deliberately routed through a *different* publisher
+                    # (Prometheus -> Alertmanager -> alertmanager-ntfy) than the
+                    # one being reported on. If ntfy itself is the thing that is
+                    # down, this alert cannot be delivered either — it then
+                    # arrives with the spool once ntfy is back, and stays visible
+                    # in Grafana/Glance in the meantime.
+                    alert = "NtfySpoolStuck";
+                    expr = "ntfy_spool_pending > 0";
+                    for = "15m";
+                    labels.severity = "critical";
+                    annotations = {
+                      summary = "Notifications ntfy bloquées en attente";
+                      description = "{{ $value }} notification(s) attendent d'être publiées depuis plus de 15 minutes (la plus ancienne : {{ with query \"ntfy_spool_oldest_age_seconds\" }}{{ . | first | value | humanizeDuration }}{{ end }}). Une panne réelle peut être passée inaperçue. Voir /var/lib/ntfy-spool et `journalctl -u ntfy-spool-drain`.";
+                    };
+                  }
+                  {
+                    # Staleness, not absent(): the textfile collector keeps
+                    # serving the last .prom forever, so a drain that stopped
+                    # running would leave `ntfy_spool_pending 0` exposed and
+                    # looking healthy for good (cf. VpnMonitorMissing).
+                    alert = "NtfySpoolDrainMissing";
+                    expr = "absent(ntfy_spool_drain_timestamp_seconds) or (time() - ntfy_spool_drain_timestamp_seconds > 900)";
+                    for = "10m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "Le drain du spool ntfy ne rapporte plus";
+                      description = "ntfy_spool_drain_timestamp_seconds est absent ou vieux de plus de 15 minutes — ntfy-spool-drain.timer (2 min) s'est arrêté, ce qui laisserait NtfySpoolStuck lire une valeur figée et les notifications en attente non rejouées.";
+                    };
+                  }
+                  {
                     alert = "SystemdUnitFailed";
                     expr = ''node_systemd_unit_state{state="failed"} == 1'';
                     for = "5m";
@@ -252,14 +289,49 @@ _: {
                       description = "Unit {{ $labels.name }} has been in the failed state for 5 minutes.";
                     };
                   }
+                  # `node_hwmon_temp_celsius > 75` across every sensor was, on its
+                  # own, 100 % of the Alertmanager notification volume: all 34
+                  # messages in the 12-hour ntfy cache were TemperatureHigh. Two
+                  # independent defects (docs/notifications-plan.md §0.5):
+                  #
+                  #  - PER SENSOR. coretemp exposes 9 series (package + cores);
+                  #    each crossed and re-crossed 75 °C on its own, so one
+                  #    thermal episode produced up to 9 alerts, each with its own
+                  #    firing/resolved pair.
+                  #  - ONE THRESHOLD FOR EVERY CHIP. 75 °C is routine load for an
+                  #    i7-9700K (7-day median 58 °C, 1041 minutes above 75) and at
+                  #    the same time far too permissive for an NVMe, which
+                  #    throttles around 80 °C.
+                  #
+                  # `max by (chip)` collapses an episode to one alert per chip, and
+                  # `keep_firing_for` stops the oscillation around the threshold
+                  # from producing a resolved/firing pair every few minutes
+                  # (Prometheus 3.14 here, the field needs >= 2.42).
+                  #
+                  # Thresholds sized on 7 days of local history, so both still fire
+                  # for real episodes: coretemp spent 323 minutes above 90 °C
+                  # (7-day peak 100 °C = Tjunction, i.e. the CPU does throttle),
+                  # the NVMes 69 minutes above 85 °C (peak 89.9 °C).
                   {
-                    alert = "TemperatureHigh";
-                    expr = "node_hwmon_temp_celsius > 75";
+                    alert = "CpuTemperatureHigh";
+                    expr = ''max by (chip) (node_hwmon_temp_celsius{chip=~"platform_coretemp.*|thermal_.*"}) > 90'';
                     for = "10m";
+                    keep_firing_for = "30m";
                     labels.severity = "warning";
                     annotations = {
-                      summary = "High temperature on {{ $labels.chip }}/{{ $labels.sensor }}";
-                      description = "Sensor {{ $labels.chip }}/{{ $labels.sensor }} is above 75 °C for 10 minutes.";
+                      summary = "CPU temperature above 90 °C ({{ $labels.chip }})";
+                      description = "{{ $labels.chip }} has been above 90 °C for 10 minutes (hottest sensor: {{ $value }} °C). Tjunction on this i7-9700K is 100 °C, which the 7-day history does reach — check the cooling, not just the alert.";
+                    };
+                  }
+                  {
+                    alert = "NvmeTemperatureHigh";
+                    expr = ''max by (chip) (node_hwmon_temp_celsius{chip=~"nvme.*"}) > 85'';
+                    for = "10m";
+                    keep_firing_for = "30m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "NVMe temperature above 85 °C ({{ $labels.chip }})";
+                      description = "{{ $labels.chip }} has been above 85 °C for 10 minutes ({{ $value }} °C). NVMe drives throttle around 80 °C and shorten their life well before the critical limit.";
                     };
                   }
                   {
