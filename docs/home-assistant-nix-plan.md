@@ -278,12 +278,17 @@ HA passerait de 192.168.21.181 (VM) à l'hôte :
 #### f. Hors périmètre, mais découvert en chemin : SEC-14
 
 L'analyse a mis au jour un trou **indépendant de HA et antérieur à la migration** :
-hyper route déjà entre le VLAN IoT et le LAN sans aucun filtrage. Un objet
-compromis sur vlan21 qui prend 192.168.21.241 comme passerelle atteint
-192.168.10.0/24 en contournant les règles de l'UniFi — vérifié empiriquement le
-2026-09-29. C'est un enjeu de sécurité bien plus grand que l'adresse de HA. Voir
-`docs/security.md` § « Routage inter-VLAN non filtré » et SEC-14 dans
-`docs/audit-2026-09.md`.
+hyper routait entre le VLAN IoT et le LAN sans aucun filtrage. Un objet compromis
+sur vlan21 qui prenait 192.168.21.241 comme passerelle atteignait 192.168.10.0/24
+en contournant les règles de l'UniFi — vérifié empiriquement, puis **corrigé et
+déployé le 2026-09-29** (`hosts/hyper/inter-vlan-firewall.nix`). C'était un enjeu
+de sécurité bien plus grand que l'adresse de HA. Voir `docs/security.md`
+§ « Routage inter-VLAN filtré » et SEC-14 dans `docs/audit-2026-09.md`.
+
+Conséquence pour la migration : la sonde a confirmé que **mosquitto sur
+192.168.21.241:1883 reste joignable depuis vlan21** (c'est de l'INPUT, pas du
+forward), donc HA n'est pas impacté — ni aujourd'hui dans la VM, ni demain en
+natif.
 
 ### 3.3 Chaque déploiement redémarrerait HA
 

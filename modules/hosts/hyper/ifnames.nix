@@ -55,7 +55,7 @@ let
             useDHCP = false;
             ipv4.addresses = [
               {
-                address = "192.168.21.241";
+                address = config.constants.hosts.hyper.iot.ip;
                 prefixLength = config.constants.hosts.hyper.prefixLength;
               }
             ];

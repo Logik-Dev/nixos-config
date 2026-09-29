@@ -29,8 +29,16 @@
           };
           hosts.hyper = {
             lanIp = "192.168.10.100";
+            lanNetwork = "192.168.10.0/24";
             gateway = "192.168.10.1";
             prefixLength = 24;
+            # The IoT VLAN (21) hyper bridges onto br-iot. `ip` is hyper's own
+            # address there; `network` is the segment the inter-VLAN forward
+            # rules and the Tailscale subnet advertisement talk about.
+            iot = {
+              ip = "192.168.21.241";
+              network = "192.168.21.0/24";
+            };
             mac = {
               management = "fc:34:97:10:ca:04";
               vms = "98:b7:85:00:8f:f2";

@@ -146,15 +146,25 @@ Sauvegarde via les `.unf` auto (copie live, contrôleur non arrêté).
 - `br-iot` — bridge sur vlan21, `192.168.21.241/24` (Home Assistant VM).
 - NetworkManager désactivé sur hyper.
 
-⚠️ **Le transfert entre ces réseaux n'est pas filtré** : `ip_forward=1` (posé par
-Tailscale) + chaîne FORWARD en `policy ACCEPT` — `networking.firewall` ne filtre
-que l'INPUT. Un objet du VLAN IoT qui prend `192.168.21.241` comme passerelle
-atteint le LAN sans passer par les règles de l'UniFi (vérifié le 2026-09-29).
-Voir **SEC-14** : [security.md](security.md#routage-inter-vlan-non-filtré-sec-14).
+**Filtrage inter-VLAN** (`hosts/hyper/inter-vlan-firewall.nix`, SEC-14) :
+`ip_forward` est à 1 (posé par Tailscale) et la chaîne FORWARD est en `policy
+ACCEPT`, `networking.firewall` ne filtrant que l'INPUT. Une chaîne `iot-forward`
+appendue à FORWARD pour tout ce qui entre par `br-iot` ferme le mouvement
+latéral : les réponses aux flux ouverts depuis le LAN passent
+(`ESTABLISHED,RELATED`), les nouvelles connexions vers `192.168.10.0/24`,
+`10.88.0.0/16` (podman) et `10.200.0.0/30` (veth du netns `vpn`) sont *droppées*,
+le reste retombe sur la politique — l'egress n'est pas touché.
 
-`br_netfilter` n'étant pas chargé, le trafic **bridgé** vers la VM (`vnet0`) ne
-traverse lui non plus aucune règle : le port 8123 de Home Assistant est joignable
-sans filtre depuis vlan21.
+Deux limites assumées : **IoT → tailnet n'est pas couvert** (`ts-forward` passe
+avant et accepte tout ce qui sort par `tailscale0` — cela relève des ACL
+Tailscale), et la règle est **IPv4 seulement** (aucune route IPv6 sur hyper hors
+`tailscale0`). Détail et sondes de vérification :
+[security.md](security.md#routage-inter-vlan-filtré-sec-14--corrigé).
+
+Noter enfin que `br_netfilter` n'est pas chargé : le trafic **bridgé** vers la VM
+(`vnet0`) ne traverse aucune règle, le port 8123 de Home Assistant reste donc
+joignable sans filtre depuis vlan21 — c'est intrinsèque au bridge, et ça se
+referme avec la migration de HA en natif.
 
 ## Hetzner Storage Box
 

@@ -55,9 +55,12 @@ Ports ouverts dans le firewall NixOS (`networking.firewall.allowedTCPPorts`) :
   Tailscale a été retiré (voir `docs/tailscale-acl.md`).
 - `fail2ban` (`security/fail2ban.nix`) bannit les scans SSH (ignore LAN + tailnet).
 
-## Routage inter-VLAN non filtré (SEC-14)
+## Routage inter-VLAN filtré (SEC-14) — corrigé
 
-**hyper est un routeur ouvert entre le VLAN IoT et le LAN.** Constaté et
+> **État : corrigé et déployé le 2026-09-29** (génération 507). La moitié ciblée
+> est en place ; le chantier nftables reste ouvert (voir « Ce qui reste »).
+
+**hyper était un routeur ouvert entre le VLAN IoT et le LAN.** Constaté et
 **vérifié empiriquement le 2026-09-29**, indépendamment de tout projet en cours.
 
 Trois conditions se cumulent :
@@ -94,18 +97,55 @@ Deux autres constats du même audit :
   par fonction parler au segment non fiable (voir
   `docs/home-assistant-nix-plan.md` §3.2).
 
-### Pistes de correction
+### Le correctif déployé
 
-1. **Ciblé, à faible risque** — une règle FORWARD `br-iot → management : drop`
-   (avec `ct state established,related accept` pour ne pas casser les réponses
-   aux flux sortants du LAN). Ne touche ni Tailscale, ni podman, ni la veth VPN.
-2. **Structurel** — `networking.nftables.enable = true` +
-   `networking.firewall.filterForward = true`, avec des
-   `extraForwardRules` explicites. ⚠️ Passer le FORWARD en *drop* casserait le
-   **subnet routing Tailscale**, **netavark** (conteneurs immich) et la **veth
-   du namespace `vpn`** tant que les règles ne sont pas écrites. Ce n'est pas une
-   ligne : c'est un chantier à part entière, à valider en
-   `nixos-rebuild test` avant de persister.
+`modules/hosts/hyper/inter-vlan-firewall.nix` — une chaîne `iot-forward`
+appendue à FORWAD pour tout ce qui entre par `br-iot` :
+
+| # | Règle | Rôle |
+|---|---|---|
+| 1 | `ESTABLISHED,RELATED → ACCEPT` | les réponses aux flux ouverts depuis le côté de confiance passent : LAN → IoT et hôte → IoT continuent de fonctionner |
+| 2 | `-d 192.168.10.0/24 → DROP` | le trou d'origine |
+| 3 | `-d 10.88.0.0/16 → DROP` | réseau podman (immich) |
+| 4 | `-d 10.200.0.0/30 → DROP` | veth du namespace `vpn` |
+| 5 | `RETURN` | le reste retombe sur la politique FORWARD : on ferme le mouvement latéral, **pas** l'egress |
+
+La chaîne est reconstruite à chaque démarrage du pare-feu (`-N` / `-F`, puis
+`-C` avant `-A` pour le jump) : l'unité ne vidant pas FORWARD, une simple
+insertion empilerait un jeu de doublons à chaque `nh os switch`. Vérifié : après
+un `test` puis un `switch`, le jump n'apparaît **qu'une fois**.
+
+**Vérification par sonde** (namespace jetable sur `br-iot`, passerelle
+192.168.21.241, supprimé après chaque essai) — chaque ligne confirmée par le
+compteur de la règle correspondante :
+
+| Depuis le VLAN IoT vers | Avant | Après |
+|---|---|---|
+| 192.168.10.1 (LAN) | ping + TCP/443 OK | **bloqué** |
+| 10.88.0.2 (conteneur immich-ml) | — | **bloqué** |
+| 10.200.0.2 (WebUI dans le netns vpn) | — | **bloqué** |
+| 192.168.21.241:1883 (mosquitto) | OK | **OK** — c'est de l'INPUT, HA n'est pas impacté |
+| 192.168.21.181:8123 (VM HA) | OK | **OK** — trafic bridgé, hors FORWARD |
+
+Non-régression au même moment : 0 unité en échec, `hass.hyper.logikdev.fr` → 200
+via Traefik, netns `vpn` toujours sur son tunnel (IP de sortie AirVPN).
+
+### Ce qui reste
+
+- **IoT → tailnet n'est pas couvert.** Le jump est appendu, donc `ts-forward`
+  passe avant et accepte tout ce qui sort par `tailscale0`. Ce chemin est
+  gouverné par les ACL Tailscale ([tailscale-acl.md](tailscale-acl.md), SEC-11),
+  pas par le pare-feu de l'hôte. Ne pas « corriger » en insérant le jump en
+  position 1 : netavark et tailscale réinsèrent les leurs en tête au
+  redémarrage, l'ordre ne tiendrait pas.
+- **IPv4 seulement**, volontairement : hyper n'a aucune adresse IPv6 routable ni
+  aucune route IPv6 hors `tailscale0`, donc il n'existe pas de chemin v6 entre
+  les deux segments. Si l'IPv6 est un jour activé sur ces VLAN, il faut le
+  jumeau `ip6tables`.
+- **Le chantier structurel** reste entier : `networking.nftables.enable` +
+  `networking.firewall.filterForward` + `extraForwardRules`. ⚠️ Passer le FORWARD
+  en *drop* casserait le **subnet routing Tailscale**, **netavark** et la **veth
+  du namespace `vpn`** tant que les règles ne sont pas écrites.
 
 ## Modèle sudo (hyper)
 
@@ -167,5 +207,6 @@ un déverrouillage automatique au boot sans intervention.
   **fermable** (HA passerait en loopback), ce qui retire l'essentiel du sujet —
   voir `docs/home-assistant-nix-plan.md` §3.2 d.
 - **SEC-11** : appliquer le JSON d'ACL Tailscale dans la console.
-- **SEC-14** : routage inter-VLAN non filtré sur hyper (section ci-dessus) —
-  vérifié le 2026-09-29, non corrigé.
+- **SEC-14** : **corrigé le 2026-09-29** (moitié ciblée déployée, génération
+  507). Restent ouverts : le chemin IoT → tailnet (relève des ACL Tailscale,
+  SEC-11) et le chantier nftables/`filterForward`.
