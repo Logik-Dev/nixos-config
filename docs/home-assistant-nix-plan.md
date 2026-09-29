@@ -607,6 +607,30 @@ passée.**
 4. Purger `.storage/http` si une pending a déjà échoué : sans ça, la
    configuration reste marquée `not_promoted` pour toujours.
 
+### Résultat (2026-09-29)
+
+La marche à suivre a été appliquée et fonctionne. Après onboarding hors proxy et
+réglage du reverse proxy dans l'UI, `.storage/http` contient :
+
+```
+stable : use_x_forwarded_for=True, trusted_proxies=['127.0.0.1/32'], error=None
+pending: None
+```
+
+**`pending: None` est le point à vérifier** : rien en attente, donc aucune
+minuterie de révocation. C'est la différence entre un réglage promu par l'UI et
+une migration YAML non confirmée.
+
+Un dernier écueil, sans rapport avec HA : la **première émission ACME** de la
+route `ha` a échoué (`403 :: No TXT record found at _acme-challenge.ha…`) et
+Traefik n'a pas réessayé seul. Un `systemctl restart traefik` a suffi. À retenir
+pour toute nouvelle route — et à ne pas masquer avec `curl -k`
+(cf. `docs/networking.md` § Traefik).
+
+**État final : `ha.hyper.logikdev.fr` → 200, certificat valide.** La VM répond
+toujours sur `hass.hyper.logikdev.fr` → 200. Le courtier MQTT n'a toujours que
+ses deux clients loopback : l'instance native n'a pas touché aux appareils.
+
 ## Références internes
 
 - `modules/hosts/hyper/libvirt.nix` (domaine impératif, `traefik.services.hass`)

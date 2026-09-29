@@ -34,6 +34,13 @@ Ports ouverts dans le firewall NixOS (`networking.firewall`) :
 - TLS hardening : minVersion TLS 1.2, ciphers ECDHE.
 - Dashboard protégé par Authelia ; `serversTransports.insecure` pour backends
   self-signed (UniFi).
+- ⚠️ **Première émission ACME d'une nouvelle route** : le défi DNS-01 peut
+  échouer au premier essai (`403 unauthorized :: No TXT record found at
+  _acme-challenge.<nom>`) sans que Traefik ne réessaie de lui-même — la route
+  sert alors un certificat invalide et `curl -k` **masque** le problème. Vécu le
+  2026-09-29 sur `ha.hyper.logikdev.fr`. Remède : `systemctl restart traefik`,
+  qui relance la tentative (réussie au second essai). Toujours valider une
+  nouvelle route **sans** `-k`, ou avec `%{ssl_verify_result}`.
 
 ## Authelia (SSO + 2FA)
 
