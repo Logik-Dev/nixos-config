@@ -433,6 +433,13 @@ réglé avant de changer de socle.
 
 ## 6 bis. Faire entrer les sauvegardes HA dans le pipeline (à déclarer)
 
+> ⚠️ **Section rendue sans objet par la migration en natif** (voir §8, lot B0).
+> Tout ce dispositif — jeton agenix dédié, service + timer de récupération par
+> l'API, rotation — n'existait que parce que `/config` était enfermé dans une
+> VM. En natif, `/var/lib/hass` entre dans restic comme n'importe quel autre
+> service. Conservée ci-dessous pour mémoire, et parce qu'elle reste la bonne
+> réponse **tant que la VM tourne**.
+
 Indépendant de la migration, et utile même si on garde HAOS.
 
 | Livrable | Contenu |
@@ -511,22 +518,94 @@ l'embarque) et fera apparaître des cartes « découvert » pour des appareils q
 VM gère encore. C'est inerte — un flux de découverte ne commande rien tant que
 personne ne le confirme — **mais n'en confirmer aucun avant la bascule**.
 
-### Lot B — la reconstruction · *manuel, côté UI*
+### Lot B — la reconstruction
 
-Onboarding, puis recréation des intégrations utiles une par une sur
-`ha.hyper.logikdev.fr`. C'est du geste humain, pas du nix : les *config
-flows* sont interactifs par construction (§2). Le dépôt suit au fur et à mesure —
-`customComponents` pour `alexa_media_player` et `services.music-assistant` ne
-sont déclarés que le jour où l'usage correspondant est recréé.
+Plan détaillé arrêté le 2026-09-29, après clôture du lot A.
 
-**À décider avant de supprimer la VM** : les **5 automatisations `rankoder`**
-(§1.5) pilotent le workflow d'approbation d'un service déclaré *dans ce dépôt*
-(`medias/rankoder.nix`, qui publie en MQTT sous le compte `homeassistant`).
-« Repartir de zéro » les fait disparaître. Ce n'est pas un drame — mais c'est la
-seule logique de la VM qui appartienne conceptuellement au dépôt, et le §1.5 en
-faisait *le* gain déclaratif de l'opération. Les relire dans la VM pour les
-**réécrire en nix** (plutôt que les importer) coûte peu et se fait tant que la VM
-tourne. Sans elles, rankoder publie ses demandes d'approbation dans le vide.
+#### B0. D'abord le filet, avant d'accumuler de l'état irremplaçable
+
+L'onboarding est fait : `.storage/auth` contient déjà un compte qui ne se
+reproduit pas. Chaque intégration ajoutée ensuite est un flux interactif qu'il
+faudrait refaire à la main. **La sauvegarde doit donc précéder la
+reconstruction, pas la suivre.**
+
+```nix
+backups.sources.home-assistant = {
+  paths = [ "/var/lib/hass" ];
+  exclude = [ "home-assistant.log*" "tts/" "deps/" ];
+};
+```
+
+`manageService` reste à son défaut (arrêt/redémarrage autour du passage) :
+l'enregistreur est du SQLite, et une copie à chaud donnerait une base
+potentiellement incohérente. Le coût est un redémarrage nocturne de HA, déjà
+accepté par le §3.3. Ajouter `notify.services` au même endroit.
+
+> **Cela rend le §6 bis sans objet.** Le service de récupération par API
+> (`GET /api/backup/download/…`, jeton agenix dédié, rotation) n'existait que
+> parce que `/config` était enfermé dans une VM. En natif, `/var/lib/hass` entre
+> dans restic comme n'importe quel autre service — donc USB + Hetzner, donc les
+> vérifications et les *restore drills*. Un livrable entier disparaît.
+
+#### B1. Ce qui peut être recréé maintenant, et ce qui doit attendre
+
+**Correction d'une formulation antérieure.** J'ai écrit que « la frontière est
+le courtier MQTT, pas le processus ». C'est **incomplet** : Sonos, Cast, LIFX,
+TP-Link et consorts se commandent *directement en IP*, sans passer par MQTT.
+Confirmer un de ces flux de découverte donne donc l'emprise à l'instance native,
+indépendamment du courtier. La vraie frontière est **l'emprise sur l'appareil**,
+quel qu'en soit le canal.
+
+| Intégration | Maintenant ? | Pourquoi |
+|---|---|---|
+| `meteo_france`, `open_meteo`, `met`, `sun` | **oui** | données, aucune emprise |
+| `radio_browser`, `shopping_list`, `analytics`, `go2rtc` | **oui** | local ou annuaire |
+| `google_translate` | **oui** | le service TTS est inerte tant qu'aucun lecteur n'est ciblé |
+| `jellyfin` | **oui** | API d'un service ; deux clients ne se gênent pas |
+| `mealie` | **oui** | idem — et c'est l'occasion de régler son `auth_failed` (§1.3) |
+| `sonos`, `cast`, `dlna_dmr`, `lifx`, `tplink`, `androidtv_remote`, `ipp`, `thread` | **non** | emprise directe en IP. Sans automatisation le risque reste faible, mais l'état et les regroupements (Sonos) se disputent |
+| `mqtt` | **non** | double commande de tout le Zigbee (§6.10) |
+| `music_assistant` | **non** | deux instances MA pilotant les mêmes Sonos |
+| **`cloud` (Nabu Casa)** | **non — à vérifier d'abord** | l'abonnement se lie à une instance. Y connecter le natif risque de **déposséder la VM**, et avec elle sa copie hors-site (§1.4). À confirmer avant toute tentative |
+| `mobile_app` | **non** | ré-enregistrer les téléphones les détourne de la VM |
+| `alexa_media_player` | **non** | session cloud Amazon ; deux sessions concurrentes se délogent |
+
+Règle pratique : **ne confirmer aucune carte « découvert »** tant que le lot C
+n'est pas engagé, même si HA les propose spontanément.
+
+#### B2. Ce que le dépôt suit, et seulement quand l'usage est recréé
+
+Rien de tout ceci n'est à écrire « au cas où » — la décision de repartir de zéro
+vaut aussi pour le nix : on ne déclare que ce qui sert.
+
+| Brique | Quand | Note |
+|---|---|---|
+| `services.music-assistant` | avec `music_assistant`, donc au lot C | `enable`, `package`, `openFirewall`, `extraOptions` ; plus répertoire d'état, `backups.sources`, `notify.services`, route Traefik |
+| `alexa_media_player` en `customComponents` | seulement si l'usage Alexa est recréé | `pkgs.buildHomeAssistantComponent` est disponible dans le nixpkgs épinglé (vérifié) |
+| Élagage d'`extraComponents` | en continu | la liste vient de l'inventaire de la VM ; tout usage abandonné doit en sortir, c'est le gain de surface du natif (§5) |
+
+#### B3. Les automatisations `rankoder` — à trancher pendant que la VM tourne
+
+Les 5 automatisations du workflow d'approbation (§1.5) pilotent un service
+déclaré *dans ce dépôt*, qui publie en MQTT sous le compte `homeassistant`.
+Repartir de zéro les fait disparaître, et rankoder publierait ses demandes dans
+le vide.
+
+Trois issues : les réécrire en nix à côté de `medias/rankoder.nix` (c'était *le*
+gain déclaratif annoncé au §1.5), les recréer à la main dans l'UI, ou assumer de
+perdre le workflow d'approbation. **La seule chose à ne pas faire est de
+laisser la VM partir sans avoir lu ces automatisations** — c'est la seule
+logique de la VM qui appartienne conceptuellement au dépôt.
+
+#### B4. Critères de sortie — ce qui doit être vrai pour engager le lot C
+
+1. `backups.sources.home-assistant` déclaré, **et un passage restic réussi
+   constaté** (pas seulement déclaré).
+2. Les intégrations « oui » de B1 recréées et chargées sans erreur.
+3. Le sort des automatisations `rankoder` tranché (B3).
+4. Le conflit Nabu Casa vérifié, pas supposé.
+5. Toujours **aucun client MQTT natif** — la vérification `ss` de ce lot reste
+   valable : 2 clients loopback, pas 3.
 
 ### Lot C — la bascule
 
