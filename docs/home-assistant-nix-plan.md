@@ -520,6 +520,10 @@ l'embarque) et fera apparaître des cartes « découvert » pour des appareils q
 VM gère encore. C'est inerte — un flux de découverte ne commande rien tant que
 personne ne le confirme — **mais n'en confirmer aucun avant la bascule**.
 
+> ⚠️ **Faux dans les faits, corrigé le 2026-09-29 (§12)** : `default_config`
+> n'était pas déclaré dans la configuration, donc **aucune découverte n'a
+> tourné** pendant tout le lot A. La réserve ci-dessus était sans objet.
+
 ### Lot B — la reconstruction
 
 Plan détaillé arrêté le 2026-09-29, après clôture du lot A.
@@ -896,6 +900,60 @@ reste** sans intervention :
 règles sont `inactive`/`health=ok`. C'est pour cette ligne que le module
 existait — le natif porte désormais tout le Zigbee, un décrochage silencieux
 coûterait ce qu'a coûté P0-9.
+
+## 12. `extraComponents` ne charge rien (vécu le 2026-09-29)
+
+Symptôme : l'application compagnon répondait **« le composant mobile_app n'est
+pas chargé »**, et aucune trace d'enregistrement n'atteignait HA.
+
+### La confusion
+
+`services.home-assistant.extraComponents` n'ajoute que les **dépendances
+Python au paquet**. Elle ne dit pas à HA de charger quoi que ce soit. HA charge
+une intégration dans deux cas seulement : elle est déclarée comme clé dans
+`configuration.yaml`, ou elle possède une **entrée de configuration** dans
+`.storage`.
+
+`mobile_app` ne peut pas avoir d'entrée de configuration avant d'être chargée —
+c'est l'enregistrement de l'app qui la crée. Il fallait donc la déclarer. Elle
+l'était dans le `configuration.yaml` de la VM, via `default_config:`, que j'ai
+omis en réécrivant la configuration en nix.
+
+### Pourquoi la panne était peu lisible
+
+Les intégrations possédant une entrée `.storage` — celles de l'onboarding —
+fonctionnaient normalement. L'UI avait l'air saine. Ce qui manquait était
+invisible tant qu'on ne le cherchait pas : `mobile_app`, mais aussi
+`zeroconf`/`ssdp`/`dhcp`, `webhook`, `history`, `logbook`, `media_source`.
+
+**Correction d'une affirmation antérieure** : le §8 (lot A) et les commentaires
+du module annonçaient que « la découverte zeroconf/SSDP tourne quand même,
+`default_config` l'embarque ». C'était faux dans les faits — `default_config`
+n'était pas chargé, donc **aucune découverte n'a tourné** entre le 2026-09-29
+18:10 et 23:35. La réserve sur les cartes « découvert » à ne pas confirmer était
+sans objet pendant cette fenêtre.
+
+### Deux détails qui coûtent du temps
+
+- **Un `nixos-rebuild switch` ne suffit pas** : l'activation fait un *reload* de
+  `home-assistant.service`, et un reload ne charge pas une intégration
+  nouvellement déclarée — il ne recharge que les domaines rechargeables
+  (automations, scripts, template, entités MQTT). Il faut un
+  `systemctl restart home-assistant`.
+- **Test décisif de chargement** : `GET /api/mobile_app/registrations`. Un
+  **404** signifie composant absent ; **405** (méthode non permise) ou **401**
+  signifient que la route existe, donc que le composant est chargé. Plus fiable
+  que de chercher « Setting up … » dans le journal, que HA n'émet pas au niveau
+  INFO par défaut.
+
+### Effet de bord assumé
+
+`default_config` active la découverte USB, qui trouve le dongle Zigbee et tente
+de proposer **ZHA**. Le module n'étant pas packagé — c'est zigbee2mqtt qui
+possède le dongle — le journal montre `No module named 'zha'` à chaque
+démarrage. C'est cosmétique : un flux de découverte qui échoue à se charger, pas
+un service en panne. Se tait définitivement en **ignorant** la carte « découvert »
+correspondante dans l'UI.
 
 ## Références internes
 

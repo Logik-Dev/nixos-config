@@ -216,6 +216,23 @@
           # sur les WAL et donc sur pgBackRest.
           recorder.db_url = "postgresql://@/hass";
 
+          # INDISPENSABLE, et ce n'est pas redondant avec `extraComponents`.
+          # Cette liste-là n'ajoute que les dépendances Python au **paquet** ;
+          # c'est cette clé qui dit à HA de **charger** l'intégration. Omise au
+          # départ, elle a coûté : `mobile_app` n'était pas chargé (l'app
+          # répondait « le composant mobile_app n'est pas chargé »), et pas
+          # davantage `zeroconf`/`ssdp`/`dhcp`, `webhook`, `history`,
+          # `logbook`, `media_source`…
+          #
+          # Seules fonctionnaient les intégrations possédant une entrée de
+          # configuration dans `.storage` — HA les charge indépendamment du
+          # YAML — ce qui rendait la panne d'autant moins lisible : l'UI avait
+          # l'air normale.
+          #
+          # `default_config` couvre `mobile_app` : pas besoin de le déclarer en
+          # plus. C'est aussi ce que portait le `configuration.yaml` de la VM.
+          default_config = { };
+
           automation = "!include automations.yaml";
           script = "!include scripts.yaml";
           scene = "!include scenes.yaml";
