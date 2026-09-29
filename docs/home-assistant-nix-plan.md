@@ -955,6 +955,61 @@ démarrage. C'est cosmétique : un flux de découverte qui échoue à se charger
 un service en panne. Se tait définitivement en **ignorant** la carte « découvert »
 correspondante dans l'UI.
 
+## 13. Les attrsets nix sont non ordonnés — et HA en dépend parfois
+
+Symptôme : l'approbation rankoder partait bien en notification, mais l'appui sur
+le bouton échouait avec `UndefinedError: 'parts' is undefined`, et la réponse
+n'atteignait jamais rankoder.
+
+### Le mécanisme
+
+HA rend les variables d'un bloc **dans l'ordre du YAML**, chacune voyant les
+précédentes — la source est explicite : *« The rendering happens one at a time,
+with previous results influencing the next »*
+(`helpers/script_variables.py`). La version reprise de la VM s'appuyait
+là-dessus :
+
+```yaml
+variables:
+  parts: "{{ trigger.event.data.action.split('|') }}"
+  decision: "{{ parts[0] }}"
+  batch_id: "{{ parts[1] }}"
+```
+
+**Les attrsets nix n'ont pas d'ordre.** Ils sont sérialisés alphabétiquement,
+donc ce bloc devenait :
+
+```yaml
+variables:
+  batch_id: "{{ parts[1] }}"     # ← rendu en premier
+  decision: "{{ parts[0] }}"
+  parts: "{{ …split('|') }}"     # ← défini en dernier
+```
+
+`batch_id` référençait `parts` avant son existence. Le YAML d'origine était
+correct ; c'est sa traduction en nix qui l'a cassé.
+
+### La règle
+
+**Ne jamais écrire en nix une construction HA qui dépend de l'ordre des clés
+d'un mapping.** Deux sorties :
+
+1. rendre les variables **indépendantes** — ici, chacune refait le `split`, au
+   prix d'une duplication négligeable ;
+2. ou les répartir sur **plusieurs étapes successives** : les listes, elles,
+   conservent leur ordre en nix, donc une séquence d'actions est fiable.
+
+Retenue ici : la première, parce qu'elle supprime le problème au lieu de le
+déplacer.
+
+### Portée
+
+Auditées après coup, les autres automatisations n'étaient pas concernées : les
+variables de `rankoder_approval_request` dérivent toutes indépendamment de
+`trigger.payload_json`, et `arrosage_automatique` n'en a qu'une. Le piège ne
+touche que les blocs `variables` à dépendances internes — mais il vaut pour
+toute clé de mapping dont HA lit l'ordre.
+
 ## Références internes
 
 - `modules/hosts/hyper/libvirt.nix` (domaine impératif, `traefik.services.hass`)

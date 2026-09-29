@@ -127,10 +127,23 @@
         ];
         actions = [
           {
+            # Chaque variable refait le `split` au lieu d'en dériver une
+            # commune. Ce n'est pas de la maladresse : **les attrsets nix sont
+            # non ordonnés** et sérialisés alphabétiquement, alors que HA rend
+            # les variables d'un bloc *dans l'ordre du YAML*, chacune voyant les
+            # précédentes. La version d'origine définissait `parts` puis
+            # `decision` et `batch_id` — sérialisée par nix, elle devenait
+            # `batch_id`, `decision`, `parts`, donc `batch_id` référençait
+            # `parts` avant son existence : `UndefinedError: 'parts' is
+            # undefined`, et la réponse d'approbation n'atteignait jamais
+            # rankoder. Vécu le 2026-09-29.
+            #
+            # Ne pas « corriger » en réintroduisant une variable intermédiaire :
+            # aucun ordre n'est garanti. Soit les variables sont indépendantes,
+            # soit elles sont réparties sur plusieurs étapes successives.
             variables = {
-              parts = "{{ trigger.event.data.action.split('|') }}";
-              decision = "{{ parts[0] }}";
-              batch_id = "{{ parts[1] }}";
+              decision = "{{ trigger.event.data.action.split('|')[0] }}";
+              batch_id = "{{ trigger.event.data.action.split('|')[1] }}";
             };
           }
           {
