@@ -31,6 +31,7 @@ let
       gpu
       hardening
       node
+      cgroup-pressure
       nvidia
       ollama
       paperless
