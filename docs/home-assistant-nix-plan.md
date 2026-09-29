@@ -594,7 +594,7 @@ vaut aussi pour le nix : on ne déclare que ce qui sert.
 | `alexa_media_player` en `customComponents` | seulement si l'usage Alexa est recréé | `pkgs.buildHomeAssistantComponent` est disponible dans le nixpkgs épinglé (vérifié) |
 | Élagage d'`extraComponents` | en continu | la liste vient de l'inventaire de la VM ; tout usage abandonné doit en sortir, c'est le gain de surface du natif (§5) |
 
-#### B3. Les automatisations `rankoder` — à trancher pendant que la VM tourne
+#### B3. Les automatisations `rankoder` — *fait le 2026-09-29, voir §11*
 
 Les 5 automatisations du workflow d'approbation (§1.5) pilotent un service
 déclaré *dans ce dépôt*, qui publie en MQTT sous le compte `homeassistant`.
@@ -612,7 +612,7 @@ logique de la VM qui appartienne conceptuellement au dépôt.
 1. `backups.sources.home-assistant` déclaré, **et un passage restic réussi
    constaté** (pas seulement déclaré).
 2. Les intégrations « oui » de B1 recréées et chargées sans erreur.
-3. Le sort des automatisations `rankoder` tranché (B3).
+3. ~~Le sort des automatisations `rankoder` tranché (B3).~~ **Fait** (§11) : reprises, triées et réécrites en nix.
 4. Le conflit Nabu Casa vérifié, pas supposé.
 5. Toujours **aucun client MQTT natif** — la vérification `ss` de ce lot reste
    valable : 2 clients loopback, pas 3.
@@ -784,6 +784,99 @@ retenues :
 choisir autre chose. C'est le bouton à tourner si l'historique doit durer plus
 longtemps — en gardant à l'esprit que ça pèse aussi sur les WAL, donc sur
 pgBackRest.
+
+## 11. Reprise des automatisations : six défauts, pas une traduction
+
+Les YAML de la VM ont été récupérés le 2026-09-29 avant son arrêt (archive de
+lecture dans `docs/legacy-haos/`). L'intention était de traduire ; la réalité a
+été de **trier**. Ce qui suit justifie après coup la décision de repartir de
+zéro : une migration mécanique aurait recopié ces défauts sans les voir.
+
+### Ce qui a été repris
+
+| Famille | Repris | Destination |
+|---|---|---|
+| **rankoder** | 3 automatisations + 8 capteurs MQTT | `medias/rankoder.nix` |
+| **arrosage** | 3 automatisations + `binary_sensor.il_va_pleuvoir` | `home/home-assistant-arrosage.nix` |
+
+Écartés sciemment : musique (5 automatisations, 11 scripts), médias (2 + le
+script `notifier`), mouvement chambre des enfants, `script.dejeuner`, capteurs
+Mealie, `input_boolean.poubelles_sorties`.
+
+### Les six défauts
+
+1. **Faux doublon `rankoder_approval_request`.** Deux entrées de même `id` — en
+   réalité une **ancre YAML** (`&id001` / `*id001`), le même nœud émis deux fois
+   par le sérialiseur. Déclaré une seule fois en nix.
+
+2. **`rankoder_deliver_deferred` était du code mort.** L'automatisation et son
+   script se conditionnaient sur `input_text.rankoder_pending_id` — et
+   `rankoder_pending_title`, `rankoder_pending_msg`. Recherche exhaustive dans
+   `automations.yaml`, `scripts.yaml` et `configuration.yaml` : ces helpers sont
+   **lus quatre fois, écrits zéro fois**. La remise différée à 09:00 ne pouvait
+   pas se déclencher. Non repris — à réimplémenter proprement si le besoin
+   existe encore.
+
+3. **L'alerte d'échec de transcodage ne pouvait pas charger.** Son déclencheur
+   imbriquait le topic sous une clé `options` que le schéma MQTT ne connaît pas,
+   alors que `topic` y est obligatoire :
+
+   ```yaml
+   triggers:
+   - trigger: mqtt
+     options:                    # ← invalide
+       topic: rankoder/failure
+   ```
+
+   Configuration invalide, donc automatisation non chargée : **les échecs de
+   transcodage étaient silencieux**. Corrigé.
+
+4. **Cible de notification incohérente.** `rankoder_approval_response` effaçait
+   la notification via `notify.iphone_de_cedric`, sans le préfixe `mobile_app_`
+   utilisé partout ailleurs. Aligné.
+
+5. **`templates.yaml` ne parsait pas — et ça cassait l'arrosage.**
+   `- binary_sensor:` était indenté à 2 colonnes au lieu de 0 (ligne 24), ce qui
+   rend le document invalide. Donc `binary_sensor.il_va_pleuvoir` n'existait
+   pas. Or les deux automatisations d'arrosage s'en servent **comme condition** —
+   l'une exige `off` pour arroser, l'autre `on` pour prévenir du saut. Une entité
+   absente ne satisfait ni l'une ni l'autre : **l'arrosage ne démarrait jamais et
+   l'alerte ne partait jamais.**
+
+   Réserve honnête : impossible de distinguer « cassé dans la VM » de « abîmé au
+   copier-coller ». Le fichier est archivé tel qu'il a été fourni.
+
+6. **Variables calculées jamais utilisées** : `pluie_prevue` et
+   `precipitation_ml` dans deux automatisations d'arrosage, la condition passant
+   par le `binary_sensor`. Supprimées.
+
+### Le mécanisme de déclaration
+
+`modules/features/home/home-assistant-automations.nix` ajoute une option
+`homeAssistant.automations`, rendue dans la clé **`automation nix:`** —
+distincte de `automation:` (`!include automations.yaml`) que l'UI écrit et qui
+reste mutable. HA fusionne les deux : `cv.domain_key` découpe la clé sur le
+premier espace et `extract_domain_configs` collecte toutes les clés du domaine
+(vérifié dans la source 2026.8.3). **Déclarer ne retire donc rien à l'UI.**
+
+Le but n'est pas de tout déclarer : c'est de rapprocher du dépôt les
+automatisations qui pilotent un service que le dépôt déclare déjà — ce qui était
+l'argument du §1.5.
+
+### État au 2026-09-29
+
+Déployé et persisté (génération 512). Les 6 automatisations sont enregistrées,
+`binary_sensor.il_va_pleuvoir` existe, 0 unité en échec. Les deux seules erreurs
+au journal sont `mqtt_not_setup_cannot_subscribe` sur les déclencheurs MQTT de
+rankoder — **attendu**, l'intégration MQTT n'étant pas encore configurée.
+
+Trois dépendances restent à recréer côté UI pour que tout s'anime :
+
+| Dépendance | Débloque |
+|---|---|
+| Intégration **MQTT** | les 3 automatisations rankoder, les 8 capteurs, et la vanne via Zigbee2MQTT |
+| Intégration **meteo_france** | `binary_sensor.il_va_pleuvoir`, donc les conditions d'arrosage |
+| Enregistrement **`mobile_app`** du téléphone | toutes les notifications |
 
 ## Références internes
 

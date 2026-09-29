@@ -1,0 +1,70 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+scene: !include scenes.yaml
+template: !include templates.yaml
+script: !include scripts.yaml
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 192.168.10.100
+    - 192.168.21.241
+
+input_boolean:
+  poubelles_sorties:
+    name: Poubelles sorties
+    icon: mdi:trash-can
+    initial: false
+mqtt:
+  sensor:
+    - name: "rankoder version"
+      unique_id: rankoder_version
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.version }}"
+      icon: mdi:tag
+    - name: "rankoder done"
+      unique_id: rankoder_done
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.done }}"
+      icon: mdi:check-circle
+    - name: "rankoder failed"
+      unique_id: rankoder_failed
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.failed }}"
+      icon: mdi:alert-circle
+    - name: "rankoder transcoding"
+      unique_id: rankoder_transcoding
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.transcoding }}"
+      icon: mdi:cog
+    - name: "rankoder pending approval"
+      unique_id: rankoder_pending_approval
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.pending_approval }}"
+      icon: mdi:account-clock
+    - name: "rankoder skipped"
+      unique_id: rankoder_skipped
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.skipped }}"
+      icon: mdi:debug-step-over
+    - name: "rankoder space saved"
+      unique_id: rankoder_space_saved
+      state_topic: "rankoder/status"
+      value_template: "{{ value_json.space_saved_gb | round(1) }}"
+      unit_of_measurement: "GB"
+      device_class: data_size
+      state_class: total_increasing
+    - name: "rankoder last failure"
+      unique_id: rankoder_last_failure
+      state_topic: "rankoder/status"
+      value_template: >-
+        {{ value_json.last_failure.title if value_json.last_failure else 'none' }}
+      json_attributes_topic: "rankoder/status"
+      json_attributes_template: "{{ value_json.last_failure | tojson }}"

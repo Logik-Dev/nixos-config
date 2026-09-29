@@ -1,0 +1,326 @@
+
+dejeuner:
+  alias: Dejeuner du jour
+  description: Connaitre le repas pour ce midi
+  sequence:
+  - action: notify.alexa_media_vision
+    metadata: {}
+    data:
+      message: "{% set lunch = states('sensor.mealie_dejeuner_aujourd_hui') %} {%
+        if lunch %}\n  Au déjeuner aujourd'hui : {{ lunch }}\n{% else %}\n  Aucun
+        repas planifié pour le déjeuner aujourd'hui.\n{% endif %}\n"
+      data:
+        type: announce
+notifier:
+  alias: Notifier
+  description: Notifier vision et mon iphone
+  fields:
+    message:
+      description: Le message à envoyer
+      required: true
+    title:
+      description: Le titre de la notification
+      required: false
+  sequence:
+  - action: media_player.volume_set
+    target:
+      device_id: 7b6bb4c4859ac41a5af8bec903b15feb
+    data:
+      volume_level: 0.64
+  - action: notify.alexa_media_vision
+    data:
+      message: '{{ message }}'
+      data:
+        type: announce
+  - action: notify.mobile_app_iphone_de_cedric
+    data:
+      title: '{{ title }}'
+      message: '{{ message }}'
+rankoder_envoyer_la_demande_d_approbation:
+  alias: Rankoder — envoyer la demande d'approbation
+  sequence:
+  - condition: template
+    value_template: "{{ states('input_text.rankoder_pending_id')\n   not in ['', 'unknown',
+      'unavailable'] }}\n"
+  - data:
+      title: "\U0001F3AC {{ states('input_text.rankoder_pending_title') }}"
+      message: '{{ states(''input_text.rankoder_pending_msg'') }}'
+      data:
+        tag: rankoder_approval
+        push:
+          interruption-level: time-sensitive
+        actions:
+        - action: RANKODER_APPROVE|{{ states('input_text.rankoder_pending_id') }}
+          title: ✅ Approuver
+        - action: RANKODER_REJECT|{{ states('input_text.rankoder_pending_id') }}
+          title: ❌ Rejeter
+          destructive: true
+    action: notify.mobile_app_iphone_de_cedric
+  description: ''
+musique_personnalisee_en_parallele:
+  alias: Musique personnalisée en parallèle
+  mode: parallel
+  fields:
+    personne:
+      name: Personne
+      required: true
+      selector:
+        select:
+          options:
+          - cedric
+          - charlotte
+          - lou
+    lecteur:
+      name: Lecteur
+      required: true
+      selector:
+        entity:
+          filter:
+            domain: media_player
+            integration: music_assistant
+  variables:
+    profils:
+      cedric:
+        playlist: library://playlist/7
+        utilisateur: cedric
+      charlotte:
+        playlist: library://playlist/58
+        utilisateur: charlotte
+      lou:
+        playlist: library://playlist/55
+        utilisateur: lou
+  sequence:
+  - action: media_player.shuffle_set
+    target:
+      entity_id: '{{ lecteur }}'
+    data:
+      shuffle: true
+  - action: music_assistant.play_media
+    target:
+      entity_id: '{{ lecteur }}'
+    data:
+      media_id: '{{ profils[personne].playlist }}'
+      media_type: playlist
+      enqueue: replace
+      username: '{{ profils[personne].utilisateur }}'
+musique_personne:
+  alias: Musique personnalisée
+  mode: parallel
+  max: 10
+  fields:
+    personne:
+      name: Personne
+      required: true
+      selector:
+        select:
+          options:
+          - cedric
+          - charlotte
+          - lou
+    lecteur:
+      name: Lecteur (vide = pièce de l'Echo sollicité)
+      required: false
+      selector:
+        entity:
+          filter:
+            domain: media_player
+            integration: music_assistant
+  variables:
+    profils:
+      cedric:
+        playlist: library://playlist/7
+        utilisateur: cedric
+      charlotte:
+        playlist: library://playlist/58
+        utilisateur: charlotte
+      lou:
+        playlist: library://playlist/55
+        utilisateur: lou
+    lecteur_force: '{{ lecteur if (lecteur is defined and lecteur) else '''' }}'
+  sequence:
+  - if:
+    - condition: template
+      value_template: '{{ not lecteur_force }}'
+    then:
+    - action: alexa_media.update_last_called
+    - delay: 00:00:01
+  - variables:
+      echo: '{% set ents = integration_entities(''alexa_media'') | select(''match'',''media_player.'')
+        | list %}{{ expand(ents) | selectattr(''attributes.last_called'',''eq'',true)
+        | map(attribute=''entity_id'') | first | default('''') }}'
+  - variables:
+      cible: '{% set forced = lecteur_force %}{% if forced %}{{ forced }}{% else %}{%
+        set ma = integration_entities(''music_assistant'') | select(''match'',''media_player.'')
+        | list %}{% set ea = area_id(echo) if echo else '''' %}{% set inarea = expand(ma)
+        | selectattr(''entity_id'',''in'', area_entities(ea)) | selectattr(''state'',''ne'',''unavailable'')
+        | map(attribute=''entity_id'') | list %}{{ inarea[0] if inarea else '''' }}{%
+        endif %}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ cible != '''' }}'
+      sequence:
+      - action: music_assistant.play_media
+        target:
+          entity_id: '{{ cible }}'
+        data:
+          media_id: '{{ profils[personne].playlist }}'
+          media_type: playlist
+          enqueue: replace
+          username: '{{ profils[personne].utilisateur }}'
+    default:
+    - if:
+      - condition: template
+        value_template: '{{ echo != '''' }}'
+      then:
+      - action: notify.alexa_media
+        data:
+          target: '{{ echo }}'
+          message: Désolé, il n’y a pas d’enceinte dans cette pièce.
+          data:
+            type: tts
+musique_cedric:
+  alias: Musique Cédric
+  sequence:
+  - action: script.musique_personne
+    data:
+      personne: cedric
+musique_charlotte:
+  alias: Musique Charlotte
+  sequence:
+  - action: script.musique_personne
+    data:
+      personne: charlotte
+musique_lou:
+  alias: Musique Lou
+  sequence:
+  - action: script.musique_personne
+    data:
+      personne: lou
+musique_playlist:
+  alias: Musique playlist
+  mode: parallel
+  max: 10
+  fields:
+    playlist:
+      name: Playlist
+      required: true
+      selector:
+        select:
+          options:
+          - lea
+          - lou
+          - charlotte
+          - cedric
+          - miraculous
+    piece:
+      name: Pièce (vide = pièce de l'Echo sollicité)
+      required: false
+      selector:
+        text: {}
+    lecteur:
+      name: Lecteur (optionnel)
+      required: false
+      selector:
+        entity:
+          filter:
+            domain: media_player
+            integration: music_assistant
+  variables:
+    playlists:
+      lea:
+        uri: library://playlist/62
+        utilisateur: charlotte
+      lou:
+        uri: library://playlist/57
+        utilisateur: cedric
+      charlotte:
+        uri: library://playlist/58
+        utilisateur: charlotte
+      cedric:
+        uri: library://playlist/7
+        utilisateur: cedric
+      miraculous:
+        uri: library://playlist/59
+        utilisateur: lou
+    lecteur_force: '{{ lecteur if (lecteur is defined and lecteur) else '''' }}'
+  sequence:
+  - if:
+    - condition: template
+      value_template: '{{ not lecteur_force and not (piece is defined and piece) }}'
+    then:
+    - action: alexa_media.update_last_called
+    - delay: 00:00:01
+  - variables:
+      echo: '{% set ents = integration_entities(''alexa_media'') | select(''match'',''media_player.'')
+        | list %}{{ expand(ents) | selectattr(''attributes.last_called'',''eq'',true)
+        | map(attribute=''entity_id'') | first | default('''') }}'
+      ma: '{{ integration_entities(''music_assistant'') | select(''match'',''media_player.'')
+        | list }}'
+  - variables:
+      cible: '{% set forced = lecteur_force %}{% if forced %}{{ forced }}{% elif piece
+        is defined and piece %}{% set pn = namespace(v=piece|lower|trim) %}{% for
+        art in [''le '',''la '',''les ''] %}{% if pn.v.startswith(art) %}{% set pn.v
+        = pn.v[art|length:] %}{% endif %}{% endfor %}{% if pn.v.startswith("l''")
+        %}{% set pn.v = pn.v[2:] %}{% endif %}{% if pn.v.startswith(''l’'') %}{% set
+        pn.v = pn.v[2:] %}{% endif %}{% set ns = namespace(t='''') %}{% for e in ma
+        %}{% if not ns.t and area_name(e) and area_name(e)|lower == pn.v and states(e)
+        != ''unavailable'' %}{% set ns.t = e %}{% endif %}{% endfor %}{{ ns.t if ns.t
+        else ''media_player.playbar'' }}{% else %}{% set ea = area_id(echo) if echo
+        else '''' %}{% set inarea = expand(ma) | selectattr(''entity_id'',''in'',
+        area_entities(ea)) | selectattr(''state'',''ne'',''unavailable'') | map(attribute=''entity_id'')
+        | list %}{{ inarea[0] if inarea else ''media_player.playbar'' }}{% endif %}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ cible != '''' }}'
+      sequence:
+      - action: music_assistant.play_media
+        target:
+          entity_id: '{{ cible }}'
+        data:
+          media_id: '{{ playlists[playlist].uri }}'
+          media_type: playlist
+          enqueue: replace
+          username: '{{ playlists[playlist].utilisateur }}'
+    default:
+    - if:
+      - condition: template
+        value_template: '{{ echo is defined and echo != '''' }}'
+      then:
+      - action: notify.alexa_media
+        data:
+          target: '{{ echo }}'
+          message: Désolé, il n'y a pas d'enceinte dans cette pièce.
+          data:
+            type: tts
+musique_playlist_lea:
+  alias: Musique playlist Léa
+  sequence:
+  - action: script.musique_playlist
+    data:
+      playlist: lea
+musique_playlist_lou:
+  alias: Musique playlist Lou
+  sequence:
+  - action: script.musique_playlist
+    data:
+      playlist: lou
+musique_playlist_charlotte:
+  alias: Musique playlist Charlotte
+  sequence:
+  - action: script.musique_playlist
+    data:
+      playlist: charlotte
+musique_playlist_cedric:
+  alias: Musique playlist Cédric
+  sequence:
+  - action: script.musique_playlist
+    data:
+      playlist: cedric
+musique_playlist_miraculous:
+  alias: Musique playlist Miraculous
+  sequence:
+  - action: script.musique_playlist
+    data:
+      playlist: miraculous

@@ -1,0 +1,332 @@
+
+- id: '1768941404192'
+  alias: Série téléchargée
+  description: Prévenir qu'une nouvelle série est arrivée
+  triggers:
+  - trigger: webhook
+    allowed_methods:
+    - POST
+    - PUT
+    local_only: false
+    webhook_id: serie-downloaded
+  conditions:
+  - condition: device
+    device_id: a3453d586ba92710007c49e13d8dc47b
+    domain: device_tracker
+    entity_id: 34c56a21a48bf50a458378ddec377c95
+    type: is_home
+  - condition: time
+    after: 07:00:00
+    before: '22:00:00'
+  actions:
+  - action: script.notifier
+    metadata: {}
+    data:
+      message: Nouvel épisode de {{ trigger.json.series.title }} téléchargé !
+      title: Nouvel épisode téléchargé
+  mode: single
+- id: '1771021457543'
+  alias: Mouvement dans la chambre des enfants
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.camera_lea_motion_detection
+  conditions: []
+  actions:
+  - action: notify.mobile_app_macbookpro
+    metadata: {}
+    data:
+      message: Il y a du mouvement dans la chambre des enfants
+      title: Mouvement détecté
+  mode: single
+- id: '1776065804358'
+  alias: Film téléchargé
+  description: ''
+  triggers:
+  - trigger: webhook
+    allowed_methods:
+    - POST
+    - PUT
+    local_only: false
+    webhook_id: movie-downloaded
+  conditions:
+  - condition: device
+    device_id: a3453d586ba92710007c49e13d8dc47b
+    domain: device_tracker
+    entity_id: 34c56a21a48bf50a458378ddec377c95
+    type: is_home
+    enabled: true
+  - condition: time
+    after: 07:00:00
+    before: '22:00:00'
+  actions:
+  - action: script.notifier
+    metadata: {}
+    data:
+      title: Un nouveau film est arrivé
+      message: Nouveau film {{ trigger.json.movie.title }} téléchargé !
+  mode: single
+- id: '1780815408251'
+  alias: Arrosage automatique
+  description: Arrosage automatique le matin
+  triggers:
+  - trigger: sun
+    event: sunrise
+    offset: 0
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.il_va_pleuvoir
+    state:
+    - 'off'
+  actions:
+  - action: notify.mobile_app_iphone_de_cedric
+    metadata: {}
+    data:
+      title: Arrosage automatique
+      message: L'arrosage va démarrer pour {{ duree_minutes }} minutes.
+  - action: switch.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.vanne_sonoff
+  - delay:
+      minutes: '{{ duree_minutes }}'
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.vanne_sonoff
+  - action: notify.mobile_app_iphone_de_cedric
+    metadata: {}
+    data:
+      message: Fermeture de la vanne Sonoff
+      title: Fin de l'arrosage
+  variables:
+    pluie_prevue: '{{ states(''sensor.meteo_france_forecast_for_city_leognan_aquitaine_33_fr_leognan_rain_chance'')
+      | float(0) > 30 }}'
+    duree_minutes: 5
+  mode: single
+- id: '1780832170509'
+  alias: Arrosage - fermeture sécurité
+  description: Ferme la vanne si elle reste ouverte plus de 10 min
+  triggers:
+  - entity_id:
+    - switch.vanne_sonoff
+    to:
+    - 'on'
+    for:
+      minutes: 10
+    trigger: state
+  actions:
+  - action: switch.turn_off
+    data: {}
+    target:
+      entity_id: switch.vanne_sonoff
+  - action: notify.mobile_app_iphone_de_cedric
+    metadata: {}
+    data:
+      message: Vanne fermée automatiquement après 10 min (sécurité).
+      title: ⚠️ Arrosage - sécurité
+  mode: single
+- id: '1780835168556'
+  alias: Notifier absence d'arrosage
+  description: Skip de l'arrosage quand de la pluie est prévue
+  triggers:
+  - trigger: time
+    at: 07:00:00
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.il_va_pleuvoir
+    state:
+    - 'on'
+  actions:
+  - action: notify.mobile_app_iphone_de_cedric
+    metadata: {}
+    data:
+      title: Arrosage annulée
+      message: 'Pluie prévue dans les 24 prochaines heures. Pourcentage "{{ states.sensor.meteo_france_forecast_for_city_leognan_aquitaine_33_fr_leognan_rain_chance
+        }}"% Précipitations en ml: "{{ states.sensor.meteo_france_forecast_for_city_leognan_aquitaine_33_fr_leognan_daily_precipitation
+        }}"
+
+        '
+  mode: single
+  variables:
+    pluie_prevue: '{{ states(''sensor.meteo_france_forecast_for_city_leognan_aquitaine_33_fr_leognan_rain_chance'')
+      | float(0) > 30 }}
+
+      '
+    precipitation_ml: '{{ states(''sensor.meteo_france_forecast_for_city_leognan_aquitaine_33_fr_leognan_daily_precipitation'')
+      | float(0) > 2}}
+
+      '
+- &id001
+  id: rankoder_approval_request
+  alias: Rankoder — réception demande d'approbation
+  triggers:
+  - topic: rankoder/approval/request
+    trigger: mqtt
+  actions:
+  - variables:
+      batch_id: '{{ trigger.payload_json.batch_id }}'
+      titre: '{{ trigger.payload_json.title }}'
+      fichiers: '{{ trigger.payload_json.file_count }}'
+      taille: '{{ trigger.payload_json.total_size_gb | round(1) }}'
+      gain: '{{ trigger.payload_json.total_space_saved_gb | round(1) }}'
+      note: '{{ trigger.payload_json.tmdb_rating }}'
+  - data:
+      title: 'rankoder : transcoder « {{ titre }} » ?'
+      message: '{{ fichiers }} fichier(s) · {{ taille }} Go → gain ~{{ gain }} Go{%
+        if note %} · TMDB {{ note }}{% endif %}'
+      data:
+        tag: rankoder_{{ batch_id }}
+        actions:
+        - action: RANKODER_APPROVE|{{ batch_id }}
+          title: ✅ Approuver
+        - action: RANKODER_SKIP|{{ batch_id }}
+          title: "\U0001F6AB Ignorer"
+    action: notify.mobile_app_iphone_de_cedric
+  mode: parallel
+  max: 10
+- id: rankoder_deliver_deferred
+  alias: Rankoder — remise différée à 09:00
+  description: ''
+  triggers:
+  - at: 09:00:00
+    trigger: time
+  conditions:
+  - condition: template
+    value_template: "{{ states('input_text.rankoder_pending_id')\n   not in ['', 'unknown',
+      'unavailable'] }}\n"
+  actions:
+  - action: script.rankoder_envoyer_la_demande_d_approbation
+    data: {}
+- id: rankoder_approval_response
+  alias: Rankoder — traitement de la réponse
+  triggers:
+  - event_type: mobile_app_notification_action
+    trigger: event
+  conditions:
+  - '{{ trigger.event.data.action is string and trigger.event.data.action.startswith(''RANKODER_'')
+    }}'
+  actions:
+  - variables:
+      parts: '{{ trigger.event.data.action.split(''|'') }}'
+      decision: '{{ parts[0] }}'
+      batch_id: '{{ parts[1] }}'
+  - data:
+      topic: rankoder/approval/response
+      qos: 1
+      payload: '{{ {"batch_id": batch_id, "approved": decision == "RANKODER_APPROVE"}
+        | to_json }}'
+    action: mqtt.publish
+  - data:
+      message: clear_notification
+      data:
+        tag: rankoder_{{ batch_id }}
+    action: notify.iphone_de_cedric
+  mode: parallel
+  max: 10
+- id: '1781535392587'
+  alias: Rankoder — transcode failure alert
+  description: ''
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: rankoder/failure
+  conditions: []
+  actions:
+  - action: notify.mobile_app_iphone_de_cedric
+    metadata: {}
+    data:
+      title: 'Rankoder: transcode failed'
+      message: '{{ trigger.payload_json.title or trigger.payload_json.media_file_id
+        }} ({{ trigger.payload_json.kind }}) — {{ trigger.payload_json.reason }}'
+  mode: queued
+  max: 100
+- *id001
+- id: musique_voix_lea
+  alias: Musique voix — Léa
+  triggers:
+  - platform: conversation
+    command:
+    - joue [la] playlist Léa [dans {area}]
+    - mets [la] playlist Léa [dans {area}]
+    - joue [la] playlist de Léa [dans {area}]
+    - mets [la] playlist de Léa [dans {area}]
+    - joue Léa [dans {area}]
+    - mets Léa [dans {area}]
+  actions:
+  - data:
+      playlist: lea
+      piece: '{{ trigger.slots.area | default('''') }}'
+    action: script.musique_playlist
+  mode: single
+- id: musique_voix_lou
+  alias: Musique voix — Lou
+  triggers:
+  - platform: conversation
+    command:
+    - joue [la] playlist Lou [dans {area}]
+    - mets [la] playlist Lou [dans {area}]
+    - joue [la] playlist de Lou [dans {area}]
+    - mets [la] playlist de Lou [dans {area}]
+    - joue Lou [dans {area}]
+    - mets Lou [dans {area}]
+  actions:
+  - data:
+      playlist: lou
+      piece: '{{ trigger.slots.area | default('''') }}'
+    action: script.musique_playlist
+  mode: single
+- id: musique_voix_charlotte
+  alias: Musique voix — Charlotte
+  triggers:
+  - platform: conversation
+    command:
+    - joue [la] playlist Charlotte [dans {area}]
+    - mets [la] playlist Charlotte [dans {area}]
+    - joue [la] playlist de Charlotte [dans {area}]
+    - mets [la] playlist de Charlotte [dans {area}]
+    - joue Charlotte [dans {area}]
+    - mets Charlotte [dans {area}]
+  actions:
+  - data:
+      playlist: charlotte
+      piece: '{{ trigger.slots.area | default('''') }}'
+    action: script.musique_playlist
+  mode: single
+- id: musique_voix_cedric
+  alias: Musique voix — Cédric
+  triggers:
+  - platform: conversation
+    command:
+    - joue [la] playlist Cédric [dans {area}]
+    - mets [la] playlist Cédric [dans {area}]
+    - joue [la] playlist de Cédric [dans {area}]
+    - mets [la] playlist de Cédric [dans {area}]
+    - joue Cédric [dans {area}]
+    - mets Cédric [dans {area}]
+  actions:
+  - data:
+      playlist: cedric
+      piece: '{{ trigger.slots.area | default('''') }}'
+    action: script.musique_playlist
+  mode: single
+- id: musique_voix_miraculous
+  alias: Musique voix — Miraculous
+  triggers:
+  - platform: conversation
+    command:
+    - joue [la] playlist Miraculous [dans {area}]
+    - mets [la] playlist Miraculous [dans {area}]
+    - joue [la] playlist de Miraculous [dans {area}]
+    - mets [la] playlist de Miraculous [dans {area}]
+    - joue Miraculous [dans {area}]
+    - mets Miraculous [dans {area}]
+  actions:
+  - data:
+      playlist: miraculous
+      piece: '{{ trigger.slots.area | default('''') }}'
+    action: script.musique_playlist
+  mode: single
