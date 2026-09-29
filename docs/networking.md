@@ -146,6 +146,16 @@ Sauvegarde via les `.unf` auto (copie live, contrôleur non arrêté).
 - `br-iot` — bridge sur vlan21, `192.168.21.241/24` (Home Assistant VM).
 - NetworkManager désactivé sur hyper.
 
+⚠️ **Le transfert entre ces réseaux n'est pas filtré** : `ip_forward=1` (posé par
+Tailscale) + chaîne FORWARD en `policy ACCEPT` — `networking.firewall` ne filtre
+que l'INPUT. Un objet du VLAN IoT qui prend `192.168.21.241` comme passerelle
+atteint le LAN sans passer par les règles de l'UniFi (vérifié le 2026-09-29).
+Voir **SEC-14** : [security.md](security.md#routage-inter-vlan-non-filtré-sec-14).
+
+`br_netfilter` n'étant pas chargé, le trafic **bridgé** vers la VM (`vnet0`) ne
+traverse lui non plus aucune règle : le port 8123 de Home Assistant est joignable
+sans filtre depuis vlan21.
+
 ## Hetzner Storage Box
 
 `storage/hetzner-storagebox.nix`

@@ -55,6 +55,58 @@ Ports ouverts dans le firewall NixOS (`networking.firewall.allowedTCPPorts`) :
   Tailscale a été retiré (voir `docs/tailscale-acl.md`).
 - `fail2ban` (`security/fail2ban.nix`) bannit les scans SSH (ignore LAN + tailnet).
 
+## Routage inter-VLAN non filtré (SEC-14)
+
+**hyper est un routeur ouvert entre le VLAN IoT et le LAN.** Constaté et
+**vérifié empiriquement le 2026-09-29**, indépendamment de tout projet en cours.
+
+Trois conditions se cumulent :
+
+| Condition | État mesuré | Origine |
+|---|---|---|
+| Transfert IP activé | `net.ipv4.ip_forward = 1` | posé par Tailscale (subnet router) |
+| Chaîne FORWARD sans filtre | `policy ACCEPT`, aucune règle NixOS | `networking.firewall` ne filtre **que** l'INPUT |
+| Pattes sur les deux réseaux | `management` 192.168.10.100, `br-iot` 192.168.21.241 | `hosts/hyper/ifnames.nix` |
+
+`networking.firewall.filterForward` n'est pas activable en l'état : l'option est
+**nftables uniquement**, et hyper tourne en mode iptables (`nftables.service`
+inactif, `iptables v1.8.13 (nf_tables)` = shim de compatibilité). Le `rp_filter`
+est en mode *loose* (`2`) sur les deux interfaces, donc il ne bloque rien ici.
+
+**Conséquence** : un objet compromis sur vlan21 qui prend `192.168.21.241` comme
+passerelle atteint `192.168.10.0/24` **en contournant les règles inter-VLAN de
+l'UniFi** — celles-ci ne voient jamais le trafic, qui ne passe pas par le routeur.
+
+Vérification faite (namespace jetable attaché à `br-iot`, 192.168.21.250/24,
+route par défaut via 192.168.21.241, supprimé aussitôt) : ping **et** TCP/443
+vers 192.168.10.1 aboutissent. Ce n'est pas théorique.
+
+À cela s'ajoute que Tailscale annonce **les deux** `/24`
+(`--advertise-routes=192.168.10.0/24,192.168.21.0/24`) : la portée dépend alors
+des ACL Tailscale (`docs/tailscale-acl.md`), pas du pare-feu de l'hôte.
+
+Deux autres constats du même audit :
+
+- **`br_netfilter` n'est pas chargé** : le trafic *bridgé* sur `br-iot` (donc
+  vers la VM Home Assistant, `vnet0`) ne traverse aucune règle iptables. Le port
+  8123 de HA est joignable sans filtre depuis n'importe quel objet de vlan21.
+- Ce n'est **pas** un argument pour sortir Home Assistant du VLAN IoT : HA doit
+  par fonction parler au segment non fiable (voir
+  `docs/home-assistant-nix-plan.md` §3.2).
+
+### Pistes de correction
+
+1. **Ciblé, à faible risque** — une règle FORWARD `br-iot → management : drop`
+   (avec `ct state established,related accept` pour ne pas casser les réponses
+   aux flux sortants du LAN). Ne touche ni Tailscale, ni podman, ni la veth VPN.
+2. **Structurel** — `networking.nftables.enable = true` +
+   `networking.firewall.filterForward = true`, avec des
+   `extraForwardRules` explicites. ⚠️ Passer le FORWARD en *drop* casserait le
+   **subnet routing Tailscale**, **netavark** (conteneurs immich) et la **veth
+   du namespace `vpn`** tant que les règles ne sont pas écrites. Ce n'est pas une
+   ligne : c'est un chantier à part entière, à valider en
+   `nixos-rebuild test` avant de persister.
+
 ## Modèle sudo (hyper)
 
 `security.sudo.wheelNeedsPassword = false` (`security/hardening.nix`) : les
@@ -111,4 +163,9 @@ un déverrouillage automatique au boot sans intervention.
 ## Restes ouverts (audit 2026-09)
 
 - **SEC-3b** : comptes MQTT distincts + ACL minimales + TLS 8883 (HA à mettre à jour).
+  Note : la migration de Home Assistant en natif rendrait le listener `br-iot`
+  **fermable** (HA passerait en loopback), ce qui retire l'essentiel du sujet —
+  voir `docs/home-assistant-nix-plan.md` §3.2 d.
 - **SEC-11** : appliquer le JSON d'ACL Tailscale dans la console.
+- **SEC-14** : routage inter-VLAN non filtré sur hyper (section ci-dessus) —
+  vérifié le 2026-09-29, non corrigé.

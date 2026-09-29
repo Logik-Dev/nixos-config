@@ -1,7 +1,8 @@
 # Dossier — Home Assistant vers une approche nix déclarative
 
 > Statut : **inventaire terminé**, décision à prendre. Aucune modification appliquée.
-> Date : 2026-09-28.
+> Date : 2026-09-28 — **révisé le 2026-09-29** (§3.2 réécrit : la question du VLAN
+> est tranchée, et l'analyse a mis au jour SEC-14, hors périmètre).
 > Méthode : lecture seule via l'API HA (jeton longue durée, tunnel SSH), plus
 > inspection de l'hôte et de nixpkgs. La VM n'a pas été touchée.
 > Lié : `docs/resource-control-plan.md` (C2 — la VM immobilise 15,6 G pour 0,5 G utilisés).
@@ -184,21 +185,105 @@ mise à jour 5.2.3 en attente, désormais sans objet).
 
 **Conséquence : plus aucun bloqueur technique à la migration.**
 
-### 3.2 Réseau — le point de rupture
+### 3.2 Réseau — le point de rupture, et la question du VLAN
 
-HA passerait de 192.168.21.181 (VM) à l'hôte. À reprendre :
+**Tranché le 2026-09-29 : HA reste sur le lien IoT.** L'en sortir « pour raisons
+de sécurité » serait contre-productif, et en natif la question ne se pose même
+plus dans ces termes.
+
+#### a. En natif, « quel VLAN pour HA » n'existe plus
+
+`services.home-assistant` n'est pas une entité réseau, c'est un process sur hyper.
+Il hérite de **toutes** les pattes de l'hôte : `management` (192.168.10.100),
+`br-iot` (192.168.21.241), `vlan100`, `vlan200`, `tailscale0`. Il n'y a plus
+d'adresse à choisir — il y a trois réglages à décider :
+
+| Réglage | Mécanisme | Décision |
+|---|---|---|
+| Sur quoi HA **écoute** | `http.server_host` (liste) | `127.0.0.1` + `192.168.21.241` (voir le piège en d.) |
+| Sur quoi HA **découvre** | adaptateurs de l'intégration `network` | `br-iot` seul |
+| Ce que HA **peut atteindre** | durcissement systemd (`IPAddressAllow`) | 192.168.21.0/24 + loopback |
+
+Nuance sur le deuxième : dans un HA moderne, la sélection d'adaptateurs vit dans
+**`.storage/core.network`** (intégration `network`, réglée par l'UI), pas dans
+`configuration.yaml` — c'est donc un geste à faire une fois, et il appartient au
+non-déclarable du §2. La formulation « épingler l'interface zeroconf » d'une
+révision antérieure laissait croire à une option nix : il n'y en a pas.
+À confirmer au moment de la bascule : le sort exact de l'ancienne clé
+`zeroconf.default_interface` dans la version de nixpkgs retenue.
+
+#### b. Pourquoi ne pas sortir HA du VLAN IoT
+
+Les 9 intégrations découvertes (§1.3 — `sonos`, `cast`, `lifx`, `tplink` ×2,
+`ipp`, `androidtv_remote`, `dlna_dmr`, `thread`) sont **nécessairement sur
+vlan21** : la VM n'a que ce lien, et mDNS/SSDP sont du multicast link-local.
+Retirer la patte `br-iot`, ce serait donc :
+
+- casser les 9 découvertes d'un coup — et elles ne se recréeraient pas seules ;
+- devoir monter un réflecteur mDNS / proxy IGMP sur l'UniFi ;
+- ouvrir des règles inter-VLAN explicites, protocole par protocole.
+
+Plus de trous à maintenir, pas moins, pour zéro gain : **HA est par fonction le
+service qui doit parler au segment non fiable.** Le VLAN IoT contient les
+ampoules et la TV, pas leur contrôleur. Le raisonnement vaut à l'identique pour
+l'option C (garder la VM en la déplaçant sur le LAN).
+
+#### c. Le vrai changement de surface est inverse
+
+Aujourd'hui la VM est **confinée** à vlan21. En natif, HA — 220 composants, plus
+`alexa_media_player` qui est du code tiers non packagé (§1.2) — tourne sur hyper
+avec accès à `management`, `vlan100`, `vlan200` et au tailnet. **C'est le blast
+radius de HA qui augmente, pas son exposition aux objets IoT.**
+
+Ce qui le compense, et qui n'existe pas dans la VM :
+
+- **durcissement systemd** — `IPAddressAllow`/`IPAddressDeny` scopés à
+  192.168.21.0/24 + loopback redonnent, par cgroup, le confinement que la VM
+  donnait par le réseau ;
+- **`extraComponents`** — surface Python réduite au strict nécessaire, là où
+  l'image HAOS embarque tout.
+
+#### d. Ce que la migration permet de fermer
+
+- **MQTT 1883 sur `br-iot` devient fermable entièrement.** La VM est le *seul*
+  client distant du listener (`mosquitto.nix:13` ; z2m et rankoder sont en
+  loopback). HA passant en loopback, on retire du segment IoT un service **sans
+  TLS, à mot de passe partagé, dont le compte `homeassistant` a l'ACL
+  `readwrite #`** — l'essentiel de SEC-3b tombe de lui-même. À vérifier avant de
+  le fermer : qu'aucun appareil ne publie en MQTT directement (aucun ESPHome ni
+  Tasmota dans l'inventaire — tout passe par z2m).
+- **Le port 8123 devient filtrable.** Aujourd'hui il ne l'est pas : `br_netfilter`
+  n'est pas chargé sur hyper, donc le trafic bridgé vers la VM ne traverse aucune
+  règle — n'importe quel objet de vlan21 atteint la page de login de HA. En natif,
+  le port passe par `networking.firewall`, donc par un défaut-deny, et
+  `traefik.services.hass.host` devient `127.0.0.1`.
+- ⚠️ **Piège à ne pas rater** : ne pas binder sur loopback **seul**. Sonos et
+  Cast vont chercher les URL de média/TTS *servies par HA* — si 8123 n'est pas
+  joignable depuis vlan21, la TTS et la lecture locale tombent. Il faut garder
+  `192.168.21.241:8123` joignable depuis `br-iot` et fixer `internal_url` dessus.
+  Le gain net n'est donc pas « 8123 disparaît du VLAN IoT » mais « 8123 est
+  exposé là où c'est nécessaire, et nulle part ailleurs ».
+
+#### e. À reprendre lors de la bascule
+
+HA passerait de 192.168.21.181 (VM) à l'hôte :
 
 - `traefik.services.hass.host`, aujourd'hui figé sur l'IP de la VM
-  (`hosts/hyper/libvirt.nix`) ;
+  (`hosts/hyper/libvirt.nix`) → `127.0.0.1` ;
 - tout appareil configuré avec l'URL de HA, les webhooks externes, les ponts
   HomeKit/Alexa/Google, les intégrations à *callback* ;
-- les 3 entrées `mobile_app` (téléphones) et l'intégration `cloud`.
+- les 3 entrées `mobile_app` (téléphones) et l'intégration `cloud` ;
+- `internal_url` / `external_url`.
 
-L'hôte étant sur `br-iot`, la découverte mDNS/SSDP reste sur le bon lien — c'est le
-seul point qui ne casse pas tout seul. Attention en revanche : sur l'hôte, HA
-verrait **toutes** les interfaces (`management`, `vlan21`, `vlan100`, `vlan200`,
-`vms`), soit une surface de découverte plus large qu'aujourd'hui. Épingler
-l'interface zeroconf.
+#### f. Hors périmètre, mais découvert en chemin : SEC-14
+
+L'analyse a mis au jour un trou **indépendant de HA et antérieur à la migration** :
+hyper route déjà entre le VLAN IoT et le LAN sans aucun filtrage. Un objet
+compromis sur vlan21 qui prend 192.168.21.241 comme passerelle atteint
+192.168.10.0/24 en contournant les règles de l'UniFi — vérifié empiriquement le
+2026-09-29. C'est un enjeu de sécurité bien plus grand que l'adresse de HA. Voir
+`docs/security.md` § « Routage inter-VLAN non filtré » et SEC-14 dans
+`docs/audit-2026-09.md`.
 
 ### 3.3 Chaque déploiement redémarrerait HA
 
@@ -282,7 +367,9 @@ strict nécessaire) et le durcissement systemd, absent d'un conteneur rootful.
    `customLovelaceModules` / `customComponents`.
 5. **`configuration.yaml` en nix**, avec `!include` pour laisser mutables les
    fichiers écrits par l'UI. Ajouter `http.use_x_forwarded_for` + `trusted_proxies`
-   pour Traefik. Épingler l'interface zeroconf (§3.2).
+   pour Traefik, et `http.server_host = [ 127.0.0.1, 192.168.21.241 ]` (§3.2 a/d).
+   La sélection d'adaptateurs de découverte n'est **pas** du YAML : elle se fait à
+   l'UI et atterrit dans `.storage/core.network` (§3.2 a).
 6. **Les 10 automatisations écrites à la main** (§1.5) : candidates à passer en nix,
    les rankoder à côté de `medias/rankoder.nix`. Les 7 de l'éditeur graphique
    restent dans `automations.yaml` mutable.
@@ -294,8 +381,11 @@ strict nécessaire) et le durcissement systemd, absent d'un conteneur rootful.
 8. **Recorder** : garder SQLite (reprise de l'historique) ou basculer sur
    PostgreSQL — ce qui ferait entrer HA dans le PITR pgBackRest, au prix d'une
    migration d'historique ou de sa perte. À trancher, sans urgence.
-9. **Réseau** : reprendre `traefik.services.hass`, les URL côté appareils, les
-   3 `mobile_app`.
+9. **Réseau** (§3.2 e) : `traefik.services.hass.host` → `127.0.0.1`, les URL côté
+   appareils, `internal_url`/`external_url`, les 3 `mobile_app`. Puis **fermer 1883
+   sur `br-iot`** une fois HA en loopback (§3.2 d) — après avoir confirmé qu'aucun
+   appareil ne publie en MQTT directement. Ajouter le durcissement systemd
+   (`IPAddressAllow` 192.168.21.0/24 + loopback, §3.2 c).
 10. **Jamais les deux en parallèle** : deux HA sur le même MQTT commanderaient les
     appareils deux fois.
 11. **Rollback** : garder le qcow2 au moins un mois, VM définie mais arrêtée.
@@ -334,6 +424,10 @@ WebSocket, et non par `/api/hassio/backups`.
    Zigbee2MQTT et
    Mosquitto déjà déclaratifs, pas de passthrough, hôte sur le bon lien, MA et les
    cartes HACS packagés dans nixpkgs.
+
+**Hors périmètre mais prioritaire** : SEC-14 (routage inter-VLAN non filtré sur
+hyper, §3.2 f). Il ne dépend pas de la migration, il est vérifié, et il pèse plus
+lourd sur la sécurité que tout ce qui précède.
 
 Le compromis de fond, à accepter en conscience : on échangerait « HA immunisé
 contre les déploiements » et « MAJ en un clic » contre « HA déployé et versionné
