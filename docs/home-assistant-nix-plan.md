@@ -410,9 +410,11 @@ strict nécessaire) et le durcissement systemd, absent d'un conteneur rootful.
    `music_assistant`** (elle venait du Supervisor, §1.3). Vérifier le provider
    Sonos à déclarer : la Playbar 1ʳᵉ gén. et les Play:3 sont des modèles anciens
    (compatibles S2), à valider contre les providers Sonos de MA.
-8. **Recorder** : garder SQLite (reprise de l'historique) ou basculer sur
-   PostgreSQL — ce qui ferait entrer HA dans le PITR pgBackRest, au prix d'une
-   migration d'historique ou de sa perte. À trancher, sans urgence.
+8. **Recorder** : ~~à trancher, sans urgence~~ → **tranché le 2026-09-29 :
+   PostgreSQL, et tout de suite.** Le seul coût que cette étape listait était
+   « une migration d'historique ou sa perte » ; repartir de zéro (§8) l'annule
+   entièrement. Et il ne redeviendra jamais nul : différer, c'est choisir de
+   payer plus tard ce qui est gratuit maintenant. Détail en §10.
 9. **Réseau** (§3.2 e) : `traefik.services.hass.host` → `127.0.0.1`, les URL côté
    appareils, `internal_url`/`external_url`, les 3 `mobile_app`. Puis **fermer 1883
    sur `br-iot`** une fois HA en loopback (§3.2 d) — après avoir confirmé qu'aucun
@@ -532,14 +534,22 @@ reconstruction, pas la suivre.**
 ```nix
 backups.sources.home-assistant = {
   paths = [ "/var/lib/hass" ];
+  manageService = false;
   exclude = [ "home-assistant.log*" "tts/" "deps/" ];
 };
 ```
 
-`manageService` reste à son défaut (arrêt/redémarrage autour du passage) :
-l'enregistreur est du SQLite, et une copie à chaud donnerait une base
-potentiellement incohérente. Le coût est un redémarrage nocturne de HA, déjà
-accepté par le §3.3. Ajouter `notify.services` au même endroit.
+**`manageService = false`, et c'est le passage sur PostgreSQL (§10) qui le
+permet.** Tant que l'enregistreur était du SQLite *dans le répertoire de
+config*, il fallait arrêter HA autour du passage pour obtenir une base
+cohérente — donc un redémarrage nocturne en plus de ceux des déploiements
+(§3.3). L'historique étant désormais dans postgres, le répertoire ne contient
+plus que des fichiers `.storage/` écrits par renommage atomique : une copie à
+chaud les attrape entiers.
+
+**Fait et vérifié le 2026-09-29** : passage forcé réussi, snapshot `a9b97fe6`,
+**28 fichiers / 30 Kio**. Cette petitesse est la preuve directe que l'historique
+a bien quitté le répertoire.
 
 > **Cela rend le §6 bis sans objet.** Le service de récupération par API
 > (`GET /api/backup/download/…`, jeton agenix dédié, rotation) n'existait que
@@ -709,6 +719,63 @@ pour toute nouvelle route — et à ne pas masquer avec `curl -k`
 **État final : `ha.hyper.logikdev.fr` → 200, certificat valide.** La VM répond
 toujours sur `hass.hyper.logikdev.fr` → 200. Le courtier MQTT n'a toujours que
 ses deux clients loopback : l'instance native n'a pas touché aux appareils.
+
+## 10. L'enregistreur sur PostgreSQL (tranché et fait le 2026-09-29)
+
+Question posée en cours de lot B : *ne serait-il pas plus intéressant de se
+brancher sur postgres tout de suite ?* Oui — et c'est le seul moment où ça ne
+coûte rien.
+
+### Pourquoi maintenant et pas plus tard
+
+Le §6.8 différait ce choix pour une seule raison : « au prix d'une migration
+d'historique ou de sa perte ». La décision de repartir de zéro supprime ce coût
+**entièrement**, et c'est une fenêtre qui se referme : dans six mois, la même
+décision coûtera l'historique accumulé. L'arbitrage est unilatéral aujourd'hui,
+il ne le sera plus jamais.
+
+### Ce que ça apporte
+
+- **HA entre dans le PITR pgBackRest.** La stanza est unique (`default`) et
+  porte le **cluster**, pas une base : `hass` vit dans
+  `/var/lib/postgresql/16` avec authelia, immich, vaultwarden et les \*arr, donc
+  elle est couverte par l'archivage WAL dès sa création et par la prochaine
+  sauvegarde complète — sur les **deux** dépôts, USB et Hetzner hors-site.
+  C'est plus fort qu'un instantané restic nocturne d'un fichier SQLite.
+- **Plus de redémarrage nocturne de HA** : voir B0. Le répertoire de config
+  devient petit et stable, donc `manageService = false`.
+- **Pas de secret à gérer** : connexion en peer par la socket Unix, comme
+  n8n/vaultwarden/authelia. `ensureDBOwnership` impose base == rôle, d'où `hass`
+  et non `homeassistant`.
+
+### Les trois vérifications faites avant d'écrire la ligne
+
+Après le piège du §9, rien n'a été supposé :
+
+| Question | Réponse |
+|---|---|
+| `recorder` a-t-il le mécanisme `pending`/`promote` de `http` ? | **non** — propre à `http`, `recorder` reste du YAML classique |
+| Faut-il ordonner le service après postgres ? | **non** — le module nixpkgs pose déjà `after = [ … "postgresql.target" ]` |
+| Le pilote est-il disponible ? | oui — `psycopg2` 2.9.12, ajouté via `extraPackages` |
+
+### Preuve que l'enregistreur écrit bien dans postgres
+
+Le premier test choisi — compter les lignes de `states` à 20 s d'intervalle —
+**n'a rien prouvé** : une instance vide n'a presque aucune entité qui change,
+donc l'absence de progression était attendue et non concluante. Les preuves
+retenues :
+
+- `recorder_runs` contient une exécution **vivante** (`end` NULL) démarrée à
+  l'activation ;
+- `pg_stat_database` compte 1406 insertions sur la base `hass` ;
+- **aucun fichier SQLite** ne subsiste dans `/var/lib/hass`.
+
+### Reste à décider
+
+`purge_keep_days` est laissé au défaut de HA (10 jours), faute de base pour
+choisir autre chose. C'est le bouton à tourner si l'historique doit durer plus
+longtemps — en gardant à l'esprit que ça pèse aussi sur les WAL, donc sur
+pgBackRest.
 
 ## Références internes
 

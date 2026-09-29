@@ -39,6 +39,49 @@
     {
       notify.services = [ "home-assistant" ];
 
+      # Enregistreur sur PostgreSQL plutôt que sur le SQLite par défaut.
+      # Tranché le 2026-09-29 : le §6.8 différait ce choix parce qu'il coûtait
+      # « une migration d'historique ou sa perte ». En repartant de zéro ce coût
+      # n'existe pas, et il ne redeviendra jamais nul — donc c'est maintenant.
+      #
+      # Ce que ça apporte : HA entre dans le PITR pgBackRest. La stanza est
+      # unique (`default`, cluster local), donc une base de plus est couverte
+      # automatiquement, sur les deux dépôts — USB et Hetzner hors-site.
+      #
+      # Connexion en peer par la socket Unix, comme n8n/vaultwarden/authelia :
+      # le service tourne sous l'utilisateur `hass`, `pg_hba` a
+      # `local all all peer`, donc **aucun mot de passe et aucun secret agenix**.
+      # `ensureDBOwnership` impose que le nom de la base == le nom du rôle, d'où
+      # `hass` et non `homeassistant`.
+      services.postgresql = {
+        ensureDatabases = [ "hass" ];
+        ensureUsers = [
+          {
+            name = "hass";
+            ensureDBOwnership = true;
+          }
+        ];
+      };
+
+      # L'ordonnancement est déjà posé par le module nixpkgs
+      # (`after = [ … "postgresql.target" ]`), rien à ajouter ici.
+
+      # Le répertoire de config ne porte plus l'historique : il reste petit et
+      # stable. D'où `manageService = false` — pas de redémarrage nocturne de
+      # HA, ce qui compense en partie le coût assumé au §3.3. Les fichiers de
+      # `.storage/` sont écrits par renommage atomique, donc une copie à chaud
+      # les attrape entiers. Ce qui mérite vraiment de la cohérence — l'historique
+      # — est dans postgres, avec du PITR.
+      backups.sources.home-assistant = {
+        paths = [ "/var/lib/hass" ];
+        manageService = false;
+        exclude = [
+          "home-assistant.log*"
+          "tts/"
+          "deps/"
+        ];
+      };
+
       # Nom d'hôte distinct de `hass`, qui reste sur la VM. Pas d'Authelia :
       # HA a son authentification propre, comme les autres clients natifs
       # (docs/security.md § Services hors Authelia).
@@ -126,6 +169,10 @@
           "prometheus"
         ];
 
+        # Pilote PostgreSQL de l'enregistreur. Sans lui, HA retombe en erreur
+        # sur `db_url` au lieu de démarrer.
+        extraPackages = python3Packages: with python3Packages; [ psycopg2 ];
+
         # Mêmes versions que les dépôts HACS en service (§1.2). HACS lui-même
         # disparaît : les trois cartes sont déclarées ici.
         customLovelaceModules = with pkgs.home-assistant-custom-lovelace-modules; [
@@ -162,6 +209,13 @@
         # fait proprement. 8123 reste absent d'`allowedTCPPorts`, donc le bind
         # par défaut sur 0.0.0.0 n'est joignable depuis aucune interface.
         config = {
+          # Socket Unix + auth peer : pas d'hôte dans l'URL, pas de mot de passe.
+          # `purge_keep_days` est laissé au défaut de HA (10 j) faute de base
+          # pour choisir autre chose — c'est le bouton à tourner si l'historique
+          # doit durer plus longtemps, en gardant à l'esprit que ça pèse aussi
+          # sur les WAL et donc sur pgBackRest.
+          recorder.db_url = "postgresql://@/hass";
+
           automation = "!include automations.yaml";
           script = "!include scripts.yaml";
           scene = "!include scenes.yaml";
