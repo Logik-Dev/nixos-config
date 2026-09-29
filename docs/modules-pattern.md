@@ -20,6 +20,16 @@ Chaque fichier de module écrit dans `flake.modules.<classe>.<nom>.imports` au l
 d'utiliser `imports = [ ./... ]` traditionnel. Les hôtes composent leur config en
 ajoutant à ces listes nommées.
 
+> ⚠️ **Un module *nouveau* doit être suivi par git avant de déployer.** Le flake
+> lit ses sources via git, pas depuis le répertoire de travail : un fichier
+> présent sur le disque mais non suivi est **invisible**, et l'évaluation échoue
+> sur `error: undefined variable '<nom-du-module>'`. Sur hyper, le dépôt arrive
+> par Syncthing, qui propage le contenu et l'état git **séparément** — attendre
+> que le fichier existe ne suffit donc pas. La bonne condition est
+> `git ls-files --error-unmatch <fichier>`. Un fichier déjà suivi qu'on modifie
+> n'a pas ce problème : le contenu suffit. Vécu deux fois le 2026-09-29, sur les
+> deux seuls modules créés ce jour-là.
+
 ### Exemple simple (module body direct)
 
 ```nix

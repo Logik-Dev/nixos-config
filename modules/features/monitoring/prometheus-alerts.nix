@@ -553,6 +553,49 @@ _: {
                     # textfile collector keeps serving a .prom forever, so a
                     # monitor that stopped running leaves its last values exposed
                     # and looking healthy — absent() alone would never fire.
+                    # MON-11. La panne qu'on a vécue : Home Assistant a disparu
+                    # du courtier le 2026-09-27 et n'est pas revenu à travers six
+                    # redémarrages de mosquitto (P0-9). L'unité du courtier n'a
+                    # jamais échoué, donc ni SystemdUnitFailed ni notify-failure
+                    # n'avaient quoi que ce soit à dire, et tout le Zigbee est
+                    # resté muet 2,5 jours.
+                    #
+                    # Une seule règle pour tous les clients : le relevé émet un 0
+                    # explicite pour chaque client *attendu* qui manque, et
+                    # l'étiquette `client` dit lequel. Alerter sur une absence
+                    # suppose de connaître la liste attendue — d'où cette liste
+                    # en dur dans mqtt-clients.nix plutôt qu'une déduction à
+                    # partir des connexions observées.
+                    #
+                    # `warning` et non `critical` : le courtier va bien, c'est
+                    # une condition côté client qui se répare souvent d'elle-même
+                    # au redémarrage du service. 15 min encaissent les
+                    # reconnexions normales — y compris celles qui suivent le
+                    # passage restic de mosquitto.
+                    alert = "MqttClientDisconnected";
+                    expr = "mqtt_client_connected == 0";
+                    for = "15m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "MQTT client {{ $labels.client }} disconnected from the broker";
+                      description = "{{ $labels.client }} holds no connection to mosquitto. The broker unit can be perfectly healthy while this is true — that is exactly how Home Assistant stayed silently disconnected for 2.5 days (P0-9). Check the client, not the broker.";
+                    };
+                  }
+                  {
+                    # Interrupteur d'homme mort, même raison que VpnMonitorMissing :
+                    # le collecteur textfile sert un .prom pour toujours, donc un
+                    # relevé arrêté laisse des valeurs figées qui paraissent
+                    # saines — `absent()` seul ne se déclencherait jamais.
+                    alert = "MqttMonitorMissing";
+                    expr = "absent(mqtt_monitor_timestamp_seconds) or (time() - mqtt_monitor_timestamp_seconds > 1800)";
+                    for = "10m";
+                    labels.severity = "warning";
+                    annotations = {
+                      summary = "MQTT client monitor not reporting";
+                      description = "mqtt_monitor_timestamp_seconds is missing or older than 30 minutes — mqtt-monitor.timer may have stopped, which would leave MqttClientDisconnected reading frozen values.";
+                    };
+                  }
+                  {
                     alert = "QbittorrentMonitorMissing";
                     expr = "absent(qbt_monitor_timestamp_seconds) or (time() - qbt_monitor_timestamp_seconds > 1800)";
                     for = "10m";

@@ -50,7 +50,7 @@ suit la redirection et valide le portail, **pas** le backend (couvert par les
 
 ## Alertes
 
-26 règles (25 noms) dans `monitoring/prometheus-alerts.nix`, toutes groupées dans
+28 règles (27 noms) dans `monitoring/prometheus-alerts.nix`, toutes groupées dans
 Alertmanager → ntfy :
 
 - **Disponibilité** : `ServiceDown` (`up == 0`), `ProbeFailure`,
@@ -64,6 +64,35 @@ Alertmanager → ntfy :
   `PgbackrestBackupStale`, `PgbackrestSpoolGrowing`, `PgbackrestMetricsMissing`.
 - **Backups** : `ResticBackupStale` (max par repo), `ResticCheckFailed`,
   `ResticRepoEmpty`, `ResticMetricsMissing` (dead-man des métriques push), `DrillStale` (dead-man des drills).
+- **MQTT (MON-11)** : `MqttClientDisconnected`, `MqttMonitorMissing` (dead-man).
+
+### Clients MQTT (`monitoring/mqtt-clients.nix`)
+
+L'angle mort que ces deux règles ferment : `notify.services` surveille l'*unité*
+mosquitto, qui peut rester parfaitement verte pendant qu'un **client** disparaît.
+C'est exactement ce qui s'est produit — Home Assistant décroché du courtier
+pendant 2,5 jours sans qu'aucune alerte ne parte, tout le Zigbee muet (P0-9).
+
+`mqtt-monitor.timer` (2 min) relève les clients **côté hôte** avec `ss` : pas de
+compte MQTT dédié, pas d'ACL `$SYS` à ouvrir, pas de mot de passe qui circule.
+Chaque client est identifié par son **unité systemd**, via
+pid → `/proc/<pid>/cgroup` — et non par le nom de processus, qui ne discrimine
+rien ici (`ss` rapporte `MainThread` pour zigbee2mqtt, `.rankoder-wrapp` pour
+rankoder).
+
+| Métrique | Sens |
+|---|---|
+| `mqtt_client_connected{client="<unité>"}` | 1/0 par client **attendu** |
+| `mqtt_clients_total` | connexions établies, attendues ou non |
+| `mqtt_monitor_timestamp_seconds` | témoin de fraîcheur du relevé |
+
+La liste des clients attendus est explicite dans le module, pas déduite des
+connexions observées : **on ne détecte pas une absence à partir de ce qui est
+présent**. `home-assistant.service` s'y ajoute au lot C de la migration HA.
+
+Vérifié par test négatif le 2026-09-29 (arrêt bref de rankoder) : la jauge tombe
+bien à 0 pour le client coupé **et reste à 1 pour l'autre** — la règle discrimine
+au lieu d'échouer en bloc.
 
 ## Notification (`notify.services`)
 

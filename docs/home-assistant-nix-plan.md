@@ -620,10 +620,18 @@ logique de la VM qui appartienne conceptuellement au dépôt.
 ### Lot C — la bascule
 
 `http.server_host` ouvert sur `192.168.21.241` en plus du loopback (jamais
-loopback seul, §3.2 d), `traefik.services.hass.host` → `127.0.0.1` et retrait de
-la route `ha`, création de l'entrée `mqtt` côté natif **et retrait côté
-VM dans le même geste**, reprise des URL côté appareils et des `mobile_app`, puis
-`backups.sources.home-assistant`. C'est ici, et seulement ici, que la propriété
+loopback seul, §3.2 d — **et à régler dans l'UI, pas en nix**, cf. §9),
+`traefik.services.hass.host` → `127.0.0.1` et retrait de la route `ha`, création
+de l'entrée `mqtt` côté natif **et retrait côté VM dans le même geste**, reprise
+des URL côté appareils et des `mobile_app`.
+
+Deux gestes à ne pas oublier au même moment :
+
+- ajouter **`home-assistant.service`** à la liste `expected` de
+  `monitoring/mqtt-clients.nix` (MON-11). C'est là que ce relevé vaut le plus :
+  une fois le natif propriétaire du courtier, un décrochage silencieux coûterait
+  exactement ce qu'a coûté P0-9 ;
+- `backups.sources.home-assistant` est **déjà en place** depuis B0, rien à faire. C'est ici, et seulement ici, que la propriété
 des appareils change de main.
 
 ### Lot D — le retrait

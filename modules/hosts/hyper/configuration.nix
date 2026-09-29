@@ -26,6 +26,7 @@ let
       grafana
       notification
       mqtt
+      mqtt-clients
       n8n
       neovim
       gpu
