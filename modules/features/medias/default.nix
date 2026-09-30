@@ -54,6 +54,7 @@
         jellyseerr
         lidarr
         lidarr-metadata
+        navidrome
         prowlarr
         radarr
         sabnzbd
