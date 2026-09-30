@@ -46,6 +46,7 @@ let
       restic
       restoreDrill
       seedbox
+      slskd
       smartd
       syncthing
       tailscale
@@ -91,6 +92,9 @@ let
             # Forwarded ports, with "Local" left equal to the public port).
             # qBittorrent announces this port, so public != local = unreachable.
             forwardedPort = 47594;
+            # Second forwarded port, slskd's Soulseek listener (§0.2 du plan
+            # musique) — same public = local rule.
+            forwardedPortSlskd = 54500;
             privateKeyFile = config.age.secrets."airvpn-private.key".path;
             presharedKeyFile = config.age.secrets."airvpn-psk.key".path;
           };

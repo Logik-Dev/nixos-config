@@ -16,8 +16,9 @@ reste le chemin principal ; le torrent sert pour les trackers privés/alternatif
 Internet ──UDP 1637──> socket WireGuard ────────┼──> wg0 (10.150.11.114/32)
                        (reste ici !)            │     └─ default dev wg0
                                                 │
-   Traefik ─── 10.200.0.2:8090/9696 ────────────┼──> qBittorrent, Prowlarr,
-   Sonarr/Radarr <── 10.200.0.1:8989/7878 ──────┼──   cross-seed, freeleech-farmer
+   Traefik ─── 10.200.0.2:8090/9696/5030 ────────┼──> qBittorrent, Prowlarr,
+   Sonarr/Radarr/Lidarr <── 10.200.0.1:8989/7878/8686 ──  cross-seed,
+                                                 │    freeleech-farmer, slskd
                     veth-vpn-host   veth-vpn    │
                     10.200.0.1/30   10.200.0.2/30
 ```
@@ -43,6 +44,7 @@ Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) est intouché.
 |---|---|
 | `modules/features/downloads/vpn.nix` | `flake.modules.nixos.vpn-torrent` : namespace `vpn`, veth, wg0, resolv.conf d'amorçage, drop-in partagé des services |
 | `modules/features/downloads/qbittorrent.nix` | `flake.modules.nixos.qbittorrent` : service, Traefik/Authelia, permissions, backup, notify |
+| `modules/features/downloads/slskd.nix` | `flake.modules.nixos.slskd` : slskd (Soulseek) dans le netns, WebUI Traefik, partage `musique/` en lecture seule |
 | `modules/hosts/hyper/configuration.nix` | imports + valeurs AirVPN (`vpn.airvpn`) + chemins des secrets |
 | `secrets/hosts/hyper/airvpn-private.key.age` | clé privée WireGuard (agenix) |
 | `secrets/hosts/hyper/airvpn-psk.key.age` | preshared key WireGuard (agenix) |
@@ -61,12 +63,14 @@ Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) est intouché.
    joignent) et un champ `Local` (port d'écoute côté machine). **Ils doivent
    être égaux** : qBittorrent annonce son port d'écoute aux trackers, donc si
    `Local` diffère du public, il annonce un port fermé → **injoignable**.
-   Port actuel : **47594** (public = local), reporté dans
-   `vpn.airvpn.forwardedPort`.
+    Ports actuels : **47594** pour qBittorrent (`vpn.airvpn.forwardedPort`) et
+    **54500** pour slskd (`vpn.airvpn.forwardedPortSlskd`, écoute Soulseek) —
+    tous deux public = local, liés au device.
 
 > ⚠️ Le port forward est lié à la clé/device : si la clé change, réassigner le
 > port au nouveau device. Les clés serveur AirVPN (`PyLC...`) sont globales.
-> Vérifier la joignabilité **depuis le namespace** : `sudo ip netns exec vpn
+> Vérifier la joignabilité **depuis le namespace**, pour chacun des deux ports :
+> `sudo ip netns exec vpn
 > curl -s https://ifconfig.co/port/47594` doit renvoyer `reachable:true` (ou
 > bouton *TCP Test* vert sur AirVPN).
 >

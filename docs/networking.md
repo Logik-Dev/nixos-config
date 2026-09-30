@@ -20,7 +20,7 @@ Ports ouverts dans le firewall NixOS (`networking.firewall`) :
 | 8123 | TCP | Home Assistant — média/TTS tirés par Sonos et Cast | **`br-iot` uniquement** (l'accès humain passe par Traefik) |
 | 5353 | UDP | mDNS / zeroconf (découverte) | **`br-iot` uniquement** |
 | 1900 | UDP | SSDP / UPnP (découverte) | **`br-iot` uniquement** |
-| forward AirVPN | TCP/UDP | qBittorrent (port d'écoute) | interface `wg0` seule |
+| forward AirVPN | TCP/UDP | qBittorrent (47594) et **slskd** (54500, Soulseek) — ports d'écoute | interface `wg0` seule |
 
 ## Traefik (reverse proxy)
 
@@ -126,8 +126,8 @@ Sauvegarde via les `.unf` auto (copie live, contrôleur non arrêté).
   (`interfaceNamespace`), la socket de transport restant côté hôte. La seule
   route par défaut du namespace est le tunnel → **fail-closed structurel**, plus
   aucune règle de pare-feu à maintenir correcte. MTU 1320.
-- Y vivent qBittorrent, Prowlarr, cross-seed et freeleech-farmer, placés par
-  unité (`vpn.airvpn.netns.services`) et non plus par UID.
+- Y vivent qBittorrent, Prowlarr, cross-seed, freeleech-farmer et slskd, placés
+  par unité (`vpn.airvpn.netns.services`) et non plus par UID.
 - Frontière : veth `10.200.0.0/30` — `10.200.0.1` côté hôte, `10.200.0.2` côté
   namespace. Traefik joint les WebUI sur `.2` ; `8989`/`7878` (Sonarr/Radarr)
   sont ouverts **sur la veth uniquement**. Table nft `vpn_guard` dans le
@@ -137,11 +137,12 @@ Sauvegarde via les `.unf` auto (copie live, contrôleur non arrêté).
   sert uniquement à l'**amorçage** (`wg set … endpoint` résout dans le namespace
   avant que le tunnel existe). Le MagicDNS Tailscale de l'hôte n'entre plus en
   jeu pour ces services.
-- Port forward AirVPN (TCP+UDP) → port d'écoute qBittorrent, dont l'interface
-  réseau doit rester fixée sur `wg0`.
-- ⚠️ **Aucune supervision** du tunnel à ce jour : une panne ne produit ni unité
-  en échec ni alerte (vécu — un cycle d'ordonnancement systemd a supprimé le job
-  de démarrage au boot). Voir `docs/vpn-netns-plan.md`.
+- Ports forward AirVPN (TCP+UDP), **public = local pour les deux** :
+  qBittorrent (`47594`, interface réseau fixée sur `wg0`) et slskd (`54500`,
+  écoute Soulseek, bind `0.0.0.0` dans le namespace).
+- Supervision : `vpn-monitor` (timer 5 min) publie handshake, route par défaut,
+  listeners (qBittorrent sur `wg0`, slskd sur son port) et sonde de fuite ;
+  métriques et alertes dans `docs/torrent-vpn.md`.
 
 ## SSH
 

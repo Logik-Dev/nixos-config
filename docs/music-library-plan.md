@@ -273,10 +273,10 @@ Spécificités du module relevées à la lecture :
 - `ReadOnlyPaths` est dérivé de `shares.directories`, `ReadWritePaths` des deux
   répertoires de transfert : cohérent avec le partage en lecture seule.
 - Durcissement lourd (`PrivateUsers`, `ProtectSystem=strict`,
-  `RestrictNamespaces`) : **à valider au premier démarrage** en combinaison avec
-  le `NetworkNamespacePath` posé par `vpn.nix`. A priori sans danger : systemd
-  applique `NetworkNamespacePath` **avant** l'espace d'utilisateurs, le combo
-  est prévu pour fonctionner — ne rien relâcher par anticipation.
+  `RestrictNamespaces`) : **validé au premier démarrage** (2026-09-30) en
+  combinaison avec le `NetworkNamespacePath` posé par `vpn.nix` — systemd
+  applique le netns avant l'espace d'utilisateurs, le combo fonctionne. Rien
+  n'a été relâché.
 - `remote_configuration` est forcé à `false` (config en store, immuable).
 
 Port entrant : le namespace **n'a aucun firewall en entrée** (`vpn.nix` ne pose
@@ -494,7 +494,7 @@ M4. Pas d'automatisation.
 | P4 | `slskd.domain` sans défaut | éval en échec si absent ; non-`null` tire nginx alors qu'on a Traefik |
 | P5 | État slskd non déplaçable | `StateDirectory`/`--app-dir` figés sur `/var/lib/slskd` |
 | P6 | Un seul `forwardedPort` | scalaire consommé par qBittorrent ; sonde `vpn.nix:335` étendue (WP2) : `wg0:47594` pour qBittorrent **et** `:54500` pour slskd — slskd ne se lie pas à `wg0`, un motif `wg0:<port>` pour lui ne matcherait jamais |
-| P7 | Durcissement slskd × netns | `PrivateUsers`/`RestrictNamespaces`/`ProtectSystem=strict` à valider avec `NetworkNamespacePath` — a priori compatible (netns appliqué avant l'userns), ne rien relâcher par avance |
+| P7 | Durcissement slskd × netns | **Validé** (2026-09-30) : `PrivateUsers`/`RestrictNamespaces`/`ProtectSystem=strict` fonctionnent avec `NetworkNamespacePath` — systemd applique le netns avant l'userns. Rien relâché |
 | P8 | Découpage cue vs espace | Doublement **transitoire** pour toute source (découpage + `copy: yes`), **permanent** seulement pendant un seed torrent. Ne jamais découper en place |
 | P9 | Script post-download | un script qBittorrent tourne **dans** le netns → faire le découpage côté hôte |
 | P10 | `dataDir` sous `/mnt/ultra` | le module servarr crée `dataDir` en `0700 lidarr:lidarr` via tmpfiles ; précédent radarr/jellyfin OK. Si `tmpfiles` refuse (« unsafe transition »), basculer sur `/mnt/local/lidarr` |
@@ -551,6 +551,7 @@ achats de téléchargements (Presto, eClassical, Qobuz, labels).
 |---|---|---|
 | 2026-09-30 | WP0 | Décisions actées (§0.2). Secret `slskd.env` créé puis **rempli** (identifiants Soulseek + WebUI généré) et rekeyé → `secrets/rekeyed/hyper/60c596f6dcb34f510d2858ba91b26496-slskd.env.age` (l'ancien hash de placeholder `7a2ff49…` purgé par le rekey) ; auto-découvert (`age.secrets."slskd.env"` évalue), 4 lignes, aucun `CHANGEME`. **Reste (manuel)** : port 54500 à demander sur AirVPN ; compte Soulseek créé au 1er login slskd (WP2). Rien déployé. |
 | 2026-09-30 | WP1 | **Lidarr + provider déployés** (`df2dljm…`). M1 : `lidarr.nix` (calque radarr ; Postgres `lidarr-main`/`-logs` + ALTER ownership, `dataDir=/mnt/ultra/lidarr`, UMask 0002/groupe media), tmpfiles `musique 2775`, `8686` ouvert sur la veth. M2 : conteneur `lidarr-metadata` (`--network=host`, dataset 8,8 Go / 3,0 M artistes / 4,5 M albums sur `/mnt/ultra/lidarr-metadata`, `refresh=72h` + `fallback` avec contact), bascule `metadataSource=http://localhost:5001/`. **Design bascule retenu** : oneshot fail-fast `RemainAfterExit` + timer (`OnBootSec=2min`, `OnUnitInactiveSec=5min`) — pas de boucle bloquante (l'ancienne version attendait jusqu'à 60 min). **Testé en forçant un échec** (conteneur arrêté + revert cloud) : service en échec → timer réarmé à +5 min → reprise automatique → bascule rétablie → timer désarmé. Vérifs : TLS `lidarr.hyper.logikdev.fr` = 302 (Authelia) cert valide, PG owners `lidarr`, iptables `8686` sur `veth-vpn-host`, 0 unité en échec, dossier legacy `music` supprimé. **Reste (UI, manuel)** : root folder `musique/populaire`, clients SABnzbd + qBittorrent, app Lidarr dans Prowlarr (`http://10.200.0.1:8686`), profils — puis porte de sortie (grab SAB **et** qbt, hardlink). |
+| 2026-09-30 | WP2 | **slskd déployé et validé** (`7bck4fj…`). M3 : module `downloads/slskd.nix` (group media + UMask 0002, tmpfiles `slskd:media 2775`, partage `musique/` en lecture seule, guards `mkIf`, assertion sur le port) ; option `vpn.airvpn.forwardedPortSlskd` (**54500**, public = local côté AirVPN) ; sonde `vpn-monitor` étendue (`wg0:47594` pour qbt **et** `:54500` pour slskd — slskd bind `0.0.0.0`, pas de motif `wg0:`). **P7 validé** au premier démarrage : `PrivateUsers`+netns sans accroc, rien relâché. **Connexion Soulseek effective** (« Logged in as logikdev » — compte créé au 1er login), listeners 5030 + 54500 dans le netns, forward `reachable:true`, sonde `listener_bound 1`. **Recherche réelle** via l'API slskd : « Beethoven Symphony 5 Kleiber » → **245 réponses / 2583 fichiers** (Kleiber/Wiener Philharmoniker). Traefik `slskd.hyper.logikdev.fr` 302 Authelia, TLS valide. Docs : `networking.md` (ports + supervision, remplace l'avertissement obsolète « aucune supervision »), `torrent-vpn.md` (diagramme, fichiers, forwards). **Reste** : un téléchargement manuel depuis la WebUI (dossier `downloads/slskd`) pour clore la porte de sortie. |
 
 ## 11. Sources
 

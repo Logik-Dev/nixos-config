@@ -165,6 +165,15 @@ _: {
           description = "AirVPN forwarded port (local listening port on this machine)";
         };
 
+        forwardedPortSlskd = lib.mkOption {
+          type = lib.types.nullOr lib.types.port;
+          default = null;
+          description = ''
+            Second AirVPN forwarded port, for slskd's Soulseek listener
+            (public = local, as for qBittorrent). null = no slskd.
+          '';
+        };
+
         mtu = lib.mkOption {
           type = lib.types.nullOr lib.types.int;
           default = 1320;
@@ -330,14 +339,22 @@ _: {
                   route=0
                 fi
 
-                # qBittorrent binds per address and never re-binds: a wg0 recreated
-                # underneath it leaves the forwarded port unreachable and the ratio
-                # at zero, with no failed unit (cf. its partOf/wantedBy).
-                if ip netns exec ${ns} ss -tlnH 2>/dev/null | grep -q "wg0:${toString cfg.forwardedPort}"; then
-                  listener=1
-                else
+                # Every configured forwarded port must have a listener in the
+                # namespace. qBittorrent binds per address and never re-binds: a
+                # wg0 recreated underneath it leaves its port unreachable and the
+                # ratio at zero, with no failed unit (cf. its partOf/wantedBy),
+                # so its probe matches the interface. slskd binds 0.0.0.0 inside
+                # the namespace (nothing per-interface to lose), so matching the
+                # port alone is the right check there.
+                listener=1
+                if ! ip netns exec ${ns} ss -tlnH 2>/dev/null | grep -q "wg0:${toString cfg.forwardedPort}"; then
                   listener=0
                 fi
+                ${lib.optionalString (cfg.forwardedPortSlskd != null) ''
+                  if ! ip netns exec ${ns} ss -tlnH 2>/dev/null | grep -q ":${toString cfg.forwardedPortSlskd}"; then
+                    listener=0
+                  fi
+                ''}
 
                 # End-to-end ground truth: the namespace must not exit through the
                 # host's WAN address. Deliberately tolerant — if either lookup
