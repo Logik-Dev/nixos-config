@@ -38,11 +38,17 @@
         # Racine musique : Lidarr écrit populaire/, beets classique/ ; setgid
         # pour que les imports héritent du groupe media.
         "d /mnt/storage/medias/musique 2775 logikdev media - -"
+        # Racine Lidarr (doit exister avant d'être déclarée dans l'UI) et
+        # dossier de téléchargement commun SABnzbd/qBittorrent (catégorie
+        # `lidarr`, même motif que movies/series).
+        "d /mnt/storage/medias/musique/populaire 2775 logikdev media - -"
+        "d /mnt/storage/medias/downloads/lidarr 2775 logikdev media - -"
         "d /mnt/ultra 2755 logikdev media - -"
       ];
 
       imports = with inputs.self.modules.nixos; [
         audiobookshelf
+        beets
         bindery
         jellyfin
         jellyseerr
