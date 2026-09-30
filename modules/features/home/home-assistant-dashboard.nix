@@ -39,6 +39,12 @@ let
         enfants = "media_player.chambre_des_enfants_chambre_des_enfants";
       };
 
+      # TV Google du salon (192.168.21.187), entrée par `androidtv_remote`.
+      # C'est elle qui annonçait un récepteur AirPlay en mDNS : seul appareil du
+      # VLAN IoT avec le port 7000 ouvert, en plus de 6466/6467 (télécommande
+      # Android TV) et 8008/8009 (Cast).
+      tvSalon = "media_player.salon_tv_google";
+
       # Gabarits — le même motif revenait quinze fois.
       heading = icon: text: {
         type = "heading";
@@ -185,6 +191,16 @@ let
                 (lecteur sonos.salon)
                 (lecteur sonos.cuisine)
                 (lecteur sonos.enfants)
+              ])
+
+              (grille [
+                (heading "mdi:television-play" "Télévision")
+                (lecteur tvSalon)
+                # La télécommande sert quand l'application au premier plan ne
+                # répond pas aux commandes de lecture — c'est fréquent sur
+                # Android TV, où toutes les applis n'implémentent pas le
+                # protocole média.
+                (tuileNommee "remote.salon_tv_google" "Télécommande")
               ])
 
               (grille [

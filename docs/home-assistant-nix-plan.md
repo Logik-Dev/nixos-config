@@ -1122,7 +1122,7 @@ versionné. Le tableau de bord créé à l'onboarding reste à côté pour brico
 
 | Vue | Ce qu'elle sert |
 |---|---|
-| **Accueil** | météo + prévisions, les 3 Sonos avec volume et transport, liste de courses, batterie du téléphone. Badges : pluie prévue, vanne, présence, transcodages |
+| **Accueil** | météo + prévisions, les 3 Sonos avec volume et transport, la TV Google et sa télécommande, liste de courses, batterie du téléphone. Badges : pluie prévue, vanne, présence, transcodages |
 | **Arrosage** | la vanne et son état, la **fermeture de sécurité** mise en avant, volumes du jour / en cours / débit, histogramme 14 jours, et « ce qui décide » (le `binary_sensor` + les deux capteurs météo) |
 | **Énergie** | les 2 prises Tapo : interrupteur, courbe de puissance 24 h, conso du jour et du mois, diagnostic |
 | **Rankoder** | file de traitement, gain d'espace sur 30 jours, échecs, les 3 automatisations, version |
@@ -1149,8 +1149,9 @@ lieu de produire un matin sans arrosage inexpliqué.
 
 ### Vérifié avant de déployer
 
-Les **57 entités citées** ont été extraites de la configuration rendue et
-comparées au registre : **aucune manquante**. Un tableau de bord qui référence
+Les entités citées sont extraites de la configuration rendue et comparées au
+registre avant chaque déploiement — **57 au départ, 59 après l'ajout de la TV
+Google, aucune manquante**. Un tableau de bord qui référence
 des entités inexistantes s'affiche en cartes d'erreur, et c'est le genre de
 chose qu'on ne voit qu'en ouvrant la page.
 
@@ -1197,9 +1198,21 @@ son IP dans Appareils et services.
 *déjà découvert*, la déclarer est à la fois le correctif et le diagnostic.
 
 Vérifié après déploiement : `No module named 'pyatv'` a disparu du journal, seul
-subsiste le `zha` volontaire. `androidtv`, `fire_tv` et `androidtv_remote` sont
-par ailleurs packageables dans le nixpkgs épinglé, si le pilotage du Fire TV
-Stick devient utile.
+subsiste le `zha` volontaire.
+
+**Résolu le 2026-09-30 : c'était la TV Google.** Elle est entrée dans HA par
+`androidtv_remote` (découverte zeroconf, `192.168.21.187`), et un balayage du
+VLAN IoT a confirmé qu'elle est le **seul appareil avec le port 7000 ouvert** —
+AirPlay — en plus de 6466/6467 (télécommande Android TV) et 8008/8009 (Cast).
+Elle embarque donc un récepteur AirPlay, ce qui explique l'annonce mDNS.
+
+Conséquence à arbitrer : `apple_tv` est désormais **redondant** pour cet appareil,
+puisque `androidtv_remote` le pilote déjà. Le garder n'a de sens que pour diffuser
+en AirPlay *vers* la TV depuis HA. Sinon, le retirer réduit la surface — le même
+raisonnement que pour un port ouvert sans usage.
+
+`androidtv` et `fire_tv` sont par ailleurs packageables dans le nixpkgs épinglé,
+si le pilotage du Fire TV Stick devient utile.
 
 ## Références internes
 
