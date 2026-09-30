@@ -1214,6 +1214,57 @@ raisonnement que pour un port ouvert sans usage.
 `androidtv` et `fire_tv` sont par ailleurs packageables dans le nixpkgs épinglé,
 si le pilotage du Fire TV Stick devient utile.
 
+## 16. Renommer des entités : ce qui casse, et ce qui n'est pas un doublon
+
+Épisode du 2026-09-30, après renommage des lecteurs multimédia dans l'UI.
+
+### Il n'y avait aucun doublon
+
+Les deux registres ont été vérifiés : **6 entités, 6 identifiants distincts ;
+16 appareils, aucun en double**, et aucune entrée dans `deleted_entities` ou
+`deleted_devices`. L'impression de duplication venait de trois choses réelles
+mais bénignes :
+
+1. **Un téléviseur, deux intégrations.** La TCL Smart TV Pro est vue par
+   `androidtv_remote` (par sa MAC) *et* par `cast` (par son UUID Cast). HA ne
+   peut pas les fusionner : les identifiants sont différents par construction.
+   Ce n'est pas un défaut — chacune fait ce que l'autre ne fait pas : allumer et
+   naviguer d'un côté, savoir ce qui est diffusé de l'autre.
+2. **Deux entités sans nom propre partagent le nom de leur appareil.**
+   `media_player.tv_salon` et `remote.salon_tv_salon` appartiennent au même
+   appareil et ont `name = null`, donc l'interface affiche « TV Google » deux
+   fois. Dans une liste, ça se lit comme un doublon.
+3. **Un identifiant resté bancal** d'un renommage partiel :
+   `remote.salon_tv_salon`, avec « salon » redoublé.
+
+### Ce que le renommage a cassé
+
+**Cinq entités du tableau de bord n'existaient plus**, et s'affichaient en cartes
+d'erreur : les trois Sonos et les deux entités de la TV. C'est le coût du
+tableau de bord déclaratif, et il est réel — renommer dans l'UI ne met pas le
+dépôt à jour.
+
+Ce qui rend ce coût gérable, c'est le **contrôle d'existence** du §15 : il a
+listé les cinq manquantes en une commande, avant qu'elles ne soient découvertes à
+l'écran. **À rejouer systématiquement après tout renommage.**
+
+Ce qui a *résisté* mérite d'être noté : les automatisations arrosage et rankoder
+ne référencent aucun lecteur multimédia — elles citent `switch.vanne_sonoff`,
+`binary_sensor.il_va_pleuvoir`, les capteurs météo et la cible de notification.
+Le rayon d'impact d'un renommage de lecteurs se limite donc au tableau de bord.
+
+### La bonne façon de renommer
+
+1. renommer dans l'UI (l'appareil, puis accepter la mise à jour des
+   identifiants d'entités qu'HA propose) ;
+2. **rejouer le contrôle d'existence** — c'est lui qui dit ce qui est cassé ;
+3. mettre le nix à jour, déployer, revérifier.
+
+Et pour lever la confusion de fond, nommer les **cartes** plutôt que d'espérer
+que les entités se distinguent seules : « TV — commande », « TV — diffusion »,
+« TV — télécommande » disent ce que chacune fait, là où « TV Google » répété deux
+fois n'apprend rien.
+
 ## Références internes
 
 - `modules/hosts/hyper/libvirt.nix` (domaine impératif, `traefik.services.hass`)
