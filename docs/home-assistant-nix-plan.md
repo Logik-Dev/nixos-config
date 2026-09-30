@@ -1173,12 +1173,33 @@ La découverte mDNS/SSDP trouve des appareils dont l'intégration n'est pas dans
 
 | Erreur | Cause | Décision |
 |---|---|---|
-| `No module named 'zha'` | découverte USB du dongle Zigbee | zigbee2mqtt possède le dongle, ZHA n'a pas lieu d'être |
-| `No module named 'pyatv'` | un Apple TV annoncé en mDNS | à packager **si** l'usage est voulu |
+| `No module named 'zha'` | découverte USB du dongle Zigbee | **laissée** : zigbee2mqtt possède le dongle, ZHA n'a pas lieu d'être. Se tait en ignorant la carte « découvert » |
+| `No module named 'pyatv'` | un appareil de la famille AirPlay annoncé en mDNS | **résolue** : `apple_tv` ajouté à `extraComponents` le 2026-09-30 (génération 522) |
 
-Les deux sont cosmétiques — un flux de découverte qui échoue à se charger, pas un
-service en panne — et se taisent en **ignorant** la carte « découvert »
-correspondante dans l'UI.
+Ce sont des flux de découverte qui échouent à se charger, pas des services en
+panne — mais ils reviennent à chaque démarrage.
+
+### Identifier un appareil découvert : déclarer le composant est le test
+
+Il n'y avait **aucun Apple TV au foyer** — un Mac, une TV Google et un Fire TV
+Stick. Le Mac est éliminé d'emblée : HA n'écoute le mDNS que sur `br-iot` et le
+Mac est sur le LAN. Restaient donc le Fire TV Stick ou la TV Google, dont les
+firmwares récents savent annoncer un récepteur AirPlay.
+
+Plusieurs tentatives d'identification depuis l'hôte ont échoué — pas de
+`tcpdump`, `dig` peu fiable en mDNS (les réponses sont multicast), et pas de
+module `zeroconf` immédiatement disponible dans un interpréteur hors de
+l'environnement de HA. **La voie courte était de déclarer le composant** : le
+module présent, HA charge le flux et affiche l'appareil découvert avec son nom et
+son IP dans Appareils et services.
+
+À retenir pour la prochaine fois : quand une intégration manque pour un appareil
+*déjà découvert*, la déclarer est à la fois le correctif et le diagnostic.
+
+Vérifié après déploiement : `No module named 'pyatv'` a disparu du journal, seul
+subsiste le `zha` volontaire. `androidtv`, `fire_tv` et `androidtv_remote` sont
+par ailleurs packageables dans le nixpkgs épinglé, si le pilotage du Fire TV
+Stick devient utile.
 
 ## Références internes
 

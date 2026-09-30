@@ -198,6 +198,14 @@
 
           # découvertes par zeroconf/ssdp/dhcp
           "androidtv_remote"
+          # Ajouté le 2026-09-30 : la découverte mDNS annonçait un appareil de
+          # la famille AirPlay et HA journalisait « No module named 'pyatv' » à
+          # chaque démarrage, faute du module. Aucun Apple TV au foyer — le
+          # candidat est le Fire TV Stick ou la TV Google, dont les firmwares
+          # récents savent annoncer un récepteur AirPlay. **Déclarer le
+          # composant est aussi la façon de trancher** : une fois `pyatv`
+          # présent, HA affiche l'appareil découvert avec son nom et son IP.
+          "apple_tv"
           "cast"
           "dlna_dmr"
           "ipp"
