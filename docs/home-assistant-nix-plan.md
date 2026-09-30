@@ -1112,6 +1112,74 @@ inertie. À retenir si la question revient : le compteur de la règle est la mes
 qui trancherait — s'il reste à zéro après un TTS, l'ouverture est inutile et doit
 être refermée.
 
+## 15. Tableau de bord déclaratif (2026-09-30)
+
+`modules/features/home/home-assistant-dashboard.nix` — cinq vues dans
+`services.home-assistant.lovelaceConfig`, avec `lovelaceConfigWritable = false` :
+`ui-lovelace.yaml` est un lien vers le store, donc **non éditable depuis l'UI**.
+C'est le compromis du §2, assumé ici : on échange l'éditeur graphique contre du
+versionné. Le tableau de bord créé à l'onboarding reste à côté pour bricoler.
+
+| Vue | Ce qu'elle sert |
+|---|---|
+| **Accueil** | météo + prévisions, les 3 Sonos avec volume et transport, liste de courses, batterie du téléphone. Badges : pluie prévue, vanne, présence, transcodages |
+| **Arrosage** | la vanne et son état, la **fermeture de sécurité** mise en avant, volumes du jour / en cours / débit, histogramme 14 jours, et « ce qui décide » (le `binary_sensor` + les deux capteurs météo) |
+| **Énergie** | les 2 prises Tapo : interrupteur, courbe de puissance 24 h, conso du jour et du mois, diagnostic |
+| **Rankoder** | file de traitement, gain d'espace sur 30 jours, échecs, les 3 automatisations, version |
+| **Système** | sauvegardes HA, pont Zigbee, automatisations d'arrosage, présence |
+
+### Trois partis pris
+
+**Ce qui n'apprend rien ne s'affiche pas.** Quatre cartes ont une `visibility`
+conditionnelle : la vigilance météo n'apparaît que hors « Vert », le détail du
+dernier échec rankoder que si le compteur d'échecs dépasse 0, et les deux
+surcharges de prise que lorsqu'elles sont vraies. Une carte permanente à « tout
+va bien » occupe de la place sans rien dire.
+
+**Ce qui protège est mis en avant.** La `fermeture de sécurité` de l'arrosage est
+la seule automatisation qui évite un dégât des eaux : elle est dans la section
+« Vanne », pas enfouie dans les réglages. Même logique pour
+`binary_sensor.zigbee2mqtt_bridge_connection_state` en vue Système — c'est
+l'entité dont le décrochage a coûté 2,5 jours de silence dans la VM (P0-9).
+
+**Ce qui décide est visible.** La section « Ce qui décide » de la vue Arrosage
+expose `binary_sensor.il_va_pleuvoir` et ses deux entrées météo. Si ce capteur
+redevient indisponible — le défaut exact hérité de la VM (§11) — ça se voit au
+lieu de produire un matin sans arrosage inexpliqué.
+
+### Vérifié avant de déployer
+
+Les **57 entités citées** ont été extraites de la configuration rendue et
+comparées au registre : **aucune manquante**. Un tableau de bord qui référence
+des entités inexistantes s'affiche en cartes d'erreur, et c'est le genre de
+chose qu'on ne voit qu'en ouvrant la page.
+
+### À savoir pour le modifier
+
+- **Les listes gardent leur ordre en nix, les attrsets non** (§13). L'ordre des
+  vues, des sections et des cartes est donc fiable — mais ne jamais faire
+  dépendre quoi que ce soit de l'ordre des clés d'une carte.
+- `custom:mini-graph-card` et `custom:apexcharts-card` ne fonctionnent que parce
+  qu'ils sont déclarés dans `customLovelaceModules`. Une autre carte HACS demande
+  d'être déclarée là d'abord.
+- L'entrée de barre latérale est redéclarée en entier (`mode`, `filename`,
+  `title`, `icon`, `show_in_sidebar`) : l'option porte l'attrset complet, donc la
+  définir **remplace** le défaut calculé par le module au lieu de le compléter.
+
+### Effet de bord de la découverte : deux intégrations non packagées
+
+La découverte mDNS/SSDP trouve des appareils dont l'intégration n'est pas dans
+`extraComponents`, et HA journalise à chaque démarrage :
+
+| Erreur | Cause | Décision |
+|---|---|---|
+| `No module named 'zha'` | découverte USB du dongle Zigbee | zigbee2mqtt possède le dongle, ZHA n'a pas lieu d'être |
+| `No module named 'pyatv'` | un Apple TV annoncé en mDNS | à packager **si** l'usage est voulu |
+
+Les deux sont cosmétiques — un flux de découverte qui échoue à se charger, pas un
+service en panne — et se taisent en **ignorant** la carte « découvert »
+correspondante dans l'UI.
+
 ## Références internes
 
 - `modules/hosts/hyper/libvirt.nix` (domaine impératif, `traefik.services.hass`)

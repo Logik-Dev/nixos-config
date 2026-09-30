@@ -55,6 +55,9 @@ usurpation de `Remote-User`. Détails : [security.md](security.md).
   `seedbox-db-ownership`). PITR pgBackRest + dump logique.
 - **Redis** : cache Immich (`services.redis.servers.immich`).
 - **Mosquitto (MQTT)** : zigbee2mqtt, rankoder, Home Assistant (natif) — loopback seul.
+- **Tableau de bord HA** : déclaratif en nix (`home/home-assistant-dashboard.nix`,
+  5 vues), `ui-lovelace.yaml` en lien vers le store donc **non éditable à l'UI** ;
+  le tableau de bord d'onboarding reste disponible à côté.
 - **Gotenberg + Tika** : conversion/OCR Paperless (Gotenberg déplacé sur 3001,
   conflit port 3000 avec AdGuard).
 - **Ollama** (P4000) : tri de mails n8n ; `ollama` sur m4 = booster batch.
