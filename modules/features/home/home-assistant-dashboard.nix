@@ -60,7 +60,7 @@ let
       # deux fois. Les noms de carte ci-dessous disent laquelle fait quoi.
       tvCommande = "media_player.tv_salon";
       tvDiffusion = "media_player.tv_salon_cast";
-      tvTelecommande = "remote.salon_tv_salon";
+      tvTelecommande = "remote.tv_salon";
 
       # Gabarits — le même motif revenait quinze fois.
       heading = icon: text: {
