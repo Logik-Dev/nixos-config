@@ -42,9 +42,15 @@
         (statusSensor "rankoder version" "rankoder_version" "mdi:tag" "{{ value_json.version }}")
         (statusSensor "rankoder done" "rankoder_done" "mdi:check-circle" "{{ value_json.done }}")
         (statusSensor "rankoder failed" "rankoder_failed" "mdi:alert-circle" "{{ value_json.failed }}")
-        (statusSensor "rankoder transcoding" "rankoder_transcoding" "mdi:cog" "{{ value_json.transcoding }}")
-        (statusSensor "rankoder pending approval" "rankoder_pending_approval" "mdi:account-clock" "{{ value_json.pending_approval }}")
-        (statusSensor "rankoder skipped" "rankoder_skipped" "mdi:debug-step-over" "{{ value_json.skipped }}")
+        (statusSensor "rankoder transcoding" "rankoder_transcoding" "mdi:cog"
+          "{{ value_json.transcoding }}"
+        )
+        (statusSensor "rankoder pending approval" "rankoder_pending_approval" "mdi:account-clock"
+          "{{ value_json.pending_approval }}"
+        )
+        (statusSensor "rankoder skipped" "rankoder_skipped" "mdi:debug-step-over"
+          "{{ value_json.skipped }}"
+        )
         {
           name = "rankoder space saved";
           unique_id = "rankoder_space_saved";

@@ -15,7 +15,7 @@
 _:
 let
   arrosageModule =
-    { ... }:
+    _:
     let
       meteo = "sensor.meteo_france_forecast_for_city_leognan_aquitaine_33_fr_leognan";
       pluieMm = "${meteo}_daily_precipitation";

@@ -22,7 +22,7 @@
 _:
 let
   dashboardModule =
-    { ... }:
+    _:
     let
       # Le préfixe Météo-France est illisible et répété huit fois : il dépend de
       # la ville configurée dans l'intégration. S'il change, c'est ici.
@@ -76,7 +76,10 @@ let
         heading_style = "subtitle";
       };
 
-      tuile = entity: { inherit entity; type = "tile"; };
+      tuile = entity: {
+        inherit entity;
+        type = "tile";
+      };
 
       tuileNommee = entity: name: {
         inherit entity name;
@@ -124,7 +127,10 @@ let
 
       renommer = carte: nom: carte // { name = nom; };
 
-      grille = cards: { inherit cards; type = "grid"; };
+      grille = cards: {
+        inherit cards;
+        type = "grid";
+      };
     in
     {
       # Le module calcule cette entrée dès que `lovelaceConfig` est défini, mais
