@@ -147,7 +147,7 @@ via Traefik, netns `vpn` toujours sur son tunnel (IP de sortie AirVPN).
   en *drop* casserait le **subnet routing Tailscale**, **netavark** et la **veth
   du namespace `vpn`** tant que les règles ne sont pas écrites.
 
-## Home Assistant exposé au WAN sans anti-bourrage (SEC-19)
+## Home Assistant exposé au WAN — anti-bourrage activé (SEC-19, corrigé)
 
 **Constaté le 2026-09-29.** `ha.hyper.logikdev.fr` résout **publiquement**
 (CNAME vers `logikdev.fr` → l'IP WAN, vérifié contre `1.1.1.1`), et les ports
@@ -158,7 +158,7 @@ donc joignable depuis Internet.
 |---|---|
 | Authelia | **absente** — choix assumé, les clients natifs ne suivent pas un forwardAuth |
 | Rate-limit Traefik | 150 req/s en moyenne, burst 300 — très large pour du bourrage d'identifiants |
-| Bannissement HA après échecs | **désactivé** : `login_attempts_threshold = -1` |
+| Bannissement HA après échecs | **activé le 2026-09-30** : `login_attempts_threshold = 5`, vérifié promu |
 
 `ip_ban_enabled` est pourtant à `true` : c'est le seuil à `-1`
 (`NO_LOGIN_ATTEMPT_THRESHOLD`, le défaut de HA) qui neutralise le mécanisme.
@@ -246,9 +246,10 @@ un déverrouillage automatique au boot sans intervention.
   **fermable** (HA passerait en loopback), ce qui retire l'essentiel du sujet —
   voir `docs/home-assistant-nix-plan.md` §3.2 d.
 - **SEC-11** : appliquer le JSON d'ACL Tailscale dans la console.
-- **SEC-19** : Home Assistant joignable depuis Internet sans Authelia **et** sans
-  bannissement après échecs de connexion (section ci-dessus). Correctif = un
-  réglage dans l'UI ; non appliqué à ce jour.
+- ~~**SEC-19**~~ : **corrigé le 2026-09-30** — `login_attempts_threshold = 5`.
+  HA reste joignable depuis Internet sans Authelia (choix assumé, clients
+  natifs), mais le bannissement après échecs protège désormais la page de
+  connexion. C'était la condition posée avant d'ouvrir 8123 sur le VLAN IoT.
 - **SEC-14** : **corrigé le 2026-09-29** (moitié ciblée déployée, génération
   507). Restent ouverts : le chemin IoT → tailnet (relève des ACL Tailscale,
   SEC-11) et le chantier nftables/`filterForward`.

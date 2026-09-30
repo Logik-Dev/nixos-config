@@ -1010,6 +1010,62 @@ variables de `rankoder_approval_request` dérivent toutes indépendamment de
 touche que les blocs `variables` à dépendances internes — mais il vaut pour
 toute clé de mapping dont HA lit l'ordre.
 
+## 14. Ce que les appareils IoT exigent de HA (mesuré le 2026-09-30)
+
+Le §3.2 d disait « Sonos et Cast tirent les URL de média et de TTS depuis HA,
+donc 8123 doit être joignable ». **C'est vrai mais incomplet, et cette
+imprécision m'a coûté un déploiement pour rien** : j'ai attribué un échec
+d'abonnement Sonos à 8123, ouvert ce port, et constaté que rien ne changeait.
+
+### Deux ports, deux raisons
+
+| Port | Qui l'utilise | Pourquoi |
+|---|---|---|
+| **8123** | Sonos, Cast | les appareils **tirent** les URL de média et de TTS (`/api/tts_proxy/…`) servies par HA |
+| **1400** | Sonos | les **abonnements UPnP** : SoCo fixe `EVENT_LISTENER_PORT = 1400` et HA utilise `events_asyncio`, donc **l'enceinte rappelle HA sur 1400** |
+
+Le symptôme d'un 1400 fermé est trompeur, parce qu'il ne casse rien :
+
+```
+WARNING [homeassistant.components.sonos]
+  Subscription to 192.168.21.232 failed, attempting to poll directly
+```
+
+L'interrogation périodique prend le relais. Tout fonctionne, en moins réactif et
+plus lourd — donc ça peut durer des mois sans qu'on le remarque.
+
+### La mesure qui tranche
+
+Ouvrir 8123 n'a rien changé : le compteur de sa règle est resté à **zéro
+rappel** (seul un paquet, ma propre sonde), et l'avertissement persistait. Après
+ouverture de 1400 : HA se lie à `192.168.21.241:1400`, le compteur de la règle
+monte à **19 paquets** de rappels réels, et l'avertissement disparaît.
+
+**Leçon : un compteur de règle de pare-feu à zéro est une preuve, pas un
+détail.** Il disait que ma correction ne servait pas, avant même que je regarde
+le journal.
+
+### Découverte : un protocole par famille d'appareils
+
+Même piège de généralisation. Ouvrir mDNS et SSDP ne couvre pas tout :
+
+| Famille | Protocole | Couvert par |
+|---|---|---|
+| Sonos | SSDP (UDP 1900) | ouvert sur `br-iot` |
+| Cast, imprimante, AndroidTV | mDNS (UDP 5353) | ouvert sur `br-iot` |
+| **TP-Link / Tapo** | **broadcast UDP propriétaire 9999 + 20002** | **non couvert — ajout manuel par IP** |
+
+Pour TP-Link, la réponse arrive en unicast depuis l'appareil alors que la requête
+partait vers une adresse de broadcast : le suivi de connexion ne la rattrape pas.
+L'autoriser demanderait d'accepter de l'UDP vers la plage éphémère
+(`32768-60999`), **où écoutent tailscaled (41641) et syncthing (41069)**.
+Écarté : deux saisies manuelles coûtent moins cher que cette exposition. Les
+appareils sont déclarés par IP, avec réservation DHCP pour que l'adresse ne
+bouge pas — sans découverte, HA ne suivrait pas un changement de bail.
+
+Les Tapo exigent par ailleurs les **identifiants cloud TP-Link** (compte de
+l'app) pour l'authentification locale KLAP.
+
 ## Références internes
 
 - `modules/hosts/hyper/libvirt.nix` (domaine impératif, `traefik.services.hass`)

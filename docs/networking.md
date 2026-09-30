@@ -16,6 +16,10 @@ Ports ouverts dans le firewall NixOS (`networking.firewall`) :
 | 22000 | TCP/UDP | Syncthing | LAN + tailnet |
 | 10001, 3478 | UDP | UniFi (discovery / STUN) | LAN / IoT |
 | 1883 | TCP | Mosquitto MQTT | **`br-iot` uniquement** (+ loopback ; fermé LAN/tailnet) |
+| 1400 | TCP | Home Assistant — rappels d'abonnement UPnP Sonos (SoCo `EVENT_LISTENER_PORT`) | **`br-iot` uniquement** |
+| 8123 | TCP | Home Assistant — média/TTS tirés par Sonos et Cast | **`br-iot` uniquement** (l'accès humain passe par Traefik) |
+| 5353 | UDP | mDNS / zeroconf (découverte) | **`br-iot` uniquement** |
+| 1900 | UDP | SSDP / UPnP (découverte) | **`br-iot` uniquement** |
 | forward AirVPN | TCP/UDP | qBittorrent (port d'écoute) | interface `wg0` seule |
 
 ## Traefik (reverse proxy)

@@ -58,15 +58,42 @@
       # `.storage/core.network`, via l'UI — Paramètres → Système → Réseau. Il
       # n'existe aucune option nix pour ça (§3.2 a).
       #
-      # 8123 reste délibérément FERMÉ sur `br-iot` : la découverte n'en a pas
-      # besoin. Il ne s'ouvrira que le jour où Cast ou Sonos seront ajoutés —
-      # ces appareils vont chercher les URL de média et de TTS *depuis* HA
-      # (§3.2 d) — et ce sera une exposition à décider à ce moment-là, pas une
-      # avance prise « au cas où ».
-      networking.firewall.interfaces."br-iot".allowedUDPPorts = [
-        5353 # mDNS / zeroconf
-        1900 # SSDP / UPnP
-      ];
+      networking.firewall.interfaces."br-iot" = {
+        allowedUDPPorts = [
+          5353 # mDNS / zeroconf
+          1900 # SSDP / UPnP
+        ];
+
+        # Deux ports, deux raisons distinctes — la confusion entre les deux m'a
+        # coûté un déploiement pour rien le 2026-09-30.
+        #
+        #  - **8123** : les appareils vont chercher les URL de **média et de
+        #    TTS** servies par HA (`/api/tts_proxy/…`). C'est le cas annoncé au
+        #    §3.2 d, et c'est bien 8123.
+        #  - **1400** : les **abonnements UPnP** de Sonos. SoCo fixe
+        #    `EVENT_LISTENER_PORT = 1400` et HA utilise `events_asyncio`, donc
+        #    c'est **l'enceinte qui rappelle HA sur 1400**, pas sur 8123.
+        #    Ouvrir 8123 seul ne changeait rien : HA continuait à journaliser
+        #    « Subscription to … failed, attempting to poll directly », et le
+        #    compteur de la règle 8123 restait à zéro rappel. L'interrogation
+        #    périodique fonctionne, mais elle est moins réactive et plus lourde.
+        #
+        # Ce que ça expose, dit franchement : la page de connexion de HA devient
+        # joignable depuis le segment non fiable. Deux raisons de l'accepter :
+        #
+        #  - le bannissement après échecs a été activé au préalable
+        #    (`login_attempts_threshold = 5`, vérifié promu dans
+        #    `.storage/http`) — l'ouverture a été tenue fermée jusque-là
+        #    exprès, cf. SEC-19 ;
+        #  - `trusted_proxies` ne contient que `127.0.0.1/32`, donc une requête
+        #    venant directement de `br-iot` ne peut pas se faire passer pour un
+        #    autre client avec un `X-Forwarded-For` forgé : HA la rejette en 400
+        #    et bannit la **vraie** IP.
+        allowedTCPPorts = [
+          8123 # média + TTS tirés par les appareils
+          1400 # rappels d'abonnement UPnP de Sonos (SoCo EVENT_LISTENER_PORT)
+        ];
+      };
 
       # Enregistreur sur PostgreSQL plutôt que sur le SQLite par défaut.
       # Tranché le 2026-09-29 : le §6.8 différait ce choix parce qu'il coûtait
