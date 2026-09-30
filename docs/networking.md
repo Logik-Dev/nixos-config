@@ -15,7 +15,7 @@ Ports ouverts dans le firewall NixOS (`networking.firewall`) :
 | 8080 | TCP | UniFi (inform) | LAN / IoT |
 | 22000 | TCP/UDP | Syncthing | LAN + tailnet |
 | 10001, 3478 | UDP | UniFi (discovery / STUN) | LAN / IoT |
-| 1883 | TCP | Mosquitto MQTT | **`br-iot` uniquement** (+ loopback ; fermé LAN/tailnet) |
+| 1883 | TCP | Mosquitto MQTT | **loopback uniquement** depuis le 2026-09-30 (aucun port ouvert) |
 | 1400 | TCP | Home Assistant — rappels d'abonnement UPnP Sonos (SoCo `EVENT_LISTENER_PORT`) | **`br-iot` uniquement** |
 | 8123 | TCP | Home Assistant — média/TTS tirés par Sonos et Cast | **`br-iot` uniquement** (l'accès humain passe par Traefik) |
 | 5353 | UDP | mDNS / zeroconf (découverte) | **`br-iot` uniquement** |
@@ -81,14 +81,19 @@ exposées à Prometheus (exporter `fail2ban`, port 9191).
 
 `networking/mqtt/{mosquitto,zigbee2mqtt}.nix`
 
-- Listener `1883` **restreint à l'interface `br-iot`** (loopback toujours
-  autorisé) : zigbee2mqtt (loopback), rankoder (loopback), Home Assistant (VM
-  sur le bridge IoT). Fermé sur LAN/tailnet/management.
+- Listener `1883` **lié au loopback** (`address = "127.0.0.1"`) et **aucun port
+  ouvert** depuis le 2026-09-30 : les trois clients — zigbee2mqtt, rankoder et
+  Home Assistant **natif** — vivent tous sur l'hôte. La VM HAOS était le seul
+  client distant ; elle est arrêtée. Le bind restreint double la fermeture du
+  pare-feu : si une règle disparaissait, le courtier resterait injoignable.
 - Auth obligatoire (pas d'anonyme). Comptes : `zigbee2mqtt` (ACL
   `readwrite zigbee2mqtt/#`), `homeassistant` (partagé avec rankoder, ACL
   `readwrite #`). Mot de passe dans agenix.
-- **Pas encore de TLS** ; durcissement (comptes distincts + ACL + TLS 8883) =
-  audit SEC-3b.
+- **Pas de TLS**, et un mot de passe partagé — mais le trafic ne quitte plus la
+  machine, ce qui retire à SEC-3b son exposition. Restent les comptes distincts
+  et les ACL minimales, utiles contre un service local compromis, plus urgents.
+  Si un objet devait un jour publier en direct, **le bind est le premier endroit
+  à rouvrir** — et il faudrait alors reprendre SEC-3b pour de bon.
 
 ## UniFi
 

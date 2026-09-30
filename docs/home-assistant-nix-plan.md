@@ -638,11 +638,26 @@ Deux gestes à ne pas oublier au même moment :
 - `backups.sources.home-assistant` est **déjà en place** depuis B0, rien à faire. C'est ici, et seulement ici, que la propriété
 des appareils change de main.
 
-### Lot D — le retrait
+### Lot D — le retrait · *moitié faite le 2026-09-30*
 
-Fermeture de `1883` sur `br-iot` (vérifié le 2026-09-29 : la VM est le **seul**
-client distant du courtier, cf. SEC-3b), arrêt de la VM, conservation du qcow2 au
-moins un mois, puis suppression.
+**Fait :**
+
+- **VM arrêtée** le 2026-09-29 (`virsh shutdown`), qcow2 conservé ;
+- **`1883` fermé sur `br-iot`**, et le listener mosquitto **lié au loopback** —
+  double fermeture. Vérifié avant : 3 connexions établies toutes depuis
+  `127.0.0.1`, et la règle `br-iot` n'avait compté aucun paquet depuis l'arrêt de
+  la VM. Vérifié après : les 3 clients **se sont reconnectés** au redémarrage du
+  courtier — c'est-à-dire que la pathologie de P0-9 ne se reproduit pas, et
+  MON-11 l'aurait signalée sinon ;
+- **route Traefik `hass` retirée** : elle pointait sur la VM morte et renvoyait
+  502 sur un endpoint public. `ha.hyper.logikdev.fr` sert l'instance native.
+
+**Reste :** supprimer le qcow2 après un mois de recul (soit à partir du
+2026-10-29), et retirer `virtualisation.libvirtd` si plus rien ne l'utilise.
+
+**Procédure de repli tant que le qcow2 existe** : redéclarer la route `hass`,
+démarrer le domaine — et surtout **retirer l'intégration MQTT du natif d'abord**,
+sans quoi deux HA commanderaient chaque appareil deux fois.
 
 ### Ce que la décision « repartir de zéro » a retiré du dossier
 
@@ -1065,6 +1080,37 @@ bouge pas — sans découverte, HA ne suivrait pas un changement de bail.
 
 Les Tapo exigent par ailleurs les **identifiants cloud TP-Link** (compte de
 l'app) pour l'authentification locale KLAP.
+
+### Les zones se sont affectées seules — pour Sonos seulement
+
+Surprise agréable, et voici le mécanisme : `components/sonos/entity.py:91` passe
+**`suggested_area = self.speaker.zone_name`**. HA prend donc le nom de zone réglé
+dans l'app Sonos et le fait correspondre à une zone existante **par son nom**.
+Les enceintes annonçaient `Salon`, `Chambre des enfants` et `Cuisine` (lisible
+dans `http://<ip>:1400/xml/device_description.xml`), ce qui tombait exactement
+sur les pièces créées la veille.
+
+Deux limites à connaître :
+
+- l'association ne se fait **qu'à la création de l'appareil** — renommer une
+  pièce dans l'app Sonos ensuite ne déplacera rien dans HA ;
+- `suggested_area` est **déprécié, retrait annoncé en HA Core 2026.9**. On est sur
+  2026.8.3 : un futur bump de nixpkgs peut changer ce comportement.
+
+**L'intégration TP-Link n'a pas de `suggested_area`** (vérifié, aucune
+occurrence) : les zones des prises Tapo ont été affectées à la main.
+
+### 8123 : conservé sans preuve d'usage, en conscience
+
+Un test de lecture Sonos concluant a laissé le compteur de la règle 8123 à
+**zéro** : c'était un flux distant, que l'enceinte va chercher sur Internet sans
+passer par HA. Ce qui exercerait ce port est une **annonce TTS** ou un **média
+local**.
+
+Le port est **gardé ouvert sur décision explicite** (2026-09-30), pas par
+inertie. À retenir si la question revient : le compteur de la règle est la mesure
+qui trancherait — s'il reste à zéro après un TTS, l'ouverture est inutile et doit
+être refermée.
 
 ## Références internes
 

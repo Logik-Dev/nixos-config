@@ -210,8 +210,11 @@ USB-C. Décision assumée, compensée par SSH clé-only + fail2ban.
 
 ## MQTT & ntfy
 
-- **MQTT** (mosquitto) : sans TLS, un mot de passe partagé, listener limité au
-  bridge IoT. Durcissement prévu (comptes distincts + ACL + TLS) = **SEC-3b**.
+- **MQTT** (mosquitto) : sans TLS et à mot de passe partagé, mais **lié au
+  loopback et sans aucun port ouvert** depuis le 2026-09-30 — les trois clients
+  (zigbee2mqtt, rankoder, Home Assistant natif) sont sur l'hôte. Le trafic ne
+  quitte plus la machine, ce qui retire à **SEC-3b** son exposition ; restent les
+  comptes distincts et les ACL, utiles contre un service local compromis.
 - **ntfy** : la route publique est **lecture seule** (GET/HEAD/OPTIONS via une
   option `traefik.services.ntfy.methods`) ; les publishers (`notify-failure`,
   smartd, drills) postent en `localhost:2586`, hors Traefik. Les alertes ne
@@ -241,10 +244,10 @@ un déverrouillage automatique au boot sans intervention.
 
 ## Restes ouverts (audit 2026-09)
 
-- **SEC-3b** : comptes MQTT distincts + ACL minimales + TLS 8883 (HA à mettre à jour).
-  Note : la migration de Home Assistant en natif rendrait le listener `br-iot`
-  **fermable** (HA passerait en loopback), ce qui retire l'essentiel du sujet —
-  voir `docs/home-assistant-nix-plan.md` §3.2 d.
+- **SEC-3b** : largement désamorcé le 2026-09-30 — le listener est passé en
+  **loopback seul**, donc plus d'exposition réseau. Restent, sans urgence, les
+  comptes distincts et les ACL minimales ; le TLS 8883 n'a plus d'objet tant que
+  rien ne sort de la machine.
 - **SEC-11** : appliquer le JSON d'ACL Tailscale dans la console.
 - ~~**SEC-19**~~ : **corrigé le 2026-09-30** — `login_attempts_threshold = 5`.
   HA reste joignable depuis Internet sans Authelia (choix assumé, clients

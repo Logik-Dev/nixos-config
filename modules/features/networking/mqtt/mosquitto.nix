@@ -6,11 +6,20 @@ let
       ...
     }:
     {
-      # MQTT is not encrypted (yet) and shared credentials are used, so keep it
-      # off every untrusted interface: only the IoT bridge (where the Home
-      # Assistant VM lives) is opened. loopback is always allowed and carries
-      # zigbee2mqtt/rankoder; LAN, Tailscale and the management NIC stay closed.
-      networking.firewall.interfaces."br-iot".allowedTCPPorts = [ 1883 ];
+      # **Loopback uniquement depuis le 2026-09-30.** Plus aucun port ouvert :
+      # les trois clients — zigbee2mqtt, rankoder et Home Assistant natif —
+      # vivent tous sur cet hôte. La VM HAOS était le seul client distant, et
+      # elle est arrêtée.
+      #
+      # Ça referme l'essentiel de SEC-3b sans en traiter la lettre : le trafic
+      # ne quitte plus la machine, donc l'absence de TLS et le mot de passe
+      # partagé ne sont plus exposés à un segment non fiable. Restent les
+      # comptes distincts et les ACL minimales, qui gardent leur valeur contre
+      # un service local compromis mais ne sont plus urgents.
+      #
+      # Vérifié avant de fermer : 3 connexions établies, toutes depuis
+      # 127.0.0.1, et la règle `br-iot` n'avait compté aucun paquet depuis
+      # l'arrêt de la VM.
 
       age.secrets.mqtt.owner = "zigbee2mqtt";
 
@@ -24,12 +33,17 @@ let
       services.mosquitto = {
         enable = true;
         listeners = [
-          # Single listener, authentication required (no anonymous). z2m connects
-          # over loopback and Home Assistant (192.168.21.181) over the LAN, both
-          # with the credentials below. Closing anonymous is the whole point:
-          # previously anyone on the LAN/Tailscale could read and publish.
+          # Single listener, authentication required (no anonymous), **lié au
+          # loopback**. Les trois clients y sont : zigbee2mqtt, rankoder et HA
+          # natif. Le bind restreint double la fermeture du pare-feu — si une
+          # règle disparaissait, le courtier resterait injoignable du réseau.
+          #
+          # `0.0.0.0` jusqu'au 2026-09-30, pour la VM HAOS qui était le seul
+          # client distant. Si un objet devait un jour publier en direct, ce
+          # bind est le premier endroit à rouvrir — et il faudrait alors
+          # reprendre SEC-3b pour de bon (comptes distincts, ACL, TLS 8883).
           {
-            address = "0.0.0.0";
+            address = "127.0.0.1";
             port = 1883;
             omitPasswordAuth = false;
             settings.allow_anonymous = false;

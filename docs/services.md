@@ -19,7 +19,7 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 | `audiobookshelf` | 13378 | Médias | **non** (apps natives) | `/var/lib/audiobookshelf` (DB/meta), bibliothèques `/mnt/storage/medias/{books,audiobooks}` |
 | `bindery` | 8787 | Médias | oui | **containeur podman** (`--network=host`, UID 1000:991) ; Prowlarr/qBittorrent/SABnzbd ; config `/mnt/ultra/bindery`, **mount unique** `/mnt/storage/medias` (hardlinks downloads→bibliothèques, chemins identiques à l'hôte → pas de remap) |
 | `rankoder` | 8765 | Médias | oui | MQTT, GPU, `/mnt/storage/medias/rankoder` |
-| `hass` | 8123 | Maison | **non** (auth propre) | **VM libvirt** `192.168.21.181` (bridge `br-iot`) |
+| `ha` | 8123 | Maison | **non** (auth propre) | **natif** sur l'hôte ; loopback + `br-iot` (1400 UPnP Sonos, 8123 média/TTS) ; recorder sur PostgreSQL |
 | `mealie` | 9999 | Maison | oui | Postgres, `/var/lib/private/mealie` |
 | `paperless` | 28981 | Maison | oui (SSO `Remote-User`) | Postgres, Gotenberg, Tika, `/mnt/local` |
 | `vaultwarden` | 8082 | Maison | **non** (clients Bitwarden) | Postgres |
@@ -54,7 +54,7 @@ usurpation de `Remote-User`. Détails : [security.md](security.md).
   prowlarr/radarr/sonarr (bases `-main`/`-logs`, ownership via hook
   `seedbox-db-ownership`). PITR pgBackRest + dump logique.
 - **Redis** : cache Immich (`services.redis.servers.immich`).
-- **Mosquitto (MQTT)** : zigbee2mqtt, rankoder, Home Assistant (VM).
+- **Mosquitto (MQTT)** : zigbee2mqtt, rankoder, Home Assistant (natif) — loopback seul.
 - **Gotenberg + Tika** : conversion/OCR Paperless (Gotenberg déplacé sur 3001,
   conflit port 3000 avec AdGuard).
 - **Ollama** (P4000) : tri de mails n8n ; `ollama` sur m4 = booster batch.
