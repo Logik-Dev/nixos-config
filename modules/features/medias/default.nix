@@ -24,6 +24,8 @@
           ALTER DATABASE "radarr-logs" OWNER TO radarr;
           ALTER DATABASE "prowlarr-main" OWNER TO prowlarr;
           ALTER DATABASE "prowlarr-logs" OWNER TO prowlarr;
+          ALTER DATABASE "lidarr-main" OWNER TO lidarr;
+          ALTER DATABASE "lidarr-logs" OWNER TO lidarr;
           SQL
         '')
       ];
@@ -33,6 +35,9 @@
         # Bindery imports here; setgid so new files inherit the media group.
         "d /mnt/storage/medias/books 2775 logikdev media - -"
         "d /mnt/storage/medias/audiobooks 2775 logikdev media - -"
+        # Racine musique : Lidarr écrit populaire/, beets classique/ ; setgid
+        # pour que les imports héritent du groupe media.
+        "d /mnt/storage/medias/musique 2775 logikdev media - -"
         "d /mnt/ultra 2755 logikdev media - -"
       ];
 
@@ -41,6 +46,8 @@
         bindery
         jellyfin
         jellyseerr
+        lidarr
+        lidarr-metadata
         prowlarr
         radarr
         sabnzbd

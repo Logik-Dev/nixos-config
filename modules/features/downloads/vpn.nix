@@ -112,6 +112,7 @@ _: {
             default = [
               8989 # Sonarr  — Prowlarr app sync pushes indexers to it
               7878 # Radarr  — idem
+              8686 # Lidarr  — idem
             ];
             description = ''
               Host TCP ports opened on the veth for the namespace. Deliberately
