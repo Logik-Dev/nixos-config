@@ -154,10 +154,13 @@ _: {
       # Import beets automatique, opt-in (`musique.autoImport`) : la passe
       # prépare puis importe sans attendre le Mac. Désactivé par défaut — le
       # classique s'apparie mal, activer après mesure du taux de match (WP5).
+      # Les albums restés en file après la tentative (`skipped`) sont comptés
+      # « à corriger » dans la notification ntfy (transition seulement).
       autoImportScript = lib.optionalString config.musique.autoImport ''
         for dir in ${queue}/*/; do
           [ -d "$dir" ] || continue
           [ -z "$(find "$dir" -type f \( -iname '*.flac' -o -iname '*.ape' -o -iname '*.wv' \) -print -quit)" ] && continue
+          autoTried=$((autoTried + 1))
           flat=""
           [ -z "$(find "$dir" -maxdepth 1 -type f -iname '*.flac' -print -quit)" ] \
             && [ -n "$(find "$dir" -mindepth 2 -type f -iname '*.flac' -print -quit)" ] && flat="--flat"
@@ -167,6 +170,8 @@ _: {
           if [ -z "$(find "$dir" -type f \( -iname '*.flac' -o -iname '*.ape' -o -iname '*.wv' \) -print -quit)" ]; then
             dest="${sources}/$(basename "$dir")"; [ -e "$dest" ] && dest="$dest-$(date +%s)"
             mv -T "$dir" "$dest"             # résidus seuls : jamais rm
+          else
+            skipped=$((skipped + 1))         # audio toujours là : à corriger via `musique`
           fi
         done
       '';
@@ -388,7 +393,7 @@ _: {
             tpl='{{printf .Input.TrackNumberFmt .Track.Number}} - {{.Track.Title | Elem}}'
             ${qbtHelpers}
 
-            prepared=0; failed=0
+            prepared=0; failed=0; autoTried=0; skipped=0
 
             ${slskdPass}
 
@@ -399,7 +404,6 @@ _: {
             # File d'attente = dossiers contenant encore de l'audio.
             pending="$(find ${queue} -mindepth 1 -maxdepth 1 -type d ! -name '.tmp-*' \
               -exec sh -c 'find "$1" -type f \( -iname "*.flac" -o -iname "*.ape" -o -iname "*.wv" \) -print -quit | grep -q .' _ {} \; -print | sort)"
-            count="$(printf '%s\n' "$pending" | grep -c . || true)"
             state=/var/lib/musique/pending; prev="$(cat "$state" 2>/dev/null || true)"
             printf '%s\n' "$pending" > "$state"
 
@@ -407,7 +411,7 @@ _: {
               source ${pushNtfy}
               export NTFY_CLICK="https://navidrome.hyper.logikdev.fr"
               prio=default; [ "$failed" -gt 0 ] && prio=high
-              printf '%s' "$prepared préparé(s) (slskd+torrents), $count en attente, $failed échec(s) — lancer « musique »." \
+              printf '%s' "$prepared préparé(s) (slskd+torrents), $((autoTried - skipped)) importé(s), $skipped à corriger, $failed échec(s) — lancer « musique »." \
                 | push_ntfy musique "🎼 Musique classique" musical_note "$prio" || true
             fi
             exit 0

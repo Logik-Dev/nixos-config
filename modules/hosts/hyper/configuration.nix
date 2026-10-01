@@ -79,6 +79,9 @@ let
           (inputs.self + "/secrets/id_ed25519.pub")
         ];
       }
+      # host-specific musique : import auto de la file (WP5). Un faux positif
+      # se corrige via `beet-classique remove -d` (M16).
+      { musique.autoImport = true; }
       # AirVPN WireGuard for torrenting
       (
         { config, ... }:
