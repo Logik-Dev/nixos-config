@@ -52,6 +52,12 @@ FENCE_RE = re.compile(r"^\s*(?:```|~~~)", re.MULTILINE)
 MIN_BLOCK_CHARS = 40
 STEP_RE = re.compile(r"^##\s+Step\s+(\d+)\s*[—–:-]\s*(.+?)\s*$", re.MULTILINE)
 COMMIT_RE = re.compile(r"^\*\*Commit\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
+FILES_RE = re.compile(r"^\*\*Files\*\*\s*:\s*(\S.*?)\s*$", re.MULTILINE)
+TESTS_RE = re.compile(r"^\*\*Tests\*\*\s*:\s*(\S.*?)\s*$", re.MULTILINE)
+CONVENTIONAL_COMMIT_RE = re.compile(
+    r"^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)"
+    r"(?:\([^()\s]+\))?!?:\s+\S"
+)
 TEST_TAIL = 30
 ATOMICITY_NOTE = (
     "Consigne d'atomicité : toute correction doit rester dans le commit de l'étape "
@@ -172,6 +178,49 @@ def parse_steps(markdown):
                 "body": body,
                 "commit": commit,
             }
+        )
+    return steps
+
+
+def step_instructions(body):
+    """Corps d'une étape, hors champs **Files**/**Tests**/**Commit**."""
+    lines = [
+        line
+        for line in body.splitlines()
+        if not (FILES_RE.match(line) or TESTS_RE.match(line) or COMMIT_RE.match(line))
+    ]
+    return "\n".join(lines).strip()
+
+
+def validate_steps(steps):
+    """Refuse un plan final dont une étape est incomplète.
+
+    Chaque étape doit porter **Files**, **Tests** et **Commit** (message en
+    Conventional Commits) et un corps d'instructions non vide ; sinon `Failure`
+    énumère toutes les étapes fautives avec leur motif — jamais de lancement
+    silencieux d'une exécution sur un plan dégradé.
+    """
+    problems = []
+    for step in steps:
+        label = f"Step {step['number']} ({step['title']})"
+        body = step.get("body") or ""
+        if not FILES_RE.search(body):
+            problems.append(f"{label} : champ **Files** manquant")
+        if not TESTS_RE.search(body):
+            problems.append(f"{label} : champ **Tests** manquant")
+        if not COMMIT_RE.search(body):
+            problems.append(f"{label} : champ **Commit** manquant")
+        elif step.get("commit") and not CONVENTIONAL_COMMIT_RE.match(step["commit"]):
+            problems.append(
+                f"{label} : message de commit non conventionnel ({step['commit']!r})"
+            )
+        if not step_instructions(body):
+            problems.append(f"{label} : corps d'instructions vide")
+    if problems:
+        raise Failure(
+            "plan final invalide — chaque étape doit porter **Files**, **Tests**, "
+            "**Commit** (Conventional Commits) et un corps non vide :\n  - "
+            + "\n  - ".join(problems)
         )
     return steps
 
@@ -471,8 +520,9 @@ class Progress:
         if path.exists():
             try:
                 self.data.update(json.loads(path.read_text(encoding="utf-8")))
-            except json.JSONDecodeError:
-                pass
+            except (json.JSONDecodeError, OSError, TypeError) as exc:
+                log(f"attention : progress.json illisible ({exc}) — reprise à zéro")
+            self.data.setdefault("steps", {})
 
     def status(self, number):
         return self.data["steps"].get(str(number), {}).get("status")
@@ -530,6 +580,14 @@ class Run:
     def _run_dir(self):
         if self.args.out:
             path = Path(self.args.out).expanduser().resolve()
+            if self.args.from_phase and self.args.from_phase != "plan":
+                if not path.is_dir():
+                    die(
+                        f"dossier de run introuvable pour la reprise : {path} — "
+                        "fournis un --out existant (le dossier .agent-plans/<horodatage> "
+                        "d'un run précédent)"
+                    )
+                return path
             if not self.args.dry_run:
                 path.mkdir(parents=True, exist_ok=True)
             return path
@@ -901,7 +959,8 @@ class Run:
             raise Failure(
                 "aucune étape '## Step N' détectée dans le plan final — vérifie prompts/synth.opencode.md"
             )
-        log(f"{len(steps)} étapes atomiques détectées")
+        validate_steps(steps)
+        log(f"{len(steps)} étapes atomiques détectées et validées")
         self.meta["steps"] = {
             str(step["number"]): {"title": step["title"], "commit": step["commit"]}
             for step in steps
@@ -910,10 +969,29 @@ class Run:
     def phase_execute(self):
         if not sys.stdin.isatty():
             raise Failure("la phase d'exécution nécessite un terminal interactif (TTY)")
-        steps = parse_steps(self.read_artifact("04-final-plan.md"))
+        plan_path = self.run_dir / "04-final-plan.md"
+        if not plan_path.is_file():
+            raise Failure(
+                f"reprise impossible : plan final introuvable ({plan_path}) — "
+                "--from execute exige un dossier de run complet (relance la phase "
+                "final ou vérifie --out)"
+            )
+        steps = parse_steps(plan_path.read_text(encoding="utf-8"))
         if not steps:
             raise Failure("aucune étape '## Step N' détectée dans 04-final-plan.md")
+        validate_steps(steps)
         progress = Progress(self.run_dir / "progress.json")
+        done = sum(
+            1
+            for entry in progress.data["steps"].values()
+            if entry.get("status") == "done"
+        )
+        if progress.data["steps"]:
+            log(f"reprise : progress.json relu — {done}/{len(steps)} étape(s) terminée(s)")
+        else:
+            log(f"reprise : progress.json vide ou absent — {len(steps)} étape(s) à exécuter")
+        if self.args.step:
+            log(f"--step {self.args.step} : les étapes antérieures seront sautées")
         journal = self.run_dir / "05-execution.md"
         if not journal.exists():
             journal.write_text(
@@ -1066,10 +1144,14 @@ class Run:
                     test_status = "ok"
                     log("tests verts")
 
-            action = ask_choice(
-                f"Étape {number} commitée ({commit[:10]}).",
-                [("n", "étape suivante"), ("r", "réouvrir la TUI"), ("q", "quitter")],
-            )
+            if self.args.yes:
+                log(f"Étape {number} validée (commit unique, tests verts) — --yes enchaîne")
+                action = "n"
+            else:
+                action = ask_choice(
+                    f"Étape {number} commitée ({commit[:10]}).",
+                    [("n", "étape suivante"), ("r", "réouvrir la TUI"), ("q", "quitter")],
+                )
             if action == "r":
                 prompt = base_prompt
                 continue
@@ -1181,7 +1263,17 @@ def parse_args(argv):
               multi-agent-plan --repo ~/projet --test-cmd "nix flake check"       (plan interactif OpenCode)
               multi-agent-plan --repo ~/projet --task "Ajouter l'auth OAuth2" --test-cmd "nix flake check"
               multi-agent-plan --repo ~/projet --task-file task.md --plan-with claude --stop-after final
+              multi-agent-plan --repo ~/projet --task-file task.md --yes           (enchaîne les étapes validées)
               multi-agent-plan --repo ~/projet --from execute --out ~/projet/.agent-plans/20261001-120000
+              multi-agent-plan --repo ~/projet --from execute --step 5 --out ~/projet/.agent-plans/20261001-120000
+
+            reprise : --from <phase> exige --out (dossier .agent-plans/<horodatage> exact) ;
+            --from execute relit progress.json et reprend aux étapes non terminées, --step N
+            saute les étapes antérieures à N.
+            --yes : enchaîne les étapes validées (commit unique, tests verts) sans demander la
+            confirmation. Ne rend PAS l'exécution non assistée : la TUI bloquante s'ouvre à
+            chaque étape et toute anomalie (tests rouges, commit absent ou multiple) redemande
+            une décision.
             codes de sortie : 0 succès, 1 exécution interrompue/skippée, 2 erreur de configuration,
             3 échec de phase headless
             """
@@ -1192,14 +1284,38 @@ def parse_args(argv):
     parser.add_argument("--task", help="description de la tâche à planifier")
     parser.add_argument("--task-file", help="fichier contenant la tâche (alternative à --task)")
     parser.add_argument("--out", help="dossier du run (défaut : <repo>/.agent-plans/<horodatage>)")
-    parser.add_argument("--from", dest="from_phase", choices=ORDER, help="phase de départ (reprise)")
+    parser.add_argument(
+        "--from",
+        dest="from_phase",
+        choices=ORDER,
+        help=(
+            "phase de reprise (exige --out) : reprend un run existant à partir de cette "
+            "phase, sans rejouer les phases amont"
+        ),
+    )
     parser.add_argument(
         "--stop-after",
         choices=ORDER + ("all",),
         default="all",
         help="dernière phase à exécuter (défaut : all)",
     )
-    parser.add_argument("--step", type=int, help="ne reprendre l'exécution qu'à partir de cette étape")
+    parser.add_argument(
+        "--step",
+        type=int,
+        help=(
+            "en reprise d'exécution (--from execute), saute les étapes antérieures à ce "
+            "numéro ; les étapes déjà done de progress.json restent ignorées"
+        ),
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help=(
+            "enchaîne les étapes validées (commit unique, tests verts) sans demander la "
+            "confirmation ; ne rend PAS l'exécution non assistée (la TUI bloquante reste "
+            "ouverte à chaque étape) et toute anomalie redemande une décision"
+        ),
+    )
     parser.add_argument("--claude-bin", default="claude")
     parser.add_argument("--claude-model", default="opus")
     parser.add_argument("--opencode-bin", default="opencode")
@@ -1272,7 +1388,10 @@ def parse_args(argv):
     if args.task and args.task_file:
         parser.error("--task et --task-file sont exclusifs")
     if args.from_phase and args.from_phase != "plan" and not args.out:
-        parser.error("--out est requis pour reprendre à une phase intermédiaire")
+        parser.error(
+            "--out est requis pour reprendre à une phase ultérieure "
+            "(ex. --from execute --out <repo>/.agent-plans/<horodatage>)"
+        )
     return args
 
 
@@ -1285,6 +1404,10 @@ def main(argv):
     if stop == "all":
         stop = "execute"
     phases = ORDER[ORDER.index(start): ORDER.index(stop) + 1]
+    if args.from_phase:
+        log(f"reprise à la phase '{start}' — run : {run.run_dir}")
+    if args.step:
+        log(f"reprise de l'exécution à partir de l'étape {args.step}")
     if args.dry_run:
         run.print_plan(phases)
         return 0

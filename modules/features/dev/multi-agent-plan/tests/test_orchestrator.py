@@ -4,8 +4,10 @@ Lancement : `python3 -m unittest discover tests` depuis le dossier du module,
 ou via le check Nix `multi-agent-plan`.
 """
 
+import ast
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -24,6 +26,8 @@ from orchestrator import (
     parse_claude_json,
     parse_steps,
     render,
+    step_instructions,
+    validate_steps,
 )
 
 CORPS_REVIEW = "Review détaillée du plan, assez longue pour franchir le seuil minimal."
@@ -33,6 +37,59 @@ PLAN_TEXTE = (
     f"<<<BRIEF>>>\n{CORPS_BRIEF}\n<<<END_BRIEF>>>\n\n"
     f"<<<FINAL_PLAN>>>\n{CORPS_PLAN}\n<<<END_FINAL_PLAN>>>"
 )
+PLAN_VALIDE = (
+    "# Plan\n\n"
+    "## Step 1 — Premier\n"
+    "**Files**: a.py\n"
+    "**Tests**: nix flake check\n"
+    "**Commit**: `feat(a): un`\n"
+    "Corps un.\n\n"
+    "## Step 2 — Deuxième\n"
+    "**Files**: b.py\n"
+    "**Tests**: aucune\n"
+    "**Commit**: `fix(b): deux`\n"
+    "Corps deux.\n"
+)
+PROMPT_PHASES = {
+    "plan.claude.md": ("plan", "claude"),
+    "plan.opencode.md": ("plan", "opencode"),
+    "planner.opencode.md": ("planner", "opencode"),
+    "capture.opencode.md": ("capture", "opencode"),
+    "review.claude.md": ("review", "claude"),
+    "review.opencode.md": ("review", "opencode"),
+    "synth.opencode.md": ("synth", "opencode"),
+    "exec.opencode.md": ("exec", "opencode"),
+}
+PROMPT_FIELD_RE = re.compile(r"\{\{([a-z][a-z0-9_]*)\}\}")
+
+
+def prompt_dir():
+    return Path(orchestrator.__file__).resolve().parent / "prompts"
+
+
+def render_fields(source):
+    """Champs fournis par chaque `render(self.prompt(phase, agent), ...)` du source."""
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    provided = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not (isinstance(node.func, ast.Name) and node.func.id == "render"):
+            continue
+        if not node.args:
+            continue
+        target = node.args[0]
+        if not (
+            isinstance(target, ast.Call)
+            and isinstance(target.func, ast.Attribute)
+            and target.func.attr == "prompt"
+            and len(target.args) >= 2
+            and all(isinstance(arg, ast.Constant) for arg in target.args[:2])
+        ):
+            continue
+        phase, agent = target.args[0].value, target.args[1].value
+        provided[(phase, agent)] = {kw.arg for kw in node.keywords if kw.arg}
+    return provided
 
 
 class RenderTests(unittest.TestCase):
@@ -77,6 +134,110 @@ class ParseStepsTests(unittest.TestCase):
 
     def test_sans_etape(self):
         self.assertEqual(parse_steps("aucune étape ici"), [])
+
+
+class ValidateStepsTests(unittest.TestCase):
+    def invalid(self, step):
+        with self.assertRaises(Failure) as ctx:
+            validate_steps(parse_steps(f"# Plan\n\n{step}"))
+        return str(ctx.exception)
+
+    def test_plan_complet_accepte(self):
+        self.assertEqual(len(validate_steps(parse_steps(PLAN_VALIDE))), 2)
+
+    def test_files_manquant(self):
+        message = self.invalid(
+            "## Step 3 — Tiers\n"
+            "**Tests**: nix flake check\n"
+            "**Commit**: `feat(c): trois`\n"
+            "Corps.\n"
+        )
+        self.assertIn("Step 3", message)
+        self.assertIn("Files", message)
+
+    def test_tests_manquant(self):
+        message = self.invalid(
+            "## Step 4 — Quatre\n"
+            "**Files**: d.py\n"
+            "**Commit**: `fix(d): quatre`\n"
+            "Corps.\n"
+        )
+        self.assertIn("Step 4", message)
+        self.assertIn("Tests", message)
+
+    def test_commit_manquant(self):
+        message = self.invalid(
+            "## Step 5 — Cinq\n"
+            "**Files**: e.py\n"
+            "**Tests**: aucune\n"
+            "Corps.\n"
+        )
+        self.assertIn("Step 5", message)
+        self.assertIn("Commit", message)
+
+    def test_commit_non_conventionnel(self):
+        message = self.invalid(
+            "## Step 6 — Six\n"
+            "**Files**: f.py\n"
+            "**Tests**: aucune\n"
+            "**Commit**: `mise à jour du module`\n"
+            "Corps.\n"
+        )
+        self.assertIn("Step 6", message)
+        self.assertIn("non conventionnel", message)
+
+    def test_corps_vide_refuse(self):
+        message = self.invalid(
+            "## Step 7 — Sept\n"
+            "**Files**: g.py\n"
+            "**Tests**: aucune\n"
+            "**Commit**: `feat(g): sept`\n"
+        )
+        self.assertIn("Step 7", message)
+        self.assertIn("corps", message)
+
+    def test_plusieurs_etapes_fautives_listees(self):
+        plan = parse_steps(
+            "# Plan\n\n"
+            "## Step 1 — Un\n"
+            "**Commit**: `feat(a): un`\n"
+            "**Files**: a.py\n"
+            "Corps.\n\n"
+            "## Step 2 — Deux\n"
+            "**Commit**: `fix(b): deux`\n"
+            "**Tests**: aucune\n"
+            "Corps.\n"
+        )
+        with self.assertRaises(Failure) as ctx:
+            validate_steps(plan)
+        message = str(ctx.exception)
+        self.assertIn("Step 1", message)
+        self.assertIn("Step 2", message)
+
+    def test_messages_conventionnels_acceptes(self):
+        for commit in (
+            "feat: ajouter",
+            "fix(a): corriger",
+            "refactor(scope)!: casser",
+            "chore(deps): bump",
+        ):
+            steps = parse_steps(
+                "## Step 1 — Un\n"
+                "**Files**: a.py\n"
+                "**Tests**: aucune\n"
+                f"**Commit**: `{commit}`\n"
+                "Corps.\n"
+            )
+            self.assertEqual(validate_steps(steps)[0]["commit"], commit)
+
+    def test_instructions_hors_champs(self):
+        body = (
+            "**Files**: a.py\n"
+            "**Tests**: aucune\n"
+            "**Commit**: `feat(a): un`\n"
+        )
+        self.assertEqual(step_instructions(body), "")
+        self.assertEqual(step_instructions(body + "\nInstructions.\n"), "Instructions.")
 
 
 class ParseClaudeJsonTests(unittest.TestCase):
@@ -737,6 +898,47 @@ class PromptPathTests(unittest.TestCase):
         self.assertEqual(self.run.prompt_path("plan", "opencode"), custom)
 
 
+class PromptConsistencyTests(unittest.TestCase):
+    """Aucun {{champ}} de prompt ne doit rester sans valeur fournie par sa phase.
+
+    Couvre exactement la classe de bug `plan.claude.md` privé de `{{vcs}}` et
+    empêche toute dérive entre prompts/*.md et les render(...) de l'orchestrateur.
+    """
+
+    def setUp(self):
+        self.dir = prompt_dir()
+        self.assertTrue(self.dir.is_dir(), f"dossier de prompts introuvable : {self.dir}")
+        self.files = sorted(path.name for path in self.dir.glob("*.md"))
+        self.provided = render_fields(Path(orchestrator.__file__).resolve())
+
+    def test_couverture_exhaustive_des_prompts(self):
+        self.assertEqual(self.files, sorted(PROMPT_PHASES))
+
+    def test_chaque_champ_de_prompt_est_fourni(self):
+        problems = []
+        for name in self.files:
+            phase, agent = PROMPT_PHASES[name]
+            if (phase, agent) not in self.provided:
+                problems.append(f"{name} : aucun render(self.prompt('{phase}', '{agent}'))")
+                continue
+            fields = set(
+                PROMPT_FIELD_RE.findall((self.dir / name).read_text(encoding="utf-8"))
+            )
+            absent = fields - self.provided[(phase, agent)]
+            if absent:
+                problems.append(
+                    f"{name} : {', '.join(sorted(absent))} non fourni(s) par phase_{phase}"
+                )
+        self.assertEqual(problems, [])
+
+    def test_chaque_render_vise_un_prompt_existant(self):
+        for phase, agent in sorted(self.provided):
+            self.assertTrue(
+                (self.dir / f"{phase}.{agent}.md").is_file(),
+                f"render(self.prompt('{phase}', '{agent}')) sans fichier de prompt",
+            )
+
+
 class PhasePlanTests(unittest.TestCase):
     def make_run(self, **overrides):
         run = orchestrator.Run.__new__(orchestrator.Run)
@@ -932,7 +1134,7 @@ class ExecuteStepTests(unittest.TestCase):
         run = orchestrator.Run.__new__(orchestrator.Run)
         run.repo = Path("/repo")
         run.run_dir = Path(tmp.name)
-        run.args = mock.Mock(test_cmd="nix flake check", verbose=False, timeout=5)
+        run.args = mock.Mock(test_cmd="nix flake check", verbose=False, timeout=5, yes=False)
         run.prompt = mock.Mock(return_value="prompt exécution test={{test_cmd}}")
         run._tui_cmd = mock.Mock(return_value=["opencode"])
         run._run_tests = mock.Mock(return_value=(0, "ok"))
@@ -1005,6 +1207,216 @@ class ExecuteStepTests(unittest.TestCase):
         self.assertIn("jj squash", prompts[1])
         self.assertIn("git commit --amend", prompts[1])
         self.assertIn("jamais un commit de fixup", prompts[1])
+
+    def test_yes_enchainel_etape_validee_sans_demander(self):
+        run = self.make_run()
+        run.args.yes = True
+        with mock.patch.object(orchestrator, "head_commit", side_effect=["aaa", "bbb"]):
+            with mock.patch.object(orchestrator, "commit_count", return_value=1):
+                result, progress = self.execute(run, [])
+        self.assertTrue(result)
+        progress.mark.assert_called_once_with(1, status="done", commit="bbb", tests="ok")
+
+    def test_yes_ne_decide_pas_seul_sur_tests_rouges(self):
+        run = self.make_run()
+        run.args.yes = True
+        run._run_tests = mock.Mock(return_value=(1, "échec de test"))
+        progress = mock.Mock()
+        heads = ["aaa", "bbb", "bbb", "bbb"]
+        with (
+            mock.patch("builtins.print"),
+            mock.patch.object(orchestrator.subprocess, "call", return_value=0),
+            mock.patch.object(orchestrator, "show_commit"),
+            mock.patch.object(orchestrator, "append_journal"),
+            mock.patch.object(orchestrator, "head_commit", side_effect=heads),
+            mock.patch.object(orchestrator, "commit_count", return_value=1),
+            mock.patch.object(orchestrator, "ask_choice", side_effect=["q"]) as ask,
+        ):
+            result = run._execute_step(
+                self.STEP,
+                [self.STEP],
+                progress,
+                run.run_dir / "05-execution.md",
+                "git",
+                "nix flake check",
+                [],
+            )
+        self.assertFalse(result)
+        ask.assert_called_once()
+        progress.mark.assert_not_called()
+
+
+class PhaseFinalValidationTests(unittest.TestCase):
+    def make_run(self, plan):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        run = orchestrator.Run.__new__(orchestrator.Run)
+        run.args = mock.Mock(
+            test_cmd=None, plan_agent="plan", review_agent="reviewer", synth_agent="synth"
+        )
+        run.repo = Path("/repo")
+        run.run_dir = Path(tmp.name)
+        run.meta = {"steps": {}}
+        run.read_artifact = mock.Mock(return_value=CORPS_PLAN)
+        run.effective_task = mock.Mock(return_value="tâche")
+        run.prompt = mock.Mock(return_value="prompt")
+        run.resolve_agent = mock.Mock(side_effect=lambda name: name)
+        run.vcs = mock.Mock(return_value="jj")
+        run.call_opencode = mock.Mock(return_value=plan)
+        run.write_artifact = mock.Mock()
+        return run
+
+    def test_plan_invalide_refuse_et_meta_intacte(self):
+        run = self.make_run(
+            "## Step 1 — Sans tests\n"
+            "**Files**: a.py\n"
+            "**Commit**: `feat(a): un`\n"
+            "Corps.\n"
+        )
+        with self.assertRaises(Failure) as ctx:
+            run.phase_final()
+        self.assertIn("Step 1", str(ctx.exception))
+        self.assertEqual(run.meta["steps"], {})
+
+    def test_plan_valide_remplit_meta(self):
+        run = self.make_run(PLAN_VALIDE)
+        run.phase_final()
+        self.assertEqual(set(run.meta["steps"]), {"1", "2"})
+
+
+class PhaseExecuteResumeTests(unittest.TestCase):
+    def make_run(self, plan_text=None):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        run = orchestrator.Run.__new__(orchestrator.Run)
+        run.args = mock.Mock(step=None, yes=False, test_cmd="", verbose=False, timeout=5)
+        run.repo = Path("/repo")
+        run.run_dir = Path(tmp.name)
+        run.vcs = mock.Mock(return_value="git")
+        if plan_text is not None:
+            (run.run_dir / "04-final-plan.md").write_text(plan_text, encoding="utf-8")
+        return run
+
+    def tty(self):
+        stdin = mock.Mock()
+        stdin.isatty.return_value = True
+        return mock.patch.object(orchestrator.sys, "stdin", stdin)
+
+    def test_plan_absent_erreur_utile(self):
+        run = self.make_run()
+        with self.tty():
+            with self.assertRaises(Failure) as ctx:
+                run.phase_execute()
+        self.assertIn("04-final-plan.md", str(ctx.exception))
+        self.assertIn("--from execute", str(ctx.exception))
+
+    def test_plan_invalide_refuse_avant_tui(self):
+        run = self.make_run(
+            "## Step 1 — Sans corps\n"
+            "**Files**: a.py\n"
+            "**Tests**: aucune\n"
+            "**Commit**: `feat(a): un`\n"
+        )
+        with self.tty():
+            with mock.patch.object(orchestrator.subprocess, "call") as call:
+                with self.assertRaises(Failure):
+                    run.phase_execute()
+        call.assert_not_called()
+
+    def test_etapes_done_sautees_sans_tui(self):
+        run = self.make_run(PLAN_VALIDE)
+        (run.run_dir / "progress.json").write_text(
+            json.dumps({"steps": {"1": {"status": "done"}, "2": {"status": "done"}}}),
+            encoding="utf-8",
+        )
+        with self.tty():
+            with mock.patch.object(orchestrator.subprocess, "call") as call:
+                self.assertEqual(run.phase_execute(), 0)
+        call.assert_not_called()
+
+
+class ProgressTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.path = Path(tmp.name) / "progress.json"
+
+    def test_relit_les_statuts(self):
+        self.path.write_text(
+            json.dumps({"steps": {"1": {"status": "done"}}}), encoding="utf-8"
+        )
+        progress = orchestrator.Progress(self.path)
+        self.assertEqual(progress.status(1), "done")
+        self.assertIsNone(progress.status(2))
+
+    def test_progress_illisible_avertit_sans_erreur(self):
+        self.path.write_text("{ pas du json", encoding="utf-8")
+        with mock.patch.object(orchestrator, "log") as log:
+            progress = orchestrator.Progress(self.path)
+        self.assertEqual(progress.data["steps"], {})
+        log.assert_called_once()
+
+    def test_progress_sans_cle_steps(self):
+        self.path.write_text(json.dumps({"autre": 1}), encoding="utf-8")
+        progress = orchestrator.Progress(self.path)
+        self.assertEqual(progress.data["steps"], {})
+
+
+class RunDirResumeTests(unittest.TestCase):
+    def make_run(self, out, from_phase, dry_run=False):
+        run = orchestrator.Run.__new__(orchestrator.Run)
+        run.args = mock.Mock(out=out, from_phase=from_phase, dry_run=dry_run)
+        return run
+
+    def test_reprise_dossier_absent_echoue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = str(Path(tmp) / "run-absent")
+            run = self.make_run(missing, "execute")
+            with mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit):
+                    run._run_dir()
+
+    def test_reprise_dossier_present_conserve(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = self.make_run(tmp, "execute")
+            self.assertEqual(run._run_dir(), Path(tmp).resolve())
+
+    def test_nouveau_run_cree_le_dossier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            created = Path(tmp) / "nouveau"
+            run = self.make_run(str(created), "plan")
+            self.assertEqual(run._run_dir(), created.resolve())
+            self.assertTrue(created.is_dir())
+
+
+class ResumeArgsTests(unittest.TestCase):
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_from_ultérieure_exige_out(self):
+        with self.assertRaises(SystemExit):
+            self.parse("--from", "execute")
+
+    def test_from_plan_sans_out(self):
+        self.assertEqual(self.parse("--from", "plan").from_phase, "plan")
+
+    def test_from_avec_out_et_step(self):
+        args = self.parse("--from", "execute", "--step", "5", "--out", "/tmp/run")
+        self.assertEqual(args.from_phase, "execute")
+        self.assertEqual(args.step, 5)
+
+
+class YesArgsTests(unittest.TestCase):
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_desactive_par_defaut(self):
+        self.assertFalse(self.parse("--repo", "/tmp").yes)
+
+    def test_enchainement_actif(self):
+        self.assertTrue(self.parse("--repo", "/tmp", "--yes").yes)
 
 
 if __name__ == "__main__":

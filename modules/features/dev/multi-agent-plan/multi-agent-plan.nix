@@ -35,6 +35,7 @@
           }
           ''
             cp ${./orchestrator.py} orchestrator.py
+            cp -r ${./prompts} prompts
             python3 -m unittest discover ${./tests}
             touch $out
           '';

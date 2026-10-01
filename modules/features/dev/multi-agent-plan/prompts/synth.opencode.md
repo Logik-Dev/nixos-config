@@ -17,13 +17,15 @@ Règles de fusion :
 - Commande de test disponible : {{test_cmd}}
 - Pas de fonctionnalité hors périmètre.
 
-Format imposé, à respecter exactement pour chaque étape :
+Format imposé, à respecter exactement pour chaque étape. L'orchestrateur rejette
+le plan entier si une étape n'a pas ses trois champs, si le message de commit
+n'est pas en Conventional Commits ou si le corps d'instructions est vide :
 
 ## Step 1 — <titre court>
-**Files**: <fichiers/dossiers concernés>
-**Tests**: <commande de test de l'étape>
+**Files**: <fichiers/dossiers concernés, jamais vide>
+**Tests**: <commande de test de l'étape, ou "aucune">
 **Commit**: `type(scope): description`
-<instructions d'implémentation détaillées>
+<instructions d'implémentation détaillées : au moins une phrase de corps>
 
 Puis ## Step 2 — ..., etc. Messages de commit en Conventional Commits (ex. `feat(auth): ajouter le flux OAuth2`).
 
