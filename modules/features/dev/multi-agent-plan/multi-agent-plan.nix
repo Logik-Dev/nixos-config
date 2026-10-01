@@ -21,6 +21,18 @@
           exec python3 ${./orchestrator.py} "$@"
         '';
       };
+
+      # Sans garde de système : le harnais existe aussi sur x86_64-linux.
+      checks.multi-agent-plan =
+        pkgs.runCommand "multi-agent-plan-tests"
+          {
+            nativeBuildInputs = [ pkgs.python3 ];
+          }
+          ''
+            cp ${./orchestrator.py} orchestrator.py
+            python3 -m unittest discover ${./tests}
+            touch $out
+          '';
     };
 
   # Installé uniquement là où Claude Code est activé (m4), car l'outil

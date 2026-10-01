@@ -37,9 +37,14 @@ from pathlib import Path
 VERSION = "0.2.0"
 ORDER = ("plan", "reviews", "final", "execute")
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-SENTINEL_RE = re.compile(r"<<<[A-Z_]+>>>\s*(.*?)\s*<<<END>>>", re.DOTALL)
-BRIEF_RE = re.compile(r"<<<BRIEF>>>\s*(.*?)\s*<<<END>>>", re.DOTALL)
-FINAL_PLAN_RE = re.compile(r"<<<FINAL_PLAN>>>\s*(.*?)\s*<<<END>>>", re.DOTALL)
+END_MARKER = "<<<END>>>"
+SENTINELS = {
+    "BRIEF": ("<<<BRIEF>>>", "<<<END_BRIEF>>>"),
+    "REVIEW": ("<<<REVIEW>>>", "<<<END_REVIEW>>>"),
+    "FINAL_PLAN": ("<<<FINAL_PLAN>>>", "<<<END_FINAL_PLAN>>>"),
+}
+FENCE_RE = re.compile(r"^\s*(?:```|~~~)", re.MULTILINE)
+MIN_BLOCK_CHARS = 40
 STEP_RE = re.compile(r"^##\s+Step\s+(\d+)\s*[—–:-]\s*(.+?)\s*$", re.MULTILINE)
 COMMIT_RE = re.compile(r"^\*\*Commit\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
 TEST_TAIL = 30
@@ -74,6 +79,53 @@ def tail(text, lines=TEST_TAIL):
     return "\n".join(rows[-lines:])
 
 
+def _block_failure(opener, reason, text, log_path=None):
+    if log_path is not None:
+        path = Path(log_path)
+        size = path.stat().st_size if path.exists() else len(text)
+        detail = f" — log de capture : {path} ({size} octets)"
+    else:
+        detail = f" — capture de {len(text)} caractères"
+    return Failure(f"{opener} : {reason}{detail}")
+
+
+def parse_block(text, opener, closer, log_path=None):
+    """Extrait le corps d'un bloc délimité, sans troncature silencieuse.
+
+    La fermeture unique (ex. <<<END_FINAL_PLAN>>>) est prioritaire ; l'ancien
+    marqueur <<<END>>> reste accepté en repli pour les captures rétro-compat.
+    Un bloc absent, trop court ou coupé dans un fence Markdown lève Failure.
+    """
+    start = text.find(opener)
+    if start == -1:
+        raise _block_failure(opener, "bloc absent", text, log_path)
+    end = text.find(closer, start + len(opener))
+    if end == -1:
+        end = text.find(END_MARKER, start + len(opener))
+    if end == -1:
+        raise _block_failure(opener, "fermeture absente", text, log_path)
+    body = text[start + len(opener):end].strip()
+    if len(body) < MIN_BLOCK_CHARS:
+        raise _block_failure(
+            opener, f"bloc suspect (moins de {MIN_BLOCK_CHARS} caractères)", text, log_path
+        )
+    if len(FENCE_RE.findall(body)) % 2:
+        raise _block_failure(opener, "bloc tronqué (fence Markdown non fermé)", text, log_path)
+    return body
+
+
+def parse_any_block(text, log_path=None):
+    found = [
+        (text.find(opener), opener, closer)
+        for opener, closer in SENTINELS.values()
+        if opener in text
+    ]
+    if not found:
+        raise Failure("aucun marqueur <<<...>>> trouvé")
+    _, opener, closer = min(found)
+    return parse_block(text, opener, closer, log_path=log_path)
+
+
 def parse_claude_json(raw):
     text = raw.strip()
     if not text:
@@ -81,10 +133,10 @@ def parse_claude_json(raw):
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:
-        match = SENTINEL_RE.search(ANSI_RE.sub("", text))
-        if match:
-            return match.group(1).strip(), {}
-        raise Failure(f"sortie claude illisible : {text[:300]!r}")
+        try:
+            return parse_any_block(ANSI_RE.sub("", text)), {}
+        except Failure as exc:
+            raise Failure(f"sortie claude illisible : {text[:300]!r} ({exc})") from None
     if isinstance(payload, dict):
         result = payload.get("result")
         if isinstance(result, str) and result.strip():
@@ -420,13 +472,11 @@ class Run:
         log(f"{tag}: terminé en {duration}s")
         return ANSI_RE.sub("", output)
 
-    def call_opencode(self, tag, prompt, continue_session=False):
+    def call_opencode(self, tag, prompt, block, continue_session=False):
         clean = self.run_opencode(tag, prompt, continue_session)
-        match = SENTINEL_RE.search(clean)
-        if not match:
-            log_path = self.run_dir / "logs" / f"{tag}.log"
-            raise Failure(f"{tag}: marqueurs <<<...>>> absents de la sortie — voir {log_path}")
-        return match.group(1).strip()
+        opener, closer = SENTINELS[block]
+        log_path = self.run_dir / "logs" / f"{tag}.log"
+        return parse_block(clean, opener, closer, log_path=log_path)
 
     def phase_plan(self):
         if not self.task:
@@ -457,15 +507,22 @@ class Run:
             first = False
             log("capture headless du plan (opencode run --continue)")
             clean = self.run_opencode("plan-capture", capture_prompt, continue_session=True)
-            plan_match = FINAL_PLAN_RE.search(clean)
-            if plan_match and plan_match.group(1).strip():
-                brief_match = BRIEF_RE.search(clean)
-                if brief_match and brief_match.group(1).strip():
-                    brief = brief_match.group(1).strip()
+            log_path = self.run_dir / "logs" / "plan-capture.log"
+            try:
+                plan = parse_block(clean, *SENTINELS["FINAL_PLAN"], log_path=log_path)
+            except Failure as exc:
+                log(f"capture inexploitable : {exc}")
+                plan = None
+            if plan:
+                try:
+                    brief = parse_block(clean, *SENTINELS["BRIEF"], log_path=log_path)
+                except Failure:
+                    brief = None
+                if brief:
                     self.task = brief
                     self.meta["task"] = brief[:4000]
                     self.write_artifact("00-brief.md", brief)
-                self.write_artifact("01-plan.md", plan_match.group(1).strip())
+                self.write_artifact("01-plan.md", plan)
                 return
             action = ask_choice(
                 "Aucun plan capturé depuis la session interactive.",
@@ -486,7 +543,7 @@ class Run:
                 task=task,
                 plan=plan,
             )
-            return self.call_opencode("review-opencode", prompt)
+            return self.call_opencode("review-opencode", prompt, "REVIEW")
 
         def review_claude():
             prompt = render(
@@ -536,7 +593,7 @@ class Run:
             reviews="\n\n".join(parts),
             test_cmd=self.args.test_cmd or "aucune — l'agent exécutera les tests du projet",
         )
-        text = self.call_opencode("synth", prompt)
+        text = self.call_opencode("synth", prompt, "FINAL_PLAN")
         self.write_artifact("04-final-plan.md", text)
         steps = parse_steps(text)
         if not steps:

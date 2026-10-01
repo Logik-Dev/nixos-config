@@ -18,4 +18,7 @@ Classe les problèmes par sévérité (bloquant / important / mineur), chacun av
 Réponds uniquement avec le Markdown de la review, encadré exactement par :
 <<<REVIEW>>>
 (ta review ici)
-<<<END>>>
+<<<END_REVIEW>>>
+
+Utilise exactement cette fermeture ; n'écris jamais <<<END>>> ni ces marqueurs
+à l'intérieur de la review.

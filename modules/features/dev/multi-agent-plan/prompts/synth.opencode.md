@@ -30,4 +30,7 @@ Puis ## Step 2 — ..., etc. Messages de commit en Conventional Commits (ex. `fe
 Réponds uniquement avec le Markdown du plan final, encadré exactement par :
 <<<FINAL_PLAN>>>
 (plan final ici)
-<<<END>>>
+<<<END_FINAL_PLAN>>>
+
+Utilise exactement cette fermeture ; n'écris jamais <<<END>>> ni ces marqueurs
+à l'intérieur du plan.
