@@ -9,6 +9,7 @@ let
       desktop
       dev
       multi-agent-plan
+      musique
     ];
   };
 

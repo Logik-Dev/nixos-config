@@ -1,8 +1,9 @@
 # Plan — bibliothèque musicale locale (Lidarr, Soulseek, beets, Navidrome)
 
-> Statut : **WP0 → WP4 déployés** (journal §10). Reste : réglages UI (compte
-> Navidrome, `Folder: lidarr` côté SAB), import réel d'un `image+.cue`, et
-> Music Assistant en natif (lot C du dossier HA).
+> Statut : **WP0 → WP5 déployés** (journal §10). Reste : réglages UI (compte
+> Navidrome, `Folder: lidarr` côté SAB), import interactif du premier album
+> préparé (`musique`, depuis m4), et Music Assistant en natif (lot C du dossier
+> HA).
 > Date : 2026-10-01 · **révision 4** (revue de l'implémentation : §0.3).
 > Portée : `hyper` (greffe sur les stacks médias et torrent existantes).
 > **Décision cadre : le classique ne passe pas par Lidarr.** Deux pipelines
@@ -486,6 +487,42 @@ beaucoup de lossless, pressages épuisés, scans des livrets), mais :
 Donc : recherche manuelle, grab dans la catégorie qBittorrent `classique`, puis
 M4. Pas d'automatisation.
 
+### M8 — Automatisation du pipeline (WP5)
+
+Le maillon manquant de M4 : entre le téléchargement slskd et `beet import`, il
+fallait découper à la main, deviner si un `.cue` traîne, et se souvenir de la
+commande. M8 scinde le travail en deux responsabilités — une passe automatique
+côté serveur, un import interactif côté Mac (module
+`modules/features/medias/musique-import.nix`).
+
+**`musique-prepare`** (oneshot, timer `OnBootSec`/`OnUnitInactiveSec` = 5 min,
+utilisateur système `beets:media`, UMask 0002) :
+
+- **Gate slskd** : si un fichier de `slskd-incomplete/` a moins de 15 min, la
+  passe est reportée (`exit 0`) — on ne découpe jamais un transfert en cours.
+- Parcourt `downloads/slskd/*/` et **descend** tant qu'un dossier n'a pas
+  d'audio direct et un unique sous-dossier (slskd niche `pseudo/album`).
+- **`image+.cue`** (`audio ≤ cue`) : `unflac -q -o <tmp> -n <tpl>` par `.cue` ;
+  multi-`.cue` → un sous-dossier par fichier `.cue`. L'original est **déplacé**
+  dans `musique-sources/` (jamais `rm`), purgé par tmpfiles au bout de 14 j.
+- **Déjà découpé** : simple déplacement vers la file d'attente.
+- File `downloads/musique-a-importer/` (2775 `logikdev:media`), un sous-dossier
+  par album, `.tmp-*` pour les constructions en cours.
+- **Notification ntfy** (topic `musique`) uniquement **sur transition** (album
+  préparé, échec, ou changement de la file — digitalisée dans
+  `/var/lib/musique/pending`) : pas de rappel toutes les 5 min.
+- L'unité ne **fail** pas sur un album isolé (compteur `failed`) et borne la
+  passe à `TimeoutStartSec = 6h` ; `ProtectSystem = strict` + `ReadWritePaths`
+  limités aux dossiers réellement écrits.
+
+**`musique` (m4) → `musique-import` (hyper)** — le nom d'album n'est jamais
+passé en argument : il est choisi dans **fzf**, donc pas de quoting à travers
+`ssh`/fish. Sous-commandes `liste`/`prepare`/`journal`/`brut` (défaut : import
+autotag) ; verrou `flock` partagé entre les deux modes d'import (l'import auto
+et `edit` écrivent la même DB SQLite), résidus (`.nfo`, pochettes) déplacés vers
+`musique-sources/` — jamais de `rm` de fichier. Le découpage reste **hors** du
+netns : `musique-prepare` tourne sur l'hôte, comme le prévoyait M4 (P9).
+
 ## 6. Pièges vérifiés
 
 | # | Piège | Détail |
@@ -515,6 +552,12 @@ M4. Pas d'automatisation.
 | P23 | Catégorie SABnzbd sans `Folder` | `dir` vide → SAB écrit son dossier final à la **racine `downloads/`** (2755, groupe `media` en lecture seule) → `Cannot create final folder … Permission denied` puis « Post-processing was aborted ». Les catégories doivent porter `Folder` (ex. `lidarr`) pour atterrir dans `downloads/lidarr` (2775). Lidarr n'expose pas « Rename Files » dans l'UI : activer `Rename Tracks` ne s'applique qu'aux **futurs** imports/renommages, la reprise des fichiers existants passe par la commande API `RenameFiles` (`artistId` + liste des `trackfile.id`) |
 | P25 | Service dans le netns : gater l'**activation** | Ne pas se contenter de garder Traefik/`netns.services` : `services.<app>.enable` lui-même doit être sous `lib.mkIf vpnCfg.enable` (cf. `qbittorrent.nix:210`), sinon VPN éteint = service démarré **dans le namespace hôte**, trafic hors tunnel et port annoncé depuis l'IP WAN. Corollaire : `notify.services` doit être gardé de la même façon, l'assertion FAC-5 refusant un nom sans unité réelle |
 | P24 | qBittorrent : AutoTMM off + racine 2755 | `auto_tmm_enabled=false` → la save path de catégorie n'est pas appliquée et les torrents complétés ne peuvent pas être déplacés vers `downloads/` (racine 2755, groupe `media` sans écriture) : ils seedent depuis `downloads/incomplete/`. Inoffensif (l'import hardlink fonctionne), mais ne pas basculer AutoTMM à la légère — cross-seed gère ses propres save paths. SAB, lui, n'a pas de repli : il échoue (P23) |
+| P26 | `unflac` : sortie imbriquée | Sans `-n` (name format), `unflac` écrit `<titre album>/<piste>` : chaque `.cue` recrée l'arborescence d'album dans le dossier de sortie. `-n '{{printf .Input.TrackNumberFmt .Track.Number}} - {{.Track.Title \| Elem}}'` force `NN - Titre` à plat |
+| P27 | Coffret multi-`.cue` | Chaque `.cue` porte le **même** `.Input.Title` (titre d'album) → les disques s'écraseraient. On dérive le sous-dossier du **nom du fichier `.cue`** (`Disque 1`, `Disque 2`). À l'import, la racine n'a pas d'audio direct → `beet import --flat` traite tous les sous-dossiers comme un seul album |
+| P28 | `TimeoutStartSec` d'une passe | Le split/replaygain d'un opéra de 40 pistes dépasse largement le défaut de 90 s ; le défaut `oneshot` étant infini, un ffmpeg coincé figerait le timer **pour toujours**. Poser une borne (`6h`) et laisser le timer relancer |
+| P29 | Verrou SQLite beets | `library.db` est en SQLite : deux imports (auto, manuel) ou un import + `edit` en parallèle → `database is locked`. Le wrapper partagé expose `beet.lock` et `musique-import` le prend en `flock -n` (l'import de préparation ne touche pas la DB, il ne prend pas le verrou) |
+| P30 | Champ `Age` de tmpfiles | `d <path> <mode> <user> <group> <age> <arg>` : `d <path> 2775 user group 14d -` — l'age vient **après** le groupe. C'est ce qui purge `musique-sources/` sans cron |
+| P31 | `path` systemd remplace `PATH` | Un service avec `path = [...]` ne voit **que** ces paquets (pas de `/run/current-system/sw/bin`) : tout binaire du script doit y être, `bash` compris pour les `find -exec sh -c` (le calcul de la file), et `unflac` qui wrappe déjà ffmpeg |
 
 ## 7. Écarté (et pourquoi)
 
@@ -564,6 +607,7 @@ achats de téléchargements (Presto, eClassical, Qobuz, labels).
 | 2026-09-30 | WP1 (vérif runtime) | **Porte de sortie à moitié validée.** OK : root folder, clients qBittorrent + SABnzbd, app Prowlarr `Lidarr` en `fullSync` (`prowlarrUrl`/`baseUrl` conformes), indexeurs synchronisés (NZBFinder, NZBgeek, YggReborn) ; **3 albums torrent** grabbés et importés, **47/47 fichiers en `nlink=2`** (hardlinks intacts après renommage), torrents toujours en seed. **`Rename Tracks` était à `false`** → trois albums à plat mélangés dans `populaire/Orelsan/` ; activé côté UI puis reprise par commande API `RenameFiles` (Lidarr n'expose pas le bouton) → `{Album} ({Année})/`, inodes inchangés. **Usenet en échec** : catégorie SABnzbd `lidarr` avec `Folder` vide → `Cannot create final folder /mnt/storage/medias/downloads/… Permission denied` (P23) ; fix = `Folder: lidarr` dans SAB, puis re-grab. |
 | 2026-09-30 | WP4 | **Navidrome déployé** (`zlr0qli…`). M5 : module `medias/navidrome.nix` — écoute loopback `:4533`, `MusicFolder=/mnt/storage/medias/musique` en bind read-only, groupe `media`, Traefik **sans Authelia** (clients Subsonic + provider MA), `notify`, backup `/var/lib/navidrome` cache exclu, import dans le seedbox. Scan au démarrage : **4 albums / 62 pistes** (dont `Civilisation (2021)`, arrivé par torrent — la file Lidarr grabe aussi 3 albums Nekfeu), DB créée, **62/62 fichiers en `nlink=2`**. Certificat TLS émis par DNS-01 ~15 s après le premier appel (échec transitoire du premier curl — même motif que `ha`). Premières sauvegardes restic des trois sources (`lidarr`, `slskd`, `navidrome`) : `success`, repos et métriques créés. **Reste** : compte admin Navidrome (UI) + provider Subsonic de MA (lot C du dossier HA) ; et le `Folder: lidarr` de la catégorie SAB pour la branche usenet (P23). |
 | 2026-10-01 | Revue r4 | **Revue de l'implémentation** (§0.3) : six écarts corrigés, dont un qui comptait — `services.slskd.enable` n'était pas gardé par `vpn.airvpn.enable` (VPN éteint = Soulseek hors tunnel, P25). Plus : sonde slskd ancrée, `notify` sur `lidarr-metadata-switch` (+ `OnBootSec=5min`), `RequiresMountsFor` sur lidarr, commentaire/P21 replaygain rectifiés, `services.md` + `AGENTS.md` mis à jour. `nix flake check --all-systems --no-build` OK. |
+| 2026-10-01 | WP5 | **Pipeline classique automatisé** (`modules/features/medias/musique-import.nix`). Côté hyper : `musique-prepare` (oneshot + timer 5 min, `beets:media`) découpe les `image+.cue` slskd (`unflac -n`), met l'album prêt dans `musique-a-importer/`, déplace l'original dans `musique-sources/` (purgé 14 j), et notifie ntfy topic `musique` **sur transition** (état `/var/lib/musique/pending`) ; côté m4 : commande `musique` → `ssh -t hyper -- musique-import` (`liste\|prepare\|journal\|brut`, sélection fzf, verrou `flock` partagé avec `edit`). **Tests runtime** (déployé sur hyper) : (1) album réel Lohengrin (50 pistes) présent dans `downloads/slskd` → préparé au premier tick dans `musique-a-importer/1964 - Lohengrin` (dossier `beets:media` 2775, FLAC 664) ; (2) `image.flac` + `album.cue` synthétique → `01 - A.flac` / `02 - B.flac` en file, original déplacé dans `musique-sources/img` ; (3) `beet-classique import -qA -m` d'un album synthétique → `classique/WP5 Test Artist/WP5 Test Album (0000)/`, `beets:media 664`, puis nettoyé (DB `remove -a -d`, disque et file) ; (4) quatre notifications lues sur le topic (`curl -u reader`), priorités `default` ; (5) `musique liste`/`journal` depuis m4 OK, `musique` sans sélection sort 0 (pas de blocage). **Divergences du squelette de plan** : (a) `if ! (…); then st=$?` ne peut pas fonctionner (`!` met `$?` à 0) → `if (…)` + `else st=$?`, l'`exit 3` « aucun audio » est enfin honoré ; (b) `bash` ajouté à `path` (le `-exec sh -c` du calcul de file) ; (c) `ReadWritePaths` complété par `queue` et `sources`, que `ProtectSystem=strict` rendait sinon RO. L'album réel reste **en file** (50 pistes) : l'import autotag interactif depuis le Mac est la suite. |
 
 ### 0.3 Corrections apportées en r4 (revue de l'implémentation)
 

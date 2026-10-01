@@ -54,6 +54,7 @@
         jellyseerr
         lidarr
         lidarr-metadata
+        musique-import
         navidrome
         prowlarr
         radarr

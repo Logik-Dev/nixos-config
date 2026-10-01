@@ -52,8 +52,16 @@ rafraîchi toutes les 72 h). La bascule de `metadataSource` est de l'état
 impératif : unité `lidarr-metadata-switch` (timer, idempotente, surveillée par
 notify). Le **classique ne passe pas par Lidarr** — `beet-classique` (beets +
 `parentwork`, état `/mnt/ultra/beets-classique`) et `unflac` pour les
-`image+.cue` alimentent `musique/classique` à la main. **slskd** (Soulseek) est
-la source principale du classique. Les deux racines sont servies par
+`image+.cue` alimentent `musique/classique`. Le pipeline est **semi-automatique** :
+`musique-prepare.service` (oneshot, timer 5 min, utilisateur système `beets`)
+découpe les `image+.cue` de slskd, met chaque album prêt dans
+`/mnt/storage/medias/downloads/musique-a-importer/` et déplace les originaux
+dans `musique-sources/` (purgés à 14 j) ; notification ntfy topic `musique`
+**sur changement** seulement. L'import (autotag MusicBrainz + `parentwork`)
+reste **interactif depuis m4** : commande `musique`
+(`liste|prepare|journal|brut`, sélection fzf, verrou partagé avec `beet edit`) ;
+`brut` (`--noautotag`) exige `EDITOR` dans la session (sinon beets ouvre vi).
+**slskd** (Soulseek) est la source principale du classique. Les deux racines sont servies par
 **Navidrome**, lui-même destiné à alimenter Music Assistant (provider Subsonic
 en loopback) une fois MA redéployé en natif. Plan et pièges :
 [music-library-plan.md](music-library-plan.md).
