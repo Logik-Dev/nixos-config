@@ -2,13 +2,17 @@
 {
   # Orchestrateur de planification multi-agents :
   # sans --task/--task-file, une session OpenCode interactive précise le plan
-  # (capturé ensuite via `opencode run --continue`) ; avec, Claude planifie en
-  # headless (lecture seule). OpenCode et Claude relisent, OpenCode fusionne en
-  # plan atomique, puis exécute chaque étape dans une TUI avec un commit
-  # atomique par étape sous supervision humaine.
+  # (capturé ensuite via la base locale) ; avec, OpenCode planifie en headless
+  # (--plan-with claude pour Claude). OpenCode et Claude relisent, OpenCode
+  # fusionne en plan atomique, puis exécute chaque étape dans une TUI avec un
+  # commit atomique par étape sous supervision humaine.
+  #
+  # Profils : --profile fast|balanced|max (défaut : balanced) fixe les défauts
+  # (moteur du plan, effort Claude, context pack, budget) ; un flag explicite
+  # l'emporte sur le profil, lui-même prioritaire sur le défaut intégré.
   #
   # Usage : multi-agent-plan --repo ~/projet --test-cmd "nix flake check"
-  #         multi-agent-plan --repo ~/projet --task "..." --test-cmd "nix flake check"
+  #         multi-agent-plan --repo ~/projet --task "..." --profile max
   # Les prompts sont versionnés dans ./prompts et surchargeables par --prompt-dir.
   perSystem =
     { pkgs, ... }:

@@ -40,6 +40,27 @@ from pathlib import Path
 
 VERSION = "0.2.0"
 ORDER = ("plan", "reviews", "final", "execute")
+DEFAULT_PROFILE = "balanced"
+PROFILES = {
+    "fast": {
+        "plan_with": "opencode",
+        "claude_effort": "low",
+        "context_pack": False,
+        "max_budget_usd": None,
+    },
+    "balanced": {
+        "plan_with": "opencode",
+        "claude_effort": "medium",
+        "context_pack": True,
+        "max_budget_usd": None,
+    },
+    "max": {
+        "plan_with": "claude",
+        "claude_effort": "high",
+        "context_pack": True,
+        "max_budget_usd": 10.0,
+    },
+}
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 END_MARKER = "<<<END>>>"
 SENTINELS = {
@@ -715,6 +736,7 @@ class Run:
         self.meta = {
             "tool": "multi-agent-plan",
             "version": VERSION,
+            "profile": args.profile,
             "started": stamp(),
             "repo": str(self.repo),
             "task": (self.task or "")[:4000],
@@ -1429,6 +1451,12 @@ class Run:
         print(f"dry-run — repo    : {self.repo}")
         print(f"dry-run — run_dir : {self.run_dir}")
         print(f"dry-run — prompts : {self.prompt_dir}")
+        print(
+            f"dry-run — profil  : {args.profile} "
+            f"(plan {args.plan_with}, effort {args.claude_effort}, "
+            f"context pack {'activé' if args.context_pack else 'désactivé'}, "
+            f"budget {args.max_budget_usd if args.max_budget_usd is not None else 'aucun'})"
+        )
         if "plan" in phases:
             if self.task:
                 if args.plan_with == "claude":
@@ -1495,9 +1523,13 @@ def parse_args(argv):
         epilog=textwrap.dedent(
             """\
             phases : plan -> reviews -> final -> execute (défaut : tout)
+            profils : fast (OpenCode/low, sans pack ni budget), balanced (défaut :
+            OpenCode/medium, pack), max (Claude high, budget 10 $) ; un flag explicite
+            l'emporte sur le profil, lui-même prioritaire sur le défaut intégré.
             exemples :
               multi-agent-plan --repo ~/projet --test-cmd "nix flake check"       (plan interactif OpenCode)
               multi-agent-plan --repo ~/projet --task "Ajouter l'auth OAuth2" --test-cmd "nix flake check"
+              multi-agent-plan --repo ~/projet --task-file task.md --profile max --stop-after final
               multi-agent-plan --repo ~/projet --task-file task.md --plan-with claude --stop-after final
               multi-agent-plan --repo ~/projet --task-file task.md --yes           (enchaîne les étapes validées)
               multi-agent-plan --repo ~/projet --from execute --out ~/projet/.agent-plans/20261001-120000
@@ -1552,14 +1584,27 @@ def parse_args(argv):
             "ouverte à chaque étape) et toute anomalie redemande une décision"
         ),
     )
+    parser.add_argument(
+        "--profile",
+        choices=tuple(PROFILES),
+        default=DEFAULT_PROFILE,
+        help=(
+            "profil de coût (défaut : balanced) : fast = plan OpenCode, effort Claude "
+            "low, sans context pack ni budget ; balanced = plan OpenCode, effort Claude "
+            "medium, context pack activé ; max = plan Claude high, review Claude high, "
+            "budget élargi. Un flag explicite l'emporte sur le profil, lui-même "
+            "prioritaire sur le défaut intégré"
+        ),
+    )
     parser.add_argument("--claude-bin", default="claude")
     parser.add_argument("--claude-model", default="opus")
     parser.add_argument(
         "--claude-effort",
-        default="medium",
+        default=None,
         help=(
-            "effort des reviews Claude (défaut : medium, pour borner le coût) ; le "
-            "plan Claude (--plan-with claude) garde toujours --effort high"
+            "effort des reviews Claude (défaut : profil — low pour fast, medium pour "
+            "balanced, high pour max) ; le plan Claude (--plan-with claude) garde "
+            "toujours --effort high"
         ),
     )
     parser.add_argument(
@@ -1567,8 +1612,8 @@ def parse_args(argv):
         type=float,
         help=(
             "budget maximal par appel Claude en dollars (--max-budget-usd) ; absent : "
-            "aucune limite. Un dépassement n'est pas fatal pour la review : le résultat "
-            "partiel est conservé avec un bandeau"
+            "aucune limite, sauf profil max (10 $). Un dépassement n'est pas fatal pour "
+            "la review : le résultat partiel est conservé avec un bandeau"
         ),
     )
     parser.add_argument(
@@ -1600,11 +1645,12 @@ def parse_args(argv):
     parser.add_argument(
         "--context-pack",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=None,
         help=(
             "injecter dans les prompts Claude un pack de contexte déterministe "
             "(inventaire git + extraits des fichiers cités par le plan), pour "
-            "borner leurs tours (défaut : activé — cf. protocole de mesure dans "
+            "borner leurs tours (défaut : profil — activé pour balanced/max, "
+            "désactivé pour fast — cf. protocole de mesure dans "
             "docs/multi-agent-plan.md) ; --no-context-pack rend l'exploration libre"
         ),
     )
@@ -1649,10 +1695,10 @@ def parse_args(argv):
     parser.add_argument(
         "--plan-with",
         choices=("opencode", "claude"),
-        default="opencode",
+        default=None,
         help=(
-            "moteur du plan headless avec --task/--task-file (défaut : opencode ; "
-            "claude avec --effort high)"
+            "moteur du plan headless avec --task/--task-file (défaut : profil — "
+            "opencode pour fast/balanced, claude pour max, avec --effort high)"
         ),
     )
     parser.add_argument("--plan-prompt", help="fichier de prompt pour la phase plan (Claude)")
@@ -1682,6 +1728,9 @@ def parse_args(argv):
             "--out est requis pour reprendre à une phase ultérieure "
             "(ex. --from execute --out <repo>/.agent-plans/<horodatage>)"
         )
+    for key, value in PROFILES[args.profile].items():
+        if getattr(args, key) is None:
+            setattr(args, key, value)
     return args
 
 

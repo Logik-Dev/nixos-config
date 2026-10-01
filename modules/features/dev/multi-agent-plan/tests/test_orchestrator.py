@@ -5,6 +5,7 @@ ou via le check Nix `multi-agent-plan`.
 """
 
 import ast
+import io
 import json
 import os
 import re
@@ -635,6 +636,133 @@ class ContextPackArgsTests(unittest.TestCase):
 
     def test_desactivable(self):
         self.assertFalse(self.parse("--repo", "/tmp", "--no-context-pack").context_pack)
+
+
+class ProfileArgsTests(unittest.TestCase):
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_balanced_par_defaut(self):
+        args = self.parse("--repo", "/tmp")
+        self.assertEqual(args.profile, "balanced")
+        self.assertEqual(args.plan_with, "opencode")
+        self.assertEqual(args.claude_effort, "medium")
+        self.assertTrue(args.context_pack)
+        self.assertIsNone(args.max_budget_usd)
+
+    def test_fast(self):
+        args = self.parse("--repo", "/tmp", "--profile", "fast")
+        self.assertEqual(args.plan_with, "opencode")
+        self.assertEqual(args.claude_effort, "low")
+        self.assertFalse(args.context_pack)
+        self.assertIsNone(args.max_budget_usd)
+
+    def test_max(self):
+        args = self.parse("--repo", "/tmp", "--profile", "max")
+        self.assertEqual(args.plan_with, "claude")
+        self.assertEqual(args.claude_effort, "high")
+        self.assertTrue(args.context_pack)
+        self.assertEqual(
+            args.max_budget_usd, orchestrator.PROFILES["max"]["max_budget_usd"]
+        )
+
+    def test_flags_explicites_prioritaires_sur_le_profil(self):
+        args = self.parse(
+            "--repo",
+            "/tmp",
+            "--profile",
+            "fast",
+            "--plan-with",
+            "claude",
+            "--claude-effort",
+            "high",
+            "--context-pack",
+            "--max-budget-usd",
+            "2.5",
+        )
+        self.assertEqual(args.plan_with, "claude")
+        self.assertEqual(args.claude_effort, "high")
+        self.assertTrue(args.context_pack)
+        self.assertEqual(args.max_budget_usd, 2.5)
+
+    def test_no_context_pack_prioritaire_sur_le_profil_max(self):
+        args = self.parse("--repo", "/tmp", "--profile", "max", "--no-context-pack")
+        self.assertFalse(args.context_pack)
+
+    def test_profil_inconnu(self):
+        with self.assertRaises(SystemExit):
+            self.parse("--repo", "/tmp", "--profile", "turbo")
+
+
+class ProfileDryRunTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.repo = Path(tmp.name)
+
+    def dry_run(self, *argv):
+        output = io.StringIO()
+        with mock.patch.object(orchestrator.shutil, "which", return_value="/usr/bin/tool"):
+            with mock.patch("sys.stdout", output):
+                code = orchestrator.main(
+                    [
+                        "--repo",
+                        str(self.repo),
+                        "--prompt-dir",
+                        str(prompt_dir()),
+                        "--task",
+                        "tâche de test",
+                        "--stop-after",
+                        "final",
+                        "--dry-run",
+                        *argv,
+                    ]
+                )
+        self.assertEqual(code, 0)
+        return output.getvalue()
+
+    def test_fast_resolu(self):
+        out = self.dry_run("--profile", "fast")
+        self.assertIn(
+            "profil  : fast (plan opencode, effort low, context pack désactivé, "
+            "budget aucun)",
+            out,
+        )
+        self.assertIn("opencode run --agent plan", out)
+        self.assertIn("--effort low", out)
+        self.assertNotIn("--max-budget-usd", out)
+
+    def test_balanced_resolu(self):
+        out = self.dry_run()
+        self.assertIn(
+            "profil  : balanced (plan opencode, effort medium, context pack activé, "
+            "budget aucun)",
+            out,
+        )
+        self.assertIn("opencode run --agent plan", out)
+        self.assertIn("--effort medium", out)
+        self.assertNotIn("--max-budget-usd", out)
+
+    def test_max_resolu(self):
+        out = self.dry_run("--profile", "max")
+        self.assertIn(
+            "profil  : max (plan claude, effort high, context pack activé, budget 10.0)",
+            out,
+        )
+        self.assertIn("--effort high", out)
+        self.assertIn("--max-budget-usd 10.0", out)
+
+    def test_flag_explicite_ecrase_le_profil_dans_le_dry_run(self):
+        out = self.dry_run(
+            "--profile", "max", "--plan-with", "opencode", "--no-context-pack"
+        )
+        self.assertIn(
+            "profil  : max (plan opencode, effort high, context pack désactivé, "
+            "budget 10.0)",
+            out,
+        )
+        self.assertIn("opencode run --agent plan", out)
 
 
 def make_session_db(path, rows=(), messages=(), parts=()):

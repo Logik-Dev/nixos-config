@@ -70,6 +70,23 @@ Lectures :
 - Reviews parallèles (185 s ≈ phase 2), synthèse 89 s.
 - Run sain : 2 étapes atomiques détectées, aucun échec de phase.
 
+## Profils
+
+`--profile {fast,balanced,max}` (défaut : `balanced`) fixe les défauts des
+leviers de coût. La priorité est : **flag explicite > profil > défaut intégré**.
+
+| Profil | Plan | Effort Claude (review) | Context pack | Budget Claude |
+| --- | --- | --- | --- | --- |
+| `fast` | OpenCode | `low` | désactivé | aucun |
+| `balanced` | OpenCode | `medium` | activé | aucun |
+| `max` | Claude (`high`) | `high` | activé | 10 $ |
+
+Le plan Claude (`--plan-with claude`, profil `max`) garde `--effort high` quel
+que soit `--claude-effort`, qui ne pilote que les reviews. Les flags granulaires
+restent disponibles et l'emportent sur le profil : par exemple
+`--profile max --plan-with opencode --no-context-pack` conserve l'effort `high`
+et le budget de `max`, mais planifie avec OpenCode sans pack.
+
 ## Context pack déterministe
 
 L'orchestrateur construit, pour les prompts **Claude** uniquement, un pack de
@@ -85,7 +102,8 @@ Le tout est reproductible : à dépôt et plan identiques, pack identique (aucun
 appel LLM, aucune horloge, aucune variable d'environnement). Sans git, la
 chaîne est vide et le prompt reçoit une consigne d'exploration libre.
 
-**Défaut : activé.** Le protocole de mesure ci-dessus tranche : sur la baseline
+**Défaut : activé** pour `balanced` et `max`, désactivé pour `fast` (cf.
+Profils). Le protocole de mesure ci-dessus tranche : sur la baseline
 0.2.0, Claude représente **99,2 % du coût** (3,4260 $ / 3,4530 $) et le plan
 seul **78,2 % du total** — le poste dominant est l'exploration du modèle
 payant, qu'un pack borné réduit. OpenCode, à 0,8 % du coût, garde
