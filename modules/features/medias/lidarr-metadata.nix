@@ -37,7 +37,15 @@ _: {
         "d ${dataDir} 2755 logikdev media - -"
       ];
 
-      notify.services = [ "podman-lidarr-metadata" ];
+      # La bascule est surveillée elle aussi : si elle échoue durablement (clé
+      # API illisible, provider en échec), Lidarr **reste sur le provider
+      # cloud** — exactement ce que ce module veut éviter, et sans ça rien ne le
+      # dirait. Le prix est au pire une notification par démarrage, quand Lidarr
+      # n'écoute pas encore au premier essai (d'où OnBootSec à 5 min).
+      notify.services = [
+        "podman-lidarr-metadata"
+        "lidarr-metadata-switch"
+      ];
 
       # Lidarr n'expose pas metadataSource dans son UI — c'est un réglage en
       # base (IConfigService), pas dans config.xml, donc aucun override
@@ -104,7 +112,7 @@ _: {
       systemd.timers.lidarr-metadata-switch = {
         wantedBy = [ "timers.target" ];
         timerConfig = {
-          OnBootSec = "2min";
+          OnBootSec = "5min";
           OnUnitInactiveSec = "5min";
         };
       };

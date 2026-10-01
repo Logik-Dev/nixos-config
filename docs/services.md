@@ -13,6 +13,9 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 | `seerr` | 5055 | Médias | oui | SQLite (`/var/lib/private/jellyseerr`) |
 | `radarr` | 7878 | Médias | oui | Postgres (main+logs), `/mnt/ultra` |
 | `sonarr` | 8989 | Médias | oui | Postgres (main+logs), `/mnt/ultra` |
+| `lidarr` | 8686 | Médias | oui | Postgres (main+logs), `/mnt/ultra` (`RequiresMountsFor`), provider de métadonnées auto-hébergé |
+| `slskd` | 5030 | Médias | oui | Soulseek ; AirVPN, **network namespace `vpn`** (joint sur `10.200.0.2:5030`), port forward `54500` ; partage `/mnt/storage/medias/musique` en lecture seule |
+| `navidrome` | 4533 | Médias | **non** (clients Subsonic + Music Assistant) | `/var/lib/navidrome` (SQLite), bibliothèque `/mnt/storage/medias/musique` montée en lecture seule dans son sandbox |
 | `prowlarr` | 9696 | Médias | oui | Postgres (socket Unix), **network namespace `vpn`** (joint sur `10.200.0.2:9696`) ; dataDir défaut `/var/lib/private/prowlarr` (DynamicUser) |
 | `sabnzbd` | 8088 | Médias | oui | `/mnt/storage/medias` |
 | `qbittorrent` | 8090 | Médias | oui | AirVPN, **network namespace `vpn`** (joint sur `10.200.0.2:8090`), `/mnt/storage/medias` |
@@ -41,17 +44,31 @@ podcasts + ebooks). Bindery ne passe pas par le VPN (Prowlarr porte le trafic
 indexeurs) ; `BINDERY_DOWNLOAD_ALLOW_LOOPBACK=1` est requis car Prowlarr est sur
 loopback. Remplace **Readarr** (projet archivé le 2025-06-27, backend métadonnées mort).
 
+Stack musique : **Lidarr** (mainstream) importe dans
+`/mnt/storage/medias/musique/populaire` depuis SABnzbd/qBittorrent ; son serveur
+de métadonnées est **auto-hébergé** (containeur `lidarr-metadata`, réseau hôte,
+`:5001` fermé sur le LAN, dataset ~9 Go sur `/mnt/ultra/lidarr-metadata`,
+rafraîchi toutes les 72 h). La bascule de `metadataSource` est de l'état
+impératif : unité `lidarr-metadata-switch` (timer, idempotente, surveillée par
+notify). Le **classique ne passe pas par Lidarr** — `beet-classique` (beets +
+`parentwork`, état `/mnt/ultra/beets-classique`) et `unflac` pour les
+`image+.cue` alimentent `musique/classique` à la main. **slskd** (Soulseek) est
+la source principale du classique. Les deux racines sont servies par
+**Navidrome**, lui-même destiné à alimenter Music Assistant (provider Subsonic
+en loopback) une fois MA redéployé en natif. Plan et pièges :
+[music-library-plan.md](music-library-plan.md).
+
 ## Exceptions Authelia
 
 Volontairement sans forwardAuth (clients natifs ne gèrent pas une redirection) :
-**Audiobookshelf, Immich, Jellyfin, Vaultwarden, Home Assistant, ntfy**. Chacun a sa
+**Audiobookshelf, Immich, Jellyfin, Navidrome, Vaultwarden, Home Assistant, ntfy**. Chacun a sa
 propre auth (app, API token ou mot de passe). Traefik `stripAuthHeaders` empêche toute
 usurpation de `Remote-User`. Détails : [security.md](security.md).
 
 ## Dépendances internes
 
 - **Postgres 16** : authelia, immich, n8n, paperless, mealie, vaultwarden,
-  prowlarr/radarr/sonarr (bases `-main`/`-logs`, ownership via hook
+  prowlarr/radarr/sonarr/lidarr (bases `-main`/`-logs`, ownership via hook
   `seedbox-db-ownership`). PITR pgBackRest + dump logique.
 - **Redis** : cache Immich (`services.redis.servers.immich`).
 - **Mosquitto (MQTT)** : zigbee2mqtt, rankoder, Home Assistant (natif) — loopback seul.

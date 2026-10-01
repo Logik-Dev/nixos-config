@@ -63,9 +63,9 @@ Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) est intouché.
    joignent) et un champ `Local` (port d'écoute côté machine). **Ils doivent
    être égaux** : qBittorrent annonce son port d'écoute aux trackers, donc si
    `Local` diffère du public, il annonce un port fermé → **injoignable**.
-    Ports actuels : **47594** pour qBittorrent (`vpn.airvpn.forwardedPort`) et
-    **54500** pour slskd (`vpn.airvpn.forwardedPortSlskd`, écoute Soulseek) —
-    tous deux public = local, liés au device.
+   Ports actuels : **47594** pour qBittorrent (`vpn.airvpn.forwardedPort`) et
+   **54500** pour slskd (`vpn.airvpn.forwardedPortSlskd`, écoute Soulseek) —
+   tous deux public = local, liés au device.
 
 > ⚠️ Le port forward est lié à la clé/device : si la clé change, réassigner le
 > port au nouveau device. Les clés serveur AirVPN (`PyLC...`) sont globales.

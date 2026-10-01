@@ -351,7 +351,11 @@ _: {
                   listener=0
                 fi
                 ${lib.optionalString (cfg.forwardedPortSlskd != null) ''
-                  if ! ip netns exec ${ns} ss -tlnH 2>/dev/null | grep -q ":${toString cfg.forwardedPortSlskd}"; then
+                  # Anchored on the address, like the qBittorrent probe: a bare
+                  # ":port" would also match a port number appearing anywhere in
+                  # the output.
+                  if ! ip netns exec ${ns} ss -tlnH 2>/dev/null \
+                    | grep -qE '(0\.0\.0\.0|\*|wg0):${toString cfg.forwardedPortSlskd}([[:space:]]|$)'; then
                     listener=0
                   fi
                 ''}

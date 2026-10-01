@@ -1,8 +1,9 @@
 # Plan — bibliothèque musicale locale (Lidarr, Soulseek, beets, Navidrome)
 
-> Statut : **WP0 fait** (secret `slskd.env` créé + décisions actées, §0.2) —
-> aucun module écrit, rien déployé.
-> Date : 2026-09-30 · **révision 3** (décisions actées : §0.2).
+> Statut : **WP0 → WP4 déployés** (journal §10). Reste : réglages UI (compte
+> Navidrome, `Folder: lidarr` côté SAB), import réel d'un `image+.cue`, et
+> Music Assistant en natif (lot C du dossier HA).
+> Date : 2026-10-01 · **révision 4** (revue de l'implémentation : §0.3).
 > Portée : `hyper` (greffe sur les stacks médias et torrent existantes).
 > **Décision cadre : le classique ne passe pas par Lidarr.** Deux pipelines
 > d'acquisition/import distincts (mainstream automatisé, classique curaté par
@@ -509,9 +510,10 @@ M4. Pas d'automatisation.
 | P18 | MA et le VLAN IoT | MA en loopback seul casse Sonos/Cast, qui tirent les URL de média/TTS depuis MA (§3.2 d du dossier HA) |
 | P19 | metadata-provider : options opt-in | `-dataset-refresh` et `-fallback` sont **off** par défaut, `-fallback` exige `-contact` |
 | P20 | beets : `plugins:` remplace le défaut | Le défaut du paquet est `plugins: [musicbrainz]` — et c'est ce plugin qui **porte** la source de métadonnées et pose `mb_workid`. Notre liste doit donc inclure `musicbrainz`, sinon plus aucun candidat d'autotag et `parentwork` inerte (constaté : erreur silencieuse sur un import) |
-| P21 | replaygain : backend `command` inopérant | Défaut du plugin = `command`, qui exige `mp3gain`/`rgain`/`aacgain` (absents du wrapper) et ne couvre pas le FLAC → plugin non chargé. Poser `backend: ffmpeg` (câblé dans le PATH du paquet) |
+| P21 | replaygain : backend `command` inopérant | Défaut du plugin = `command`. Les trois binaires **sont** câblés par le wrapper nixpkgs (vérifié : `beets.plugins.builtins.replaygain.wrapperBins` = ffmpeg + mp3gain + aacgain), mais `mp3gain`/`aacgain` ne traitent que MP3/AAC : en classique tout est FLAC. Poser `backend: ffmpeg` |
 | P22 | `path:` sur la racine de bibliothèque | En beets 2.x les chemins sont stockés **relatifs** à `directory:` : une requête `path:` sur la racine elle-même ne matche rien (les sous-dossiers fonctionnent). Pour du ménage, préférer `albumartist:`/`album:` |
 | P23 | Catégorie SABnzbd sans `Folder` | `dir` vide → SAB écrit son dossier final à la **racine `downloads/`** (2755, groupe `media` en lecture seule) → `Cannot create final folder … Permission denied` puis « Post-processing was aborted ». Les catégories doivent porter `Folder` (ex. `lidarr`) pour atterrir dans `downloads/lidarr` (2775). Lidarr n'expose pas « Rename Files » dans l'UI : activer `Rename Tracks` ne s'applique qu'aux **futurs** imports/renommages, la reprise des fichiers existants passe par la commande API `RenameFiles` (`artistId` + liste des `trackfile.id`) |
+| P25 | Service dans le netns : gater l'**activation** | Ne pas se contenter de garder Traefik/`netns.services` : `services.<app>.enable` lui-même doit être sous `lib.mkIf vpnCfg.enable` (cf. `qbittorrent.nix:210`), sinon VPN éteint = service démarré **dans le namespace hôte**, trafic hors tunnel et port annoncé depuis l'IP WAN. Corollaire : `notify.services` doit être gardé de la même façon, l'assertion FAC-5 refusant un nom sans unité réelle |
 | P24 | qBittorrent : AutoTMM off + racine 2755 | `auto_tmm_enabled=false` → la save path de catégorie n'est pas appliquée et les torrents complétés ne peuvent pas être déplacés vers `downloads/` (racine 2755, groupe `media` sans écriture) : ils seedent depuis `downloads/incomplete/`. Inoffensif (l'import hardlink fonctionne), mais ne pas basculer AutoTMM à la légère — cross-seed gère ses propres save paths. SAB, lui, n'a pas de repli : il échoue (P23) |
 
 ## 7. Écarté (et pourquoi)
@@ -561,6 +563,21 @@ achats de téléchargements (Presto, eClassical, Qobuz, labels).
 | 2026-09-30 | WP3 | **beets + unflac déployés et éprouvés** (`dqydvw3…`). M4 : module `medias/beets.nix` (config classique dédiée lue par `--config`, wrapper `beet-classique` umask 0002, `unflac` en système, tmpfiles `beets-classique 2775`, backup `manageService=false`). **Trois pièges trouvés** : (1) `plugins:` remplace le défaut `[musicbrainz]` → sans lui, pas d'autotag ni de `mb_workid` (P20) ; (2) replaygain défaut `command` inopérant → `backend: ffmpeg` (P21) ; (3) requête `path:` sur la racine muette (P22). **Test synthétique de bout en bout** : image+cue générée, `unflac` → 3 FLAC tagués, `beet-classique import --noautotag -m` → `classique/Test Artist/Test Album (0000)/…`, replaygain écrit (`rg=52.0`), ownership `logikdev:media`, cleanup par `albumartist:` puis état remis à blanc (`.bak` de migration et `library.db` de test supprimés). `restic-backups-beets` passé (repos créés). **Reste** : import réel d'un album image+.cue (autotag MusicBrainz + `parentwork`), à faire sur le premier téléchargement slskd. |
 | 2026-09-30 | WP1 (vérif runtime) | **Porte de sortie à moitié validée.** OK : root folder, clients qBittorrent + SABnzbd, app Prowlarr `Lidarr` en `fullSync` (`prowlarrUrl`/`baseUrl` conformes), indexeurs synchronisés (NZBFinder, NZBgeek, YggReborn) ; **3 albums torrent** grabbés et importés, **47/47 fichiers en `nlink=2`** (hardlinks intacts après renommage), torrents toujours en seed. **`Rename Tracks` était à `false`** → trois albums à plat mélangés dans `populaire/Orelsan/` ; activé côté UI puis reprise par commande API `RenameFiles` (Lidarr n'expose pas le bouton) → `{Album} ({Année})/`, inodes inchangés. **Usenet en échec** : catégorie SABnzbd `lidarr` avec `Folder` vide → `Cannot create final folder /mnt/storage/medias/downloads/… Permission denied` (P23) ; fix = `Folder: lidarr` dans SAB, puis re-grab. |
 | 2026-09-30 | WP4 | **Navidrome déployé** (`zlr0qli…`). M5 : module `medias/navidrome.nix` — écoute loopback `:4533`, `MusicFolder=/mnt/storage/medias/musique` en bind read-only, groupe `media`, Traefik **sans Authelia** (clients Subsonic + provider MA), `notify`, backup `/var/lib/navidrome` cache exclu, import dans le seedbox. Scan au démarrage : **4 albums / 62 pistes** (dont `Civilisation (2021)`, arrivé par torrent — la file Lidarr grabe aussi 3 albums Nekfeu), DB créée, **62/62 fichiers en `nlink=2`**. Certificat TLS émis par DNS-01 ~15 s après le premier appel (échec transitoire du premier curl — même motif que `ha`). Premières sauvegardes restic des trois sources (`lidarr`, `slskd`, `navidrome`) : `success`, repos et métriques créés. **Reste** : compte admin Navidrome (UI) + provider Subsonic de MA (lot C du dossier HA) ; et le `Folder: lidarr` de la catégorie SAB pour la branche usenet (P23). |
+| 2026-10-01 | Revue r4 | **Revue de l'implémentation** (§0.3) : six écarts corrigés, dont un qui comptait — `services.slskd.enable` n'était pas gardé par `vpn.airvpn.enable` (VPN éteint = Soulseek hors tunnel, P25). Plus : sonde slskd ancrée, `notify` sur `lidarr-metadata-switch` (+ `OnBootSec=5min`), `RequiresMountsFor` sur lidarr, commentaire/P21 replaygain rectifiés, `services.md` + `AGENTS.md` mis à jour. `nix flake check --all-systems --no-build` OK. |
+
+### 0.3 Corrections apportées en r4 (revue de l'implémentation)
+
+Relecture des cinq commits WP0→WP4 (`nix flake check --all-systems --no-build`
+OK). L'implémentation est conforme ; six écarts corrigés :
+
+| # | Écart | Correction |
+|---|---|---|
+| R12 | `slskd.nix` : `services.slskd.enable = true` **inconditionnel** (seuls Traefik et `netns.services` étaient gardés) | VPN éteint, slskd démarrait dans le namespace hôte — Soulseek hors tunnel, port annoncé depuis l'IP WAN, et `listen_port = null` (type `port`). Tout est passé sous `lib.mkIf vpnCfg.enable` (service, `notify`, `backups`, tmpfiles, UMask) et l'assertion est devenue `!vpnCfg.enable \|\| …`. Nouveau piège **P25** |
+| R13 | Sonde slskd : `grep -q ":54500"` | Non ancré (matchait le port n'importe où dans `ss -tlnH`) → `grep -qE '(0\.0\.0\.0\|\*\|wg0):54500([[:space:]]\|$)'`, à parité avec la sonde qBittorrent |
+| R14 | Commentaire `replaygain` (module + **P21**) | Faux : les trois binaires sont câblés par le wrapper. Le vrai motif est que `mp3gain`/`aacgain` ne traitent que MP3/AAC |
+| R15 | `lidarr-metadata-switch` sans surveillance | Une bascule en échec durable laissait Lidarr sur le provider **cloud**, en silence — l'inverse du but du module. Unité ajoutée à `notify.services`, `OnBootSec` porté à 5 min pour éviter la notification de démarrage |
+| R16 | `lidarr` sans `RequiresMountsFor` | `/mnt/ultra` est monté `nofail` : ajouté sur l'unité. radarr/sonarr/jellyfin ne l'ont toujours pas — à généraliser dans `lib/_media-service.nix`, hors périmètre de ce plan |
+| R17 | Docs | `docs/services.md` ignorait les quatre services (table + paragraphe « Stack musique » + exception Authelia Navidrome + Postgres) ; `AGENTS.md` annonçait encore la stack musique « hors dépôt » et l'add-on HAOS ; indentation de liste dans `torrent-vpn.md` |
 
 ## 11. Sources
 

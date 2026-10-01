@@ -22,8 +22,10 @@ _: {
           auto: yes            # sans ça, champs vides au calcul du chemin
           force: no
 
-        # Le défaut (`command`) exige mp3gain/aacgain — absents du wrapper — et
-        # ne couvre pas le FLAC ; ffmpeg est câblé dans le PATH du paquet.
+        # Le wrapper nixpkgs câble les trois binaires (ffmpeg, mp3gain, aacgain),
+        # donc le défaut `command` fonctionnerait — mais mp3gain/aacgain ne
+        # traitent que MP3/AAC : en classique tout est FLAC, d'où le backend
+        # ffmpeg.
         replaygain:
           backend: ffmpeg
           auto: yes

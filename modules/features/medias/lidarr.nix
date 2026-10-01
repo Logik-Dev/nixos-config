@@ -27,6 +27,13 @@ _: {
         dataDir = "/mnt/ultra/lidarr";
       };
 
+      # /mnt/ultra est monté `nofail` : sans dépendance de montage, un démarrage
+      # avant le disque écrirait la base dans le disque racine (cf.
+      # docs/services.md, « Contraintes /mnt/ultra »). radarr/sonarr/jellyfin
+      # n'ont pas encore cette garde — à généraliser dans lib/_media-service.nix
+      # plutôt qu'à recopier.
+      systemd.services.lidarr.unitConfig.RequiresMountsFor = [ "/mnt/ultra" ];
+
       notify.services = [ "lidarr" ];
 
       backups.sources.lidarr = {

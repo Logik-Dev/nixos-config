@@ -11,15 +11,22 @@ _: {
     {
       # The Soulseek listener must be reachable from the outside; on AirVPN the
       # forwarded port has to be requested in the Client Area (public = local),
-      # exactly like qBittorrent's.
+      # exactly like qBittorrent's. Only meaningful when the VPN is on — see the
+      # gating below.
       assertions = [
         {
-          assertion = vpnCfg.forwardedPortSlskd != null;
+          assertion = !vpnCfg.enable || vpnCfg.forwardedPortSlskd != null;
           message = "slskd requires vpn.airvpn.forwardedPortSlskd (request the port on AirVPN, public = local).";
         }
       ];
 
-      services.slskd = {
+      # Everything below is gated on the VPN, exactly like qbittorrent.nix:210.
+      # Without the gate, `vpn.airvpn.enable = false` would start slskd in the
+      # host namespace: Soulseek traffic outside the tunnel, listener announced
+      # from the WAN address. The port would also be null, which the `port` type
+      # rejects. The same gate keeps `notify.services` honest (a listed name with
+      # no real unit trips the FAC-5 assertion in notification.nix).
+      services.slskd = lib.mkIf vpnCfg.enable {
         enable = true;
         # No default on this option, and non-null pulls nginx — we have Traefik.
         domain = null;
@@ -49,18 +56,20 @@ _: {
         category = "Médias";
         icon = "di:soulseek";
       };
-      notify.services = [ "slskd" ];
+      notify.services = lib.mkIf vpnCfg.enable [ "slskd" ];
 
-      backups.sources.slskd = {
+      backups.sources.slskd = lib.mkIf vpnCfg.enable {
         paths = [ "/var/lib/slskd" ];
       };
 
       # ReadWritePaths does not create the directories, and slskd runs
       # slskd:media. 2775 + UMask 0002 so beets can read behind (group media).
-      systemd.tmpfiles.rules = [
+      systemd.tmpfiles.rules = lib.mkIf vpnCfg.enable [
         "d /mnt/storage/medias/downloads/slskd 2775 slskd media - -"
         "d /mnt/storage/medias/downloads/slskd-incomplete 2775 slskd media - -"
       ];
-      systemd.services.slskd.serviceConfig.UMask = lib.mkForce "0002";
+      systemd.services.slskd = lib.mkIf vpnCfg.enable {
+        serviceConfig.UMask = lib.mkForce "0002";
+      };
     };
 }
