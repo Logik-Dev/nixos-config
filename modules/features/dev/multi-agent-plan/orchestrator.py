@@ -56,6 +56,7 @@ TEST_TAIL = 30
 TOKEN_KEYS = ("input", "output", "reasoning", "cache_read", "cache_write")
 MAX_CAPTURE_PARTS = 20
 CAPTURE_MARKERS = (SENTINELS["BRIEF"][0], SENTINELS["FINAL_PLAN"][0])
+AGENT_LINE_RE = re.compile(r"^(\S+) \((?:primary|subagent|all)\)\s*$", re.MULTILINE)
 
 
 class Failure(Exception):
@@ -309,6 +310,28 @@ def db_path(opencode_bin="opencode"):
     return proc.stdout.strip() or None
 
 
+def agent_names(opencode_bin="opencode"):
+    """Noms des agents OpenCode disponibles, ou None si la liste est illisible.
+
+    `opencode agent list` imprime chaque agent sur une ligne « nom (type) »
+    suivie de sa config JSON. Lecture seule, jamais Failure : l'appelant replie
+    sur l'agent plan en cas d'échec.
+    """
+    try:
+        proc = subprocess.run(
+            [opencode_bin, "agent", "list"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    names = set(AGENT_LINE_RE.findall(proc.stdout))
+    return names or None
+
+
 def session_metrics(db_path, session_id):
     """Coût et tokens d'une session OpenCode, ou None — jamais Failure.
 
@@ -524,6 +547,21 @@ class Run:
             return "git"
         return "none"
 
+    def resolve_agent(self, requested):
+        """Agent demandé, ou repli sur l'agent plan s'il est introuvable.
+
+        `opencode agent list` n'est interrogé qu'une fois par run ; le variant
+        des agents vit dans leur définition (opencode.nix), pas dans des flags.
+        """
+        detected = getattr(self, "_available_agents", None)
+        if detected is None:
+            detected = agent_names(self.args.opencode_bin) or frozenset()
+            self._available_agents = detected
+        if requested in detected or requested == self.args.plan_agent:
+            return requested
+        log(f"agent opencode '{requested}' introuvable — repli sur '{self.args.plan_agent}'")
+        return self.args.plan_agent
+
     def preflight(self):
         if not self.repo.is_dir():
             die(f"dépôt introuvable : {self.repo}")
@@ -638,18 +676,19 @@ class Run:
         log(f"{tag}: terminé en {duration}s{suffix}")
         return text
 
-    def run_opencode(self, tag, prompt, session=None):
+    def run_opencode(self, tag, prompt, session=None, agent=None):
         # --auto : en headless, une permission "ask" (dont external_directory)
         # est auto-rejetée sans TTY, ce qui fait échouer l'exploration du dépôt.
-        # L'agent plan est en lecture seule (edit/write absents), le risque est
-        # donc limité à la lecture ; l'exécution interactive, elle, garde les
-        # permissions "ask" pour l'utilisateur.
+        # Les agents d'analyse sont en lecture seule : plan n'édite pas,
+        # reviewer/synth ont en plus bash=false (sinon un `tee`/`rm` écrirait
+        # malgré tout) ; l'exécution interactive, elle, garde les permissions
+        # "ask" pour l'utilisateur.
         cmd = [self.args.opencode_bin, "run"]
         if session:
             cmd += ["--session", session]
         cmd += [
             "--agent",
-            self.args.plan_agent,
+            agent or self.args.plan_agent,
             "--auto",
             "-m",
             self.args.opencode_model,
@@ -679,8 +718,8 @@ class Run:
         log(f"{tag}: terminé en {duration}s{suffix}")
         return ANSI_RE.sub("", output)
 
-    def call_opencode(self, tag, prompt, block):
-        clean = self.run_opencode(tag, prompt)
+    def call_opencode(self, tag, prompt, block, agent=None):
+        clean = self.run_opencode(tag, prompt, agent=agent)
         opener, closer = SENTINELS[block]
         log_path = self.run_dir / "logs" / f"{tag}.log"
         return parse_block(clean, opener, closer, log_path=log_path)
@@ -787,6 +826,7 @@ class Run:
         task = self.effective_task()
         test_cmd = self.args.test_cmd or "aucune — l'agent exécutera les tests du projet"
         vcs = self.vcs()
+        agent = self.resolve_agent(self.args.review_agent)
 
         def review_opencode():
             prompt = render(
@@ -797,7 +837,7 @@ class Run:
                 test_cmd=test_cmd,
                 vcs=vcs,
             )
-            return self.call_opencode("review-opencode", prompt, "REVIEW")
+            return self.call_opencode("review-opencode", prompt, "REVIEW", agent=agent)
 
         def review_claude():
             prompt = render(
@@ -849,7 +889,8 @@ class Run:
             reviews="\n\n".join(parts),
             test_cmd=self.args.test_cmd or "aucune — l'agent exécutera les tests du projet",
         )
-        text = self.call_opencode("synth", prompt, "FINAL_PLAN")
+        agent = self.resolve_agent(self.args.synth_agent)
+        text = self.call_opencode("synth", prompt, "FINAL_PLAN", agent=agent)
         self.write_artifact("04-final-plan.md", text)
         steps = parse_steps(text)
         if not steps:
@@ -1064,7 +1105,7 @@ class Run:
                 )
         if "reviews" in phases:
             print(
-                f"  2. review  : {args.opencode_bin} run --agent {args.plan_agent} "
+                f"  2. review  : {args.opencode_bin} run --agent {args.review_agent} "
                 f"-m {args.opencode_model} <{self.prompt_path('review', 'opencode')}>"
             )
             print(
@@ -1073,7 +1114,7 @@ class Run:
             )
         if "final" in phases:
             print(
-                f"  3. synth   : {args.opencode_bin} run --agent {args.plan_agent} "
+                f"  3. synth   : {args.opencode_bin} run --agent {args.synth_agent} "
                 f"-m {args.opencode_model} <{self.prompt_path('synth', 'opencode')}>"
             )
         if "execute" in phases:
@@ -1131,6 +1172,16 @@ def parse_args(argv):
     parser.add_argument("--opencode-bin", default="opencode")
     parser.add_argument("--opencode-model", default="opencode-go/deepseek-v4.1-flash")
     parser.add_argument("--plan-agent", default="plan", help="agent opencode des phases d'analyse")
+    parser.add_argument(
+        "--review-agent",
+        default="reviewer",
+        help="agent opencode de la review (défaut : reviewer ; repli sur plan si absent)",
+    )
+    parser.add_argument(
+        "--synth-agent",
+        default="synth",
+        help="agent opencode de la synthèse (défaut : synth ; repli sur plan si absent)",
+    )
     parser.add_argument("--build-agent", default="build", help="agent opencode de la TUI d'exécution")
     parser.add_argument(
         "--test-cmd",

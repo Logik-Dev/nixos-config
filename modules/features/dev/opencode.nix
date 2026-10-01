@@ -155,6 +155,33 @@ in
                 variant = "high";
               };
 
+              # REVIEWER : relecture technique du plan, en lecture seule.
+              # bash = false : `run_opencode` passe --auto (toute permission est
+              # auto-approuvée) ; sans cela un `tee`/`rm` suffirait à écrire
+              # pendant une phase d'analyse.
+              reviewer = {
+                description = "Relecture technique du plan, en lecture seule. Aucune modification.";
+                model = "opencode-go/deepseek-v4.1-flash";
+                variant = "low";
+                tools = {
+                  write = false;
+                  edit = false;
+                  bash = false;
+                };
+              };
+
+              # SYNTH : fusionne plan et reviews en plan atomique, en lecture seule.
+              synth = {
+                description = "Fusionne plan et reviews en plan atomique, en lecture seule. Aucune modification.";
+                model = "opencode-go/deepseek-v4.1-flash";
+                variant = "low";
+                tools = {
+                  write = false;
+                  edit = false;
+                  bash = false;
+                };
+              };
+
               # EXPLORE (built-in) : lecture/recherche en sous-agent, cheap.
               explore = {
                 model = "opencode-go/mimo-v2.6-flash";

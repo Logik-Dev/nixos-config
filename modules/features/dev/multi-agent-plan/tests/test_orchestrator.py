@@ -201,6 +201,62 @@ class SentinelCompatTests(unittest.TestCase):
         )
 
 
+class AgentNamesTests(unittest.TestCase):
+    def list_output(self, returncode=0, stdout=""):
+        return mock.Mock(returncode=returncode, stdout=stdout)
+
+    def test_parse_les_lignes_nom_et_type(self):
+        stdout = (
+            "build (primary)\n[{\"model\": \"x\"}]\nplan (primary)\n"
+            "reviewer (primary)\nsynth (primary)\nscout (subagent)\n"
+        )
+        proc = self.list_output(stdout=stdout)
+        with mock.patch.object(orchestrator.subprocess, "run", return_value=proc):
+            self.assertEqual(
+                orchestrator.agent_names("opencode"),
+                {"build", "plan", "reviewer", "synth", "scout"},
+            )
+
+    def test_echec_ou_sortie_vide_rend_none(self):
+        for proc in (self.list_output(returncode=1), self.list_output(stdout="\n")):
+            with mock.patch.object(orchestrator.subprocess, "run", return_value=proc):
+                self.assertIsNone(orchestrator.agent_names("opencode"))
+
+    def test_binaire_absent_rend_none(self):
+        with mock.patch.object(orchestrator.subprocess, "run", side_effect=OSError):
+            self.assertIsNone(orchestrator.agent_names("opencode"))
+
+
+class ResolveAgentTests(unittest.TestCase):
+    def setUp(self):
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.args = mock.Mock(opencode_bin="opencode", plan_agent="plan")
+
+    def test_agent_present_est_conserve(self):
+        with mock.patch.object(
+            orchestrator, "agent_names", return_value={"plan", "reviewer"}
+        ) as names:
+            self.assertEqual(self.run.resolve_agent("reviewer"), "reviewer")
+        names.assert_called_once_with("opencode")
+
+    def test_agent_absent_replie_sur_plan(self):
+        with mock.patch.object(orchestrator, "agent_names", return_value={"plan"}):
+            self.assertEqual(self.run.resolve_agent("synth"), "plan")
+
+    def test_detection_unique_par_run(self):
+        with mock.patch.object(
+            orchestrator, "agent_names", return_value={"plan", "reviewer", "synth"}
+        ) as names:
+            self.assertEqual(self.run.resolve_agent("reviewer"), "reviewer")
+            self.assertEqual(self.run.resolve_agent("synth"), "synth")
+        names.assert_called_once()
+
+    def test_detection_illisible_replie_sur_plan(self):
+        with mock.patch.object(orchestrator, "agent_names", return_value=None):
+            self.assertEqual(self.run.resolve_agent("reviewer"), "plan")
+            self.assertEqual(self.run.resolve_agent("plan"), "plan")
+
+
 def make_session_db(path, rows=(), messages=(), parts=()):
     connection = sqlite3.connect(path)
     connection.execute(
@@ -701,6 +757,104 @@ class CallClaudeEffortTests(unittest.TestCase):
 
     def test_sans_effort_par_defaut(self):
         self.assertNotIn("--effort", self.call())
+
+
+class RunOpencodeAgentTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.repo = Path("/repo")
+        self.run.run_dir = Path(tmp.name)
+        self.run.meta = {"phases": {}}
+        self.run.args = mock.Mock(
+            opencode_bin="opencode",
+            opencode_model="opencode-go/deepseek-v4.1-flash",
+            plan_agent="plan",
+            timeout=5,
+            verbose=False,
+        )
+
+    def command(self, agent=None):
+        with mock.patch.object(
+            orchestrator, "run_streamed", return_value=(0, "sortie brute")
+        ) as streamed:
+            with mock.patch.object(orchestrator, "newest_session", return_value=None):
+                self.run.run_opencode("tag", "prompt", agent=agent)
+        return streamed.call_args.args[0]
+
+    def test_agent_par_defaut_plan(self):
+        cmd = self.command()
+        self.assertEqual(cmd[cmd.index("--agent") + 1], "plan")
+
+    def test_agent_explicite_transmis(self):
+        cmd = self.command(agent="reviewer")
+        self.assertEqual(cmd[cmd.index("--agent") + 1], "reviewer")
+
+    def test_call_opencode_transmet_agent(self):
+        body = f"<<<FINAL_PLAN>>>\n{CORPS_PLAN}\n<<<END_FINAL_PLAN>>>"
+        with mock.patch.object(self.run, "run_opencode", return_value=body) as run_opencode:
+            text = self.run.call_opencode("synth", "prompt", "FINAL_PLAN", agent="synth")
+        self.assertEqual(text, CORPS_PLAN)
+        run_opencode.assert_called_once_with("synth", "prompt", agent="synth")
+
+
+class AgentArgsTests(unittest.TestCase):
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_defauts_reviewer_et_synth(self):
+        args = self.parse("--repo", "/tmp")
+        self.assertEqual(args.review_agent, "reviewer")
+        self.assertEqual(args.synth_agent, "synth")
+
+    def test_surcharge_des_agents(self):
+        args = self.parse("--review-agent", "r", "--synth-agent", "s")
+        self.assertEqual(args.review_agent, "r")
+        self.assertEqual(args.synth_agent, "s")
+
+
+class PhaseAgentTests(unittest.TestCase):
+    PLAN_AVEC_ETAPE = (
+        "## Step 1 — Premier\n"
+        "**Files**: a.py\n"
+        "**Tests**: nix flake check\n"
+        "**Commit**: `feat(a): un`\n"
+        "Corps un.\n"
+    )
+
+    def make_run(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        run = orchestrator.Run.__new__(orchestrator.Run)
+        run.args = mock.Mock(
+            test_cmd=None, plan_agent="plan", review_agent="reviewer", synth_agent="synth"
+        )
+        run.repo = Path("/repo")
+        run.run_dir = Path(tmp.name)
+        run.meta = {"steps": {}}
+        run.read_artifact = mock.Mock(return_value=CORPS_PLAN)
+        run.effective_task = mock.Mock(return_value="tâche")
+        run.vcs = mock.Mock(return_value="jj")
+        run.prompt = mock.Mock(return_value="prompt")
+        run.resolve_agent = mock.Mock(side_effect=lambda name: name)
+        run.call_opencode = mock.Mock(return_value=self.PLAN_AVEC_ETAPE)
+        run.call_claude = mock.Mock(return_value=CORPS_REVIEW)
+        run.write_artifact = mock.Mock()
+        return run
+
+    def test_reviews_utilisent_l_agent_reviewer(self):
+        run = self.make_run()
+        run.phase_reviews()
+        run.resolve_agent.assert_called_once_with("reviewer")
+        self.assertEqual(run.call_opencode.call_args.kwargs.get("agent"), "reviewer")
+
+    def test_synth_utilise_l_agent_synth(self):
+        run = self.make_run()
+        run.phase_final()
+        run.resolve_agent.assert_called_once_with("synth")
+        self.assertEqual(run.call_opencode.call_args.kwargs.get("agent"), "synth")
 
 
 if __name__ == "__main__":
