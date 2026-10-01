@@ -945,7 +945,11 @@ class PhasePlanTests(unittest.TestCase):
         run.repo = Path("/repo")
         run.run_dir = Path("/run")
         run.task = "Ajouter une fonctionnalité"
-        values = {"plan_with": "opencode", "test_cmd": "nix flake check"}
+        values = {
+            "plan_with": "opencode",
+            "test_cmd": "nix flake check",
+            "claude_effort": "medium",
+        }
         values.update(overrides)
         run.args = mock.Mock(**values)
         run.vcs = mock.Mock(return_value="jj")
@@ -990,6 +994,16 @@ class PhasePlanTests(unittest.TestCase):
         run.prompt.assert_called_once_with("plan", "claude")
         run.write_artifact.assert_called_once_with("01-plan.md", CORPS_PLAN)
 
+    def test_plan_claude_reste_high_malgre_claude_effort(self):
+        run = self.make_run(plan_with="claude", claude_effort="low")
+        run.call_opencode = mock.Mock()
+        run.call_claude = mock.Mock(return_value=CORPS_PLAN)
+
+        run.phase_plan()
+
+        self.assertEqual(run.call_claude.call_args.kwargs.get("effort"), "high")
+        self.assertNotIn("tolerate_partial", run.call_claude.call_args.kwargs)
+
 
 class CallClaudeEffortTests(unittest.TestCase):
     def setUp(self):
@@ -1000,7 +1014,14 @@ class CallClaudeEffortTests(unittest.TestCase):
         self.run.run_dir = Path(tmp.name)
         self.run.meta = {"phases": {}}
         self.run.args = mock.Mock(
-            claude_bin="claude", claude_model="opus", timeout=5, verbose=False
+            claude_bin="claude",
+            claude_model="opus",
+            timeout=5,
+            verbose=False,
+            strict_mcp_config=True,
+            exclude_dynamic_system_prompt_sections=True,
+            max_budget_usd=None,
+            claude_tools=None,
         )
 
     def call(self, **kwargs):
@@ -1020,6 +1041,199 @@ class CallClaudeEffortTests(unittest.TestCase):
 
     def test_sans_effort_par_defaut(self):
         self.assertNotIn("--effort", self.call())
+
+
+class ClaudeFlagTests(unittest.TestCase):
+    """Options Claude headless : déterminisme par défaut et coût borné."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.repo = Path("/repo")
+        self.run.run_dir = Path(tmp.name)
+        self.run.meta = {"phases": {}}
+        self.run.args = mock.Mock(
+            claude_bin="claude",
+            claude_model="opus",
+            timeout=5,
+            verbose=False,
+            strict_mcp_config=True,
+            exclude_dynamic_system_prompt_sections=True,
+            max_budget_usd=None,
+            claude_tools=None,
+        )
+
+    def call(self, **kwargs):
+        payload = {"result": "contenu", "total_cost_usd": 0.0, "session_id": "s1"}
+        with mock.patch.object(
+            orchestrator, "run_streamed", return_value=(0, "{}")
+        ) as streamed:
+            with mock.patch.object(
+                orchestrator, "parse_claude_json", return_value=("contenu", payload)
+            ):
+                self.run.call_claude("review-claude", "prompt", **kwargs)
+        return streamed.call_args.args[0]
+
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_strict_mcp_et_exclusion_actifs_par_defaut(self):
+        cmd = self.call()
+        self.assertIn("--strict-mcp-config", cmd)
+        self.assertIn("--exclude-dynamic-system-prompt-sections", cmd)
+
+    def test_options_deterministes_desactivables(self):
+        self.run.args.strict_mcp_config = False
+        self.run.args.exclude_dynamic_system_prompt_sections = False
+        cmd = self.call()
+        self.assertNotIn("--strict-mcp-config", cmd)
+        self.assertNotIn("--exclude-dynamic-system-prompt-sections", cmd)
+
+    def test_tools_et_budget_absents_par_defaut(self):
+        cmd = self.call()
+        self.assertNotIn("--tools", cmd)
+        self.assertNotIn("--max-budget-usd", cmd)
+
+    def test_tools_et_budget_transmis_quand_fournis(self):
+        self.run.args.claude_tools = "Read,Grep,Glob"
+        self.run.args.max_budget_usd = 2.5
+        cmd = self.call()
+        self.assertEqual(cmd[cmd.index("--tools") + 1], "Read,Grep,Glob")
+        self.assertEqual(cmd[cmd.index("--max-budget-usd") + 1], "2.5")
+
+    def test_defauts_des_flags_cli(self):
+        args = self.parse("--repo", "/tmp")
+        self.assertEqual(args.claude_effort, "medium")
+        self.assertTrue(args.strict_mcp_config)
+        self.assertTrue(args.exclude_dynamic_system_prompt_sections)
+        self.assertIsNone(args.claude_tools)
+        self.assertIsNone(args.max_budget_usd)
+
+    def test_flags_cli_surchargeables(self):
+        args = self.parse(
+            "--repo",
+            "/tmp",
+            "--no-strict-mcp-config",
+            "--no-exclude-dynamic-system-prompt-sections",
+            "--claude-effort",
+            "low",
+            "--max-budget-usd",
+            "3.5",
+            "--claude-tools",
+            "Read",
+        )
+        self.assertFalse(args.strict_mcp_config)
+        self.assertFalse(args.exclude_dynamic_system_prompt_sections)
+        self.assertEqual(args.claude_effort, "low")
+        self.assertEqual(args.max_budget_usd, 3.5)
+        self.assertEqual(args.claude_tools, "Read")
+
+
+class ClaudePartialTests(unittest.TestCase):
+    """Budget dépassé ou timeout : un résultat partiel exploitable est conservé."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.repo = Path("/repo")
+        self.run.run_dir = Path(tmp.name)
+        self.run.meta = {"phases": {}}
+        self.run.args = mock.Mock(
+            claude_bin="claude",
+            claude_model="opus",
+            timeout=5,
+            verbose=False,
+            strict_mcp_config=True,
+            exclude_dynamic_system_prompt_sections=True,
+            max_budget_usd=1.0,
+            claude_tools=None,
+        )
+
+    def payload(self):
+        return json.dumps(
+            {
+                "result": CORPS_REVIEW,
+                "is_error": True,
+                "subtype": "error_max_budget_usd",
+                "total_cost_usd": 1.0,
+                "session_id": "s1",
+            }
+        )
+
+    def test_budget_depasse_conserve_le_result_partiel(self):
+        with mock.patch.object(
+            orchestrator, "run_streamed", return_value=(1, self.payload())
+        ):
+            text = self.run.call_claude("review-claude", "prompt", tolerate_partial=True)
+        self.assertEqual(text, CORPS_REVIEW)
+        entry = self.run.meta["phases"]["review-claude"]
+        self.assertEqual(entry["partial"], "budget")
+        self.assertEqual(entry["exit_code"], 1)
+
+    def test_timeout_conserve_le_result_partiel(self):
+        with mock.patch.object(
+            orchestrator,
+            "run_streamed",
+            side_effect=orchestrator.Timeout("délai dépassé", self.payload()),
+        ):
+            text = self.run.call_claude("review-claude", "prompt", tolerate_partial=True)
+        self.assertEqual(text, CORPS_REVIEW)
+        entry = self.run.meta["phases"]["review-claude"]
+        self.assertEqual(entry["partial"], "temps")
+        self.assertIsNone(entry["exit_code"])
+
+    def test_budget_depasse_sans_result_partiel_echoue(self):
+        with mock.patch.object(orchestrator, "run_streamed", return_value=(1, "")):
+            with self.assertRaises(Failure) as ctx:
+                self.run.call_claude("review-claude", "prompt", tolerate_partial=True)
+        self.assertIn("sans résultat partiel exploitable", str(ctx.exception))
+
+    def test_timeout_sans_result_partiel_echoue(self):
+        with mock.patch.object(
+            orchestrator,
+            "run_streamed",
+            side_effect=orchestrator.Timeout("délai dépassé", ""),
+        ):
+            with self.assertRaises(Failure):
+                self.run.call_claude("review-claude", "prompt", tolerate_partial=True)
+
+    def test_sans_tolerance_le_budget_reste_fatal(self):
+        with mock.patch.object(
+            orchestrator, "run_streamed", return_value=(1, self.payload())
+        ):
+            with self.assertRaises(Failure) as ctx:
+                self.run.call_claude("plan", "prompt")
+        self.assertIn("code 1", str(ctx.exception))
+
+    def test_sans_tolerance_le_timeout_reste_fatal(self):
+        with mock.patch.object(
+            orchestrator,
+            "run_streamed",
+            side_effect=orchestrator.Timeout("délai dépassé", self.payload()),
+        ):
+            with self.assertRaises(orchestrator.Timeout):
+                self.run.call_claude("plan", "prompt")
+
+
+class RunStreamedTimeoutTests(unittest.TestCase):
+    def test_timeout_remonte_la_sortie_partielle(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        log_path = Path(tmp.name) / "timeout.log"
+        code = "import time; print('partiel', flush=True); time.sleep(30)"
+        with self.assertRaises(orchestrator.Timeout) as ctx:
+            orchestrator.run_streamed(
+                [sys.executable, "-c", code],
+                Path(tmp.name),
+                log_path,
+                "timeout",
+                2,
+                False,
+            )
+        self.assertIn("partiel", ctx.exception.output)
 
 
 class RunOpencodeAgentTests(unittest.TestCase):
@@ -1092,11 +1306,15 @@ class PhaseAgentTests(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         run = orchestrator.Run.__new__(orchestrator.Run)
         run.args = mock.Mock(
-            test_cmd=None, plan_agent="plan", review_agent="reviewer", synth_agent="synth"
+            test_cmd=None,
+            plan_agent="plan",
+            review_agent="reviewer",
+            synth_agent="synth",
+            claude_effort="medium",
         )
         run.repo = Path("/repo")
         run.run_dir = Path(tmp.name)
-        run.meta = {"steps": {}}
+        run.meta = {"steps": {}, "phases": {}}
         run.read_artifact = mock.Mock(return_value=CORPS_PLAN)
         run.effective_task = mock.Mock(return_value="tâche")
         run.vcs = mock.Mock(return_value="jj")
@@ -1112,6 +1330,32 @@ class PhaseAgentTests(unittest.TestCase):
         run.phase_reviews()
         run.resolve_agent.assert_called_once_with("reviewer")
         self.assertEqual(run.call_opencode.call_args.kwargs.get("agent"), "reviewer")
+
+    def test_review_claude_utilise_effort_medium_et_tolere_le_partiel(self):
+        run = self.make_run()
+        run.phase_reviews()
+        kwargs = run.call_claude.call_args.kwargs
+        self.assertEqual(kwargs.get("effort"), "medium")
+        self.assertTrue(kwargs.get("tolerate_partial"))
+
+    def test_review_claude_partielle_est_bandee(self):
+        run = self.make_run()
+        run.meta["phases"]["review-claude"] = {"partial": "temps"}
+        run.phase_reviews()
+        written = {
+            call.args[0]: call.args[1] for call in run.write_artifact.call_args_list
+        }
+        self.assertIn("review tronquée (budget/temps)", written["03-review-claude.md"])
+        self.assertIn(CORPS_REVIEW, written["03-review-claude.md"])
+
+    def test_review_claude_complete_sans_bandeau(self):
+        run = self.make_run()
+        run.meta["phases"]["review-claude"] = {"duration_s": 1.0}
+        run.phase_reviews()
+        written = {
+            call.args[0]: call.args[1] for call in run.write_artifact.call_args_list
+        }
+        self.assertNotIn("review tronquée", written["03-review-claude.md"])
 
     def test_synth_utilise_l_agent_synth(self):
         run = self.make_run()
@@ -1282,6 +1526,19 @@ class PhaseFinalValidationTests(unittest.TestCase):
         run = self.make_run(PLAN_VALIDE)
         run.phase_final()
         self.assertEqual(set(run.meta["steps"]), {"1", "2"})
+
+    def test_review_partielle_incluse_dans_la_synthese(self):
+        run = self.make_run(PLAN_VALIDE)
+        run.prompt = mock.Mock(return_value="reviews={{reviews}}")
+        (run.run_dir / "03-review-claude.md").write_text(
+            f"> ⚠️ **review tronquée (budget/temps)**\n\n{CORPS_REVIEW}\n",
+            encoding="utf-8",
+        )
+        run.phase_final()
+        synth_prompt = run.call_opencode.call_args.args[1]
+        self.assertIn("Review Claude", synth_prompt)
+        self.assertIn("review tronquée (budget/temps)", synth_prompt)
+        self.assertNotIn("Review OpenCode", synth_prompt)
 
 
 class PhaseExecuteResumeTests(unittest.TestCase):

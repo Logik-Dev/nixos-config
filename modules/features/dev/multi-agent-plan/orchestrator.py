@@ -63,6 +63,11 @@ ATOMICITY_NOTE = (
     "Consigne d'atomicité : toute correction doit rester dans le commit de l'étape "
     "(`jj squash` avec jj, `git commit --amend` avec git) — jamais un commit de fixup."
 )
+TRUNCATED_REVIEW_BANNER = (
+    "> ⚠️ **review tronquée (budget/temps)** — Claude a été interrompu (budget "
+    "dépassé ou délai) ; son résultat partiel est conservé. La synthèse continue "
+    "avec les reviews disponibles et doit signaler ce qui manque.\n"
+)
 TOKEN_KEYS = ("input", "output", "reasoning", "cache_read", "cache_write")
 MAX_CAPTURE_PARTS = 20
 CAPTURE_MARKERS = (SENTINELS["BRIEF"][0], SENTINELS["FINAL_PLAN"][0])
@@ -71,6 +76,14 @@ AGENT_LINE_RE = re.compile(r"^(\S+) \((?:primary|subagent|all)\)\s*$", re.MULTIL
 
 class Failure(Exception):
     """Échec attendu d'une phase : message affiché, artefacts conservés."""
+
+
+class Timeout(Failure):
+    """Délai dépassé : la sortie partielle collectée reste disponible."""
+
+    def __init__(self, message, output=""):
+        super().__init__(message)
+        self.output = output
 
 
 def log(message):
@@ -266,7 +279,10 @@ def run_streamed(cmd, cwd, log_path, tag, timeout=None, verbose=False):
             if timer:
                 timer.cancel()
         if timed_out:
-            raise Failure(f"{tag}: délai dépassé ({timeout}s), processus tué — voir {log_path}")
+            raise Timeout(
+                f"{tag}: délai dépassé ({timeout}s), processus tué — voir {log_path}",
+                "".join(chunks),
+            )
         return returncode, "".join(chunks)
 
 
@@ -695,9 +711,14 @@ class Run:
         path = self.run_dir / "meta.json"
         path.write_text(json.dumps(self.meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    def call_claude(self, tag, prompt, effort=None):
-        cmd = [
-            self.args.claude_bin,
+    def claude_flags(self, effort=None):
+        """Options d'un appel Claude headless (coût et déterminisme bornés).
+
+        `--strict-mcp-config` et `--exclude-dynamic-system-prompt-sections` sont
+        actifs par défaut (désactivables par `--no-...`), `--max-budget-usd` et
+        `--tools` ne sont ajoutés que s'ils sont fournis.
+        """
+        flags = [
             "-p",
             "--model",
             self.args.claude_model,
@@ -707,34 +728,73 @@ class Run:
             "json",
         ]
         if effort:
-            cmd += ["--effort", effort]
-        cmd.append(prompt)
+            flags += ["--effort", effort]
+        if self.args.strict_mcp_config:
+            flags.append("--strict-mcp-config")
+        if self.args.exclude_dynamic_system_prompt_sections:
+            flags.append("--exclude-dynamic-system-prompt-sections")
+        if self.args.max_budget_usd is not None:
+            flags += ["--max-budget-usd", str(self.args.max_budget_usd)]
+        if self.args.claude_tools:
+            flags += ["--tools", self.args.claude_tools]
+        return flags
+
+    def call_claude(self, tag, prompt, effort=None, tolerate_partial=False):
+        """Appel Claude headless, avec conservation possible d'un résultat partiel.
+
+        Avec `tolerate_partial`, un budget dépassé (`--max-budget-usd`) ou un
+        délai dépassé n'est plus fatal dès que la sortie porte un `result`
+        exploitable : le texte est retourné et `phases.<tag>.partial` vaut
+        "budget" ou "temps". Sans résultat exploitable, Failure est levée comme
+        avant — l'appelant (review) décide ensuite du bandeau à écrire.
+        """
+        cmd = [self.args.claude_bin, *self.claude_flags(effort), prompt]
         log_path = self.run_dir / "logs" / f"{tag}.log"
         started = time.time()
-        returncode, output = run_streamed(
-            cmd, self.repo, log_path, tag, self.args.timeout, self.args.verbose
-        )
+        timed_out = False
+        try:
+            returncode, output = run_streamed(
+                cmd, self.repo, log_path, tag, self.args.timeout, self.args.verbose
+            )
+        except Timeout as exc:
+            if not tolerate_partial:
+                raise
+            timed_out = True
+            returncode, output = None, exc.output
         duration = round(time.time() - started, 1)
-        if returncode != 0:
-            raise Failure(f"{tag}: claude a échoué (code {returncode}) — voir {log_path}")
-        text, payload = parse_claude_json(output)
-        if payload.get("is_error"):
+        partial = "temps" if timed_out else None
+        if returncode is not None and returncode != 0:
+            if not tolerate_partial:
+                raise Failure(f"{tag}: claude a échoué (code {returncode}) — voir {log_path}")
+            partial = "budget"
+        try:
+            text, payload = parse_claude_json(output)
+        except Failure:
+            if partial:
+                raise Failure(
+                    f"{tag}: claude interrompu ({partial}) sans résultat partiel "
+                    f"exploitable — voir {log_path}"
+                ) from None
+            raise
+        if payload.get("is_error") and partial is None:
             raise Failure(f"{tag}: claude a signalé une erreur — voir {log_path}")
-        cost = payload.get("total_cost_usd")
-        usage = payload.get("usage")
-        tokens = usage_tokens(usage)
+        tokens = usage_tokens(payload.get("usage"))
         self.meta["phases"][tag] = {
             "duration_s": duration,
             "exit_code": returncode,
             "session_id": payload.get("session_id"),
-            "cost_usd": cost,
+            "cost_usd": payload.get("total_cost_usd"),
             "num_turns": payload.get("num_turns"),
-            "usage": usage,
+            "usage": payload.get("usage"),
             "tokens": tokens,
+            **({"partial": partial} if partial else {}),
         }
+        cost = payload.get("total_cost_usd")
         suffix = f" ({cost:.4f} $)" if isinstance(cost, (int, float)) else ""
         if tokens:
             suffix += f" ({token_total(tokens)} tokens)"
+        if partial:
+            suffix += f" [partiel : {partial}]"
         log(f"{tag}: terminé en {duration}s{suffix}")
         return text
 
@@ -910,7 +970,19 @@ class Run:
                 test_cmd=test_cmd,
                 vcs=vcs,
             )
-            return self.call_claude("review-claude", prompt)
+            text = self.call_claude(
+                "review-claude",
+                prompt,
+                effort=self.args.claude_effort,
+                tolerate_partial=True,
+            )
+            partial = (
+                self.meta.get("phases", {}).get("review-claude") or {}
+            ).get("partial")
+            if partial:
+                log(f"review Claude tronquée ({partial}) — bandeau ajouté au résultat partiel")
+                return f"{TRUNCATED_REVIEW_BANNER}\n{text}"
+            return text
 
         jobs = {"review-opencode": review_opencode, "review-claude": review_claude}
         results = {}
@@ -1198,8 +1270,8 @@ class Run:
             if self.task:
                 if args.plan_with == "claude":
                     print(
-                        f"  1. plan    : {args.claude_bin} -p --model {args.claude_model} "
-                        f"--permission-mode plan --effort high --output-format json "
+                        f"  1. plan    : {args.claude_bin} "
+                        f"{shlex.join(self.claude_flags('high'))} "
                         f"<{self.prompt_path('plan', 'claude')}>"
                     )
                 else:
@@ -1224,8 +1296,9 @@ class Run:
                 f"-m {args.opencode_model} <{self.prompt_path('review', 'opencode')}>"
             )
             print(
-                f"     review  : {args.claude_bin} -p --model {args.claude_model} "
-                f"--permission-mode plan --output-format json <{self.prompt_path('review', 'claude')}>"
+                f"     review  : {args.claude_bin} "
+                f"{shlex.join(self.claude_flags(args.claude_effort))} "
+                f"<{self.prompt_path('review', 'claude')}>"
             )
         if "final" in phases:
             print(
@@ -1318,6 +1391,49 @@ def parse_args(argv):
     )
     parser.add_argument("--claude-bin", default="claude")
     parser.add_argument("--claude-model", default="opus")
+    parser.add_argument(
+        "--claude-effort",
+        default="medium",
+        help=(
+            "effort des reviews Claude (défaut : medium, pour borner le coût) ; le "
+            "plan Claude (--plan-with claude) garde toujours --effort high"
+        ),
+    )
+    parser.add_argument(
+        "--max-budget-usd",
+        type=float,
+        help=(
+            "budget maximal par appel Claude en dollars (--max-budget-usd) ; absent : "
+            "aucune limite. Un dépassement n'est pas fatal pour la review : le résultat "
+            "partiel est conservé avec un bandeau"
+        ),
+    )
+    parser.add_argument(
+        "--strict-mcp-config",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "activer --strict-mcp-config en headless (défaut : coût/déterminisme) ; "
+            "--no-strict-mcp-config pour le désactiver"
+        ),
+    )
+    parser.add_argument(
+        "--exclude-dynamic-system-prompt-sections",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "activer --exclude-dynamic-system-prompt-sections en headless (défaut : "
+            "déterminisme du prompt) ; --no-exclude-dynamic-system-prompt-sections pour "
+            "le désactiver"
+        ),
+    )
+    parser.add_argument(
+        "--claude-tools",
+        help=(
+            "outils Claude autorisés (--tools), non passé par défaut ; allowlist "
+            "minimale conseillée en review : Read,Grep,Glob"
+        ),
+    )
     parser.add_argument("--opencode-bin", default="opencode")
     parser.add_argument("--opencode-model", default="opencode-go/deepseek-v4.1-flash")
     parser.add_argument("--plan-agent", default="plan", help="agent opencode des phases d'analyse")
