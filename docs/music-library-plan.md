@@ -2,8 +2,8 @@
 
 > Statut : **WP0 → WP5 déployés** (journal §10). Reste : réglages UI (compte
 > Navidrome, `Folder: lidarr` côté SAB), import interactif du premier album
-> préparé (`musique`, depuis m4), et Music Assistant en natif (lot C du dossier
-> HA).
+> préparé (`musique`, depuis m4), mesure du taux de match puis activation de
+> `musique.autoImport`, et Music Assistant en natif (lot C du dossier HA).
 > Date : 2026-10-01 · **révision 4** (revue de l'implémentation : §0.3).
 > Portée : `hyper` (greffe sur les stacks médias et torrent existantes).
 > **Décision cadre : le classique ne passe pas par Lidarr.** Deux pipelines
@@ -514,6 +514,16 @@ utilisateur système `beets:media`, UMask 0002) :
 - L'unité ne **fail** pas sur un album isolé (compteur `failed`) et borne la
   passe à `TimeoutStartSec = 6h` ; `ProtectSystem = strict` + `ReadWritePaths`
   limités aux dossiers réellement écrits.
+- **Import automatique opt-in** (`musique.autoImport = false` par défaut) :
+  après la boucle de préparation, chaque dossier de la file qui contient encore
+  de l'audio est importé en place (`beet-classique import -i -q`, `--flat` si
+  l'audio est en sous-dossiers, `flock -w 5` sur le verrou partagé : un import
+  interactif en cours fait échouer la tentative après 5 s, reportée à la passe
+  suivante). `-i`
+  (incrémental) mémorise les dossiers déjà vus/sautés : pas de requêtes
+  MusicBrainz ni de réimport à chaque passe ; la notification reste sur
+  transition. À n'activer qu'après mesure du taux de match sur ~10 albums
+  réels ; l'import nominal reste `musique`.
 
 **`musique` (m4) → `musique-import` (hyper)** — le nom d'album n'est jamais
 passé en argument : il est choisi dans **fzf**, donc pas de quoting à travers
@@ -555,7 +565,7 @@ netns : `musique-prepare` tourne sur l'hôte, comme le prévoyait M4 (P9).
 | P26 | `unflac` : sortie imbriquée | Sans `-n` (name format), `unflac` écrit `<titre album>/<piste>` : chaque `.cue` recrée l'arborescence d'album dans le dossier de sortie. `-n '{{printf .Input.TrackNumberFmt .Track.Number}} - {{.Track.Title \| Elem}}'` force `NN - Titre` à plat |
 | P27 | Coffret multi-`.cue` | Chaque `.cue` porte le **même** `.Input.Title` (titre d'album) → les disques s'écraseraient. On dérive le sous-dossier du **nom du fichier `.cue`** (`Disque 1`, `Disque 2`). À l'import, la racine n'a pas d'audio direct → `beet import --flat` traite tous les sous-dossiers comme un seul album |
 | P28 | `TimeoutStartSec` d'une passe | Le split/replaygain d'un opéra de 40 pistes dépasse largement le défaut de 90 s ; le défaut `oneshot` étant infini, un ffmpeg coincé figerait le timer **pour toujours**. Poser une borne (`6h`) et laisser le timer relancer |
-| P29 | Verrou SQLite beets | `library.db` est en SQLite : deux imports (auto, manuel) ou un import + `edit` en parallèle → `database is locked`. Le wrapper partagé expose `beet.lock` et `musique-import` le prend en `flock -n` (l'import de préparation ne touche pas la DB, il ne prend pas le verrou) |
+| P29 | Verrou SQLite beets | `library.db` est en SQLite : deux imports (auto, manuel) ou un import + `edit` en parallèle → `database is locked`. Le wrapper partagé expose `beet.lock` : `musique-import` le prend en `flock -n` (échec immédiat, message à l'utilisateur) et la branche opt-in de `musique-prepare` en `flock -w 5` (report à la passe suivante). Hors auto-import, la préparation ne touche pas la DB et ne prend pas le verrou |
 | P30 | Champ `Age` de tmpfiles | `d <path> <mode> <user> <group> <age> <arg>` : `d <path> 2775 user group 14d -` — l'age vient **après** le groupe. C'est ce qui purge `musique-sources/` sans cron |
 | P31 | `path` systemd remplace `PATH` | Un service avec `path = [...]` ne voit **que** ces paquets (pas de `/run/current-system/sw/bin`) : tout binaire du script doit y être, `bash` compris pour les `find -exec sh -c` (le calcul de la file), et `unflac` qui wrappe déjà ffmpeg |
 

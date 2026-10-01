@@ -57,7 +57,10 @@ notify). Le **classique ne passe pas par Lidarr** — `beet-classique` (beets +
 découpe les `image+.cue` de slskd, met chaque album prêt dans
 `/mnt/storage/medias/downloads/musique-a-importer/` et déplace les originaux
 dans `musique-sources/` (purgés à 14 j) ; notification ntfy topic `musique`
-**sur changement** seulement. L'import (autotag MusicBrainz + `parentwork`)
+**sur changement** seulement. Une branche d'import **automatique** existe mais
+est **opt-in** (`musique.autoImport = true`, désactivée par défaut) : elle
+importe en place (`beet import -i -q`) les albums préparés, à activer après
+mesure du taux de match. L'import nominal (autotag MusicBrainz + `parentwork`)
 reste **interactif depuis m4** : commande `musique`
 (`liste|prepare|journal|brut`, sélection fzf, verrou partagé avec `beet edit`) ;
 `brut` (`--noautotag`) exige `EDITOR` dans la session (sinon beets ouvre vi).
