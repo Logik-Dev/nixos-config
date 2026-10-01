@@ -2,7 +2,9 @@
 """multi-agent-plan — planification multi-agents et exécution supervisée.
 
 Pipeline :
-  1. Claude planifie le dépôt en lecture seule        -> 01-plan.md
+  1. Sans --task/--task-file : session interactive OpenCode pour préciser le
+     plan, capturée via une passe headless `opencode run --continue` ; avec
+     --task/--task-file : Claude planifie en headless  -> 00-brief.md, 01-plan.md
   2. OpenCode et Claude relisent le plan en parallèle -> 02/03-review-*.md
   3. OpenCode fusionne le tout en plan atomique       -> 04-final-plan.md
   4. Exécution interactive, étape par étape, un commit
@@ -32,10 +34,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 ORDER = ("plan", "reviews", "final", "execute")
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 SENTINEL_RE = re.compile(r"<<<[A-Z_]+>>>\s*(.*?)\s*<<<END>>>", re.DOTALL)
+BRIEF_RE = re.compile(r"<<<BRIEF>>>\s*(.*?)\s*<<<END>>>", re.DOTALL)
+FINAL_PLAN_RE = re.compile(r"<<<FINAL_PLAN>>>\s*(.*?)\s*<<<END>>>", re.DOTALL)
 STEP_RE = re.compile(r"^##\s+Step\s+(\d+)\s*[—–:-]\s*(.+?)\s*$", re.MULTILINE)
 COMMIT_RE = re.compile(r"^\*\*Commit\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
 TEST_TAIL = 30
@@ -307,6 +311,8 @@ class Run:
     def prompt_path(self, phase, agent):
         explicit = {
             ("plan", "claude"): self.args.plan_prompt,
+            ("plan", "opencode"): self.args.interactive_prompt,
+            ("capture", "opencode"): self.args.capture_prompt,
             ("review", "claude"): self.args.review_claude_prompt,
             ("review", "opencode"): self.args.review_opencode_prompt,
             ("synth", "opencode"): self.args.synth_prompt,
@@ -330,6 +336,16 @@ class Run:
         if not path.is_file():
             raise Failure(f"artefact manquant : {path} (relance la phase amont)")
         return path.read_text(encoding="utf-8")
+
+    def effective_task(self):
+        if self.task:
+            return self.task
+        brief = self.run_dir / "00-brief.md"
+        if brief.is_file():
+            text = brief.read_text(encoding="utf-8").strip()
+            if text:
+                return text
+        return "(tâche précisée en session interactive — cf. 01-plan.md)"
 
     def save_meta(self):
         if self.args.dry_run:
@@ -375,15 +391,16 @@ class Run:
         log(f"{tag}: terminé en {duration}s{suffix}")
         return text
 
-    def call_opencode(self, tag, prompt):
+    def run_opencode(self, tag, prompt, continue_session=False):
         # --auto : en headless, une permission "ask" (dont external_directory)
         # est auto-rejetée sans TTY, ce qui fait échouer l'exploration du dépôt.
         # L'agent plan est en lecture seule (edit/write absents), le risque est
         # donc limité à la lecture ; l'exécution interactive, elle, garde les
         # permissions "ask" pour l'utilisateur.
-        cmd = [
-            self.args.opencode_bin,
-            "run",
+        cmd = [self.args.opencode_bin, "run"]
+        if continue_session:
+            cmd.append("--continue")
+        cmd += [
             "--agent",
             self.args.plan_agent,
             "--auto",
@@ -399,28 +416,74 @@ class Run:
         duration = round(time.time() - started, 1)
         if returncode != 0:
             raise Failure(f"{tag}: opencode a échoué (code {returncode}) — voir {log_path}")
-        clean = ANSI_RE.sub("", output)
-        match = SENTINEL_RE.search(clean)
-        if not match:
-            raise Failure(f"{tag}: marqueurs <<<...>>> absents de la sortie — voir {log_path}")
         self.meta["phases"][tag] = {"duration_s": duration, "exit_code": returncode}
         log(f"{tag}: terminé en {duration}s")
+        return ANSI_RE.sub("", output)
+
+    def call_opencode(self, tag, prompt, continue_session=False):
+        clean = self.run_opencode(tag, prompt, continue_session)
+        match = SENTINEL_RE.search(clean)
+        if not match:
+            log_path = self.run_dir / "logs" / f"{tag}.log"
+            raise Failure(f"{tag}: marqueurs <<<...>>> absents de la sortie — voir {log_path}")
         return match.group(1).strip()
 
     def phase_plan(self):
+        if not self.task:
+            self.phase_plan_interactive()
+            return
         log("Phase 1/4 — Claude analyse le dépôt et rédige le plan")
         prompt = render(self.prompt("plan", "claude"), task=self.task, repo=str(self.repo))
         self.write_artifact("01-plan.md", self.call_claude("plan", prompt))
 
+    def phase_plan_interactive(self):
+        if not sys.stdin.isatty():
+            raise Failure(
+                "la phase de plan interactive nécessite un terminal interactif (TTY) — "
+                "fournis --task/--task-file pour le mode headless"
+            )
+        log("Phase 1/4 — session interactive opencode pour préciser le plan")
+        seed = render(self.prompt("plan", "opencode"), repo=str(self.repo))
+        capture_prompt = render(self.prompt("capture", "opencode"), repo=str(self.repo))
+        first = True
+        while True:
+            log(f"ouverture de la TUI opencode (agent {self.args.plan_agent})")
+            returncode = subprocess.call(
+                self._tui_cmd(seed, self.args.plan_agent, continue_session=not first),
+                cwd=str(self.repo),
+            )
+            if returncode not in (0, 130):
+                log(f"TUI terminée avec le code {returncode}")
+            first = False
+            log("capture headless du plan (opencode run --continue)")
+            clean = self.run_opencode("plan-capture", capture_prompt, continue_session=True)
+            plan_match = FINAL_PLAN_RE.search(clean)
+            if plan_match and plan_match.group(1).strip():
+                brief_match = BRIEF_RE.search(clean)
+                if brief_match and brief_match.group(1).strip():
+                    brief = brief_match.group(1).strip()
+                    self.task = brief
+                    self.meta["task"] = brief[:4000]
+                    self.write_artifact("00-brief.md", brief)
+                self.write_artifact("01-plan.md", plan_match.group(1).strip())
+                return
+            action = ask_choice(
+                "Aucun plan capturé depuis la session interactive.",
+                [("r", "réouvrir la TUI"), ("q", "quitter")],
+            )
+            if action != "r":
+                raise Failure("plan interactif non capturé — artefacts du run conservés")
+
     def phase_reviews(self):
         log("Phase 2/4 — relectures parallèles (OpenCode + Claude)")
         plan = self.read_artifact("01-plan.md")
+        task = self.effective_task()
 
         def review_opencode():
             prompt = render(
                 self.prompt("review", "opencode"),
                 repo=str(self.repo),
-                task=self.task,
+                task=task,
                 plan=plan,
             )
             return self.call_opencode("review-opencode", prompt)
@@ -429,7 +492,7 @@ class Run:
             prompt = render(
                 self.prompt("review", "claude"),
                 repo=str(self.repo),
-                task=self.task,
+                task=task,
                 plan=plan,
             )
             return self.call_claude("review-claude", prompt)
@@ -468,7 +531,7 @@ class Run:
         prompt = render(
             self.prompt("synth", "opencode"),
             repo=str(self.repo),
-            task=self.task,
+            task=self.effective_task(),
             plan=plan,
             reviews="\n\n".join(parts),
             test_cmd=self.args.test_cmd or "aucune — l'agent exécutera les tests du projet",
@@ -631,16 +694,19 @@ class Run:
             )
             return True
 
-    def _tui_cmd(self, prompt):
-        return [
-            self.args.opencode_bin,
+    def _tui_cmd(self, prompt, agent=None, continue_session=False):
+        cmd = [self.args.opencode_bin]
+        if continue_session:
+            cmd.append("--continue")
+        cmd += [
             "--agent",
-            self.args.build_agent,
+            agent or self.args.build_agent,
             "-m",
             self.args.opencode_model,
             "--prompt",
             prompt,
         ]
+        return cmd
 
     def _run_tests(self, number, test_cmd):
         log(f"tests : {test_cmd}")
@@ -660,10 +726,20 @@ class Run:
         print(f"dry-run — run_dir : {self.run_dir}")
         print(f"dry-run — prompts : {self.prompt_dir}")
         if "plan" in phases:
-            print(
-                f"  1. plan    : {args.claude_bin} -p --model {args.claude_model} "
-                f"--permission-mode plan --output-format json <{self.prompt_path('plan', 'claude')}>"
-            )
+            if self.task:
+                print(
+                    f"  1. plan    : {args.claude_bin} -p --model {args.claude_model} "
+                    f"--permission-mode plan --output-format json <{self.prompt_path('plan', 'claude')}>"
+                )
+            else:
+                print(
+                    f"  1. plan    : {args.opencode_bin} --agent {args.plan_agent} "
+                    f"-m {args.opencode_model} --prompt <{self.prompt_path('plan', 'opencode')}> (TUI interactif)"
+                )
+                print(
+                    f"     capture : {args.opencode_bin} run --continue --agent {args.plan_agent} "
+                    f"-m {args.opencode_model} <{self.prompt_path('capture', 'opencode')}>"
+                )
         if "reviews" in phases:
             print(
                 f"  2. review  : {args.opencode_bin} run --agent {args.plan_agent} "
@@ -695,14 +771,17 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         prog="multi-agent-plan",
         description=(
-            "Planification multi-agents (Claude + OpenCode) puis exécution OpenCode "
-            "interactive, étape par étape, avec un commit atomique par étape."
+            "Planification multi-agents puis exécution OpenCode interactive, étape "
+            "par étape, avec un commit atomique par étape. Sans --task/--task-file, "
+            "la phase plan ouvre une session OpenCode interactive pour préciser le "
+            "plan, capturé ensuite en headless ; avec, Claude planifie en headless."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
             """\
             phases : plan -> reviews -> final -> execute (défaut : tout)
             exemples :
+              multi-agent-plan --repo ~/projet --test-cmd "nix flake check"       (plan interactif OpenCode)
               multi-agent-plan --repo ~/projet --task "Ajouter l'auth OAuth2" --test-cmd "nix flake check"
               multi-agent-plan --repo ~/projet --task-file task.md --stop-after final
               multi-agent-plan --repo ~/projet --from execute --out ~/projet/.agent-plans/20261001-120000
@@ -755,6 +834,14 @@ def parse_args(argv):
         help="dossier des prompts (défaut : MULTI_AGENT_PLAN_PROMPTS ou prompts/ du paquet)",
     )
     parser.add_argument("--plan-prompt", help="fichier de prompt pour la phase plan (Claude)")
+    parser.add_argument(
+        "--interactive-prompt",
+        help="fichier de prompt de la session interactive de plan (OpenCode, sans --task)",
+    )
+    parser.add_argument(
+        "--capture-prompt",
+        help="fichier de prompt de capture du plan interactif (OpenCode)",
+    )
     parser.add_argument("--review-claude-prompt", help="fichier de prompt pour la review Claude")
     parser.add_argument("--review-opencode-prompt", help="fichier de prompt pour la review OpenCode")
     parser.add_argument("--synth-prompt", help="fichier de prompt pour la synthèse (OpenCode)")
@@ -764,8 +851,6 @@ def parse_args(argv):
     args = parser.parse_args(argv)
     if args.task and args.task_file:
         parser.error("--task et --task-file sont exclusifs")
-    if not args.task and not args.task_file and (args.from_phase or "plan") == "plan":
-        parser.error("--task ou --task-file est requis pour la phase de planification")
     if args.from_phase and args.from_phase != "plan" and not args.out:
         parser.error("--out est requis pour reprendre à une phase intermédiaire")
     return args
