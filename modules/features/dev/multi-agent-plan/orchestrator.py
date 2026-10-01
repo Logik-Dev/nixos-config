@@ -53,6 +53,10 @@ MIN_BLOCK_CHARS = 40
 STEP_RE = re.compile(r"^##\s+Step\s+(\d+)\s*[—–:-]\s*(.+?)\s*$", re.MULTILINE)
 COMMIT_RE = re.compile(r"^\*\*Commit\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
 TEST_TAIL = 30
+ATOMICITY_NOTE = (
+    "Consigne d'atomicité : toute correction doit rester dans le commit de l'étape "
+    "(`jj squash` avec jj, `git commit --amend` avec git) — jamais un commit de fixup."
+)
 TOKEN_KEYS = ("input", "output", "reasoning", "cache_read", "cache_write")
 MAX_CAPTURE_PARTS = 20
 CAPTURE_MARKERS = (SENTINELS["BRIEF"][0], SENTINELS["FINAL_PLAN"][0])
@@ -919,7 +923,7 @@ class Run:
         vcs = self.vcs()
         test_cmd = self.args.test_cmd or ""
         if not test_cmd:
-            log("aucune --test-cmd fournie : l'agent devra lancer les tests du projet lui-même")
+            log("aucune --test-cmd fournie : l'orchestrateur ne lancera aucun test global")
         for step in steps:
             number = step["number"]
             if progress.status(number) == "done":
@@ -947,7 +951,7 @@ class Run:
             step_total=len(steps),
             step_title=step["title"],
             commit_message=step["commit"] or "type(scope): description conventionnelle",
-            test_cmd=test_cmd or "aucune fournie — utilise les tests du projet",
+            test_cmd=test_cmd or "aucune — l'orchestrateur ne lancera aucun test global",
             vcs=vcs,
             commits="\n".join(f"- {commit}" for commit in commits) or "(aucun)",
         )
@@ -992,7 +996,35 @@ class Run:
             commit = after
             count = commit_count(self.repo, before, after)
             if count > 1:
-                log(f"attention : {count} commits créés pour l'étape {number} (atomicité non respectée)")
+                log(
+                    f"attention : {count} commits créés pour l'étape {number} "
+                    "(atomicité non respectée)"
+                )
+                action = ask_choice(
+                    f"{count} commits détectés pour l'étape {number} — "
+                    "un seul commit atomique est attendu.",
+                    [
+                        ("r", "réouvrir la TUI pour squasher"),
+                        ("s", "skip"),
+                        ("q", "quitter"),
+                    ],
+                )
+                if action == "r":
+                    prompt = (
+                        base_prompt
+                        + f"\n\n{count} commits ont été créés pour cette étape au lieu d'un. "
+                        + ATOMICITY_NOTE
+                    )
+                    continue
+                if action == "s":
+                    progress.mark(number, status="skipped", commit=commit, tests="unverified")
+                    append_journal(
+                        journal,
+                        f"- Step {number} — {step['title']} : ⏭️ skip "
+                        f"({count} commits, atomicité non respectée)\n",
+                    )
+                    return True
+                return False
             show_commit(self.repo, commit)
 
             test_status = "skipped"
@@ -1015,7 +1047,8 @@ class Run:
                             base_prompt
                             + "\n\nLes tests échouent encore :\n\n```\n"
                             + tail(test_output, 60)
-                            + "\n```"
+                            + "\n```\n\n"
+                            + ATOMICITY_NOTE
                         )
                         continue
                     if action == "c":

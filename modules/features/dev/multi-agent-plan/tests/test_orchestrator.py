@@ -5,7 +5,9 @@ ou via le check Nix `multi-agent-plan`.
 """
 
 import json
+import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -255,6 +257,65 @@ class ResolveAgentTests(unittest.TestCase):
         with mock.patch.object(orchestrator, "agent_names", return_value=None):
             self.assertEqual(self.run.resolve_agent("reviewer"), "plan")
             self.assertEqual(self.run.resolve_agent("plan"), "plan")
+
+
+class GitCommitTests(unittest.TestCase):
+    """head_commit/commit_count sur un dépôt git temporaire réel."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.repo = Path(tmp.name)
+        self.git("init")
+        self.git("config", "user.email", "tests@example.invalid")
+        self.git("config", "user.name", "Tests")
+
+    def git(self, *args):
+        env = {
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_AUTHOR_NAME": "Tests",
+            "GIT_AUTHOR_EMAIL": "tests@example.invalid",
+            "GIT_COMMITTER_NAME": "Tests",
+            "GIT_COMMITTER_EMAIL": "tests@example.invalid",
+        }
+        proc = subprocess.run(
+            ["git", "-C", str(self.repo), *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        return proc.stdout.strip()
+
+    def commit(self, message):
+        (self.repo / "file.txt").write_text(message + "\n", encoding="utf-8")
+        self.git("add", "file.txt")
+        self.git("commit", "-q", "-m", message)
+        return self.git("rev-parse", "HEAD")
+
+    def test_head_commit_retourne_le_sha_courant(self):
+        first = self.commit("premier")
+        second = self.commit("deuxième")
+        self.assertNotEqual(first, second)
+        self.assertEqual(orchestrator.head_commit(self.repo), second)
+
+    def test_head_commit_hors_depot_rend_none(self):
+        with tempfile.TemporaryDirectory() as other:
+            self.assertIsNone(orchestrator.head_commit(other))
+
+    def test_commit_count_compte_la_plage(self):
+        first = self.commit("premier")
+        second = self.commit("deuxième")
+        third = self.commit("troisième")
+        self.assertEqual(orchestrator.commit_count(self.repo, first, second), 1)
+        self.assertEqual(orchestrator.commit_count(self.repo, first, third), 2)
+        self.assertEqual(orchestrator.commit_count(self.repo, third, third), 0)
+
+    def test_commit_count_plage_invalide_replie_sur_un(self):
+        self.commit("premier")
+        self.assertEqual(orchestrator.commit_count(self.repo, "inconnu", "HEAD"), 1)
 
 
 def make_session_db(path, rows=(), messages=(), parts=()):
@@ -855,6 +916,95 @@ class PhaseAgentTests(unittest.TestCase):
         run.phase_final()
         run.resolve_agent.assert_called_once_with("synth")
         self.assertEqual(run.call_opencode.call_args.kwargs.get("agent"), "synth")
+
+
+class ExecuteStepTests(unittest.TestCase):
+    STEP = {
+        "number": 1,
+        "title": "Premier",
+        "body": "corps de l'étape",
+        "commit": "feat(a): un",
+    }
+
+    def make_run(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        run = orchestrator.Run.__new__(orchestrator.Run)
+        run.repo = Path("/repo")
+        run.run_dir = Path(tmp.name)
+        run.args = mock.Mock(test_cmd="nix flake check", verbose=False, timeout=5)
+        run.prompt = mock.Mock(return_value="prompt exécution test={{test_cmd}}")
+        run._tui_cmd = mock.Mock(return_value=["opencode"])
+        run._run_tests = mock.Mock(return_value=(0, "ok"))
+        return run
+
+    def execute(self, run, answers):
+        progress = mock.Mock()
+        with mock.patch("builtins.print"):
+            with mock.patch.object(orchestrator.subprocess, "call", return_value=0):
+                with mock.patch.object(orchestrator, "show_commit"):
+                    with mock.patch.object(orchestrator, "append_journal"):
+                        with mock.patch.object(
+                            orchestrator, "ask_choice", side_effect=answers
+                        ):
+                            return run._execute_step(
+                                self.STEP,
+                                [self.STEP],
+                                progress,
+                                run.run_dir / "05-execution.md",
+                                "git",
+                                "nix flake check",
+                                [],
+                            ), progress
+
+    def test_commit_unique_tests_verts_marque_done(self):
+        run = self.make_run()
+        run._run_tests = mock.Mock(return_value=(0, "ok"))
+        with mock.patch.object(orchestrator, "head_commit", side_effect=["aaa", "bbb"]):
+            with mock.patch.object(orchestrator, "commit_count", return_value=1):
+                result, progress = self.execute(run, ["n"])
+        self.assertTrue(result)
+        run._run_tests.assert_called_once_with(1, "nix flake check")
+        progress.mark.assert_called_once_with(1, status="done", commit="bbb", tests="ok")
+
+    def test_plusieurs_commits_redemande_sans_marquer_done(self):
+        run = self.make_run()
+        with mock.patch.object(orchestrator, "head_commit", side_effect=["aaa", "bbb"]):
+            with mock.patch.object(orchestrator, "commit_count", return_value=2):
+                result, progress = self.execute(run, ["q"])
+        self.assertFalse(result)
+        run._run_tests.assert_not_called()
+        progress.mark.assert_not_called()
+
+    def test_plusieurs_commits_reouverture_consigne_le_squash(self):
+        run = self.make_run()
+        with mock.patch.object(
+            orchestrator, "head_commit", side_effect=["aaa", "bbb", "bbb", "bbb"]
+        ):
+            with mock.patch.object(orchestrator, "commit_count", return_value=2):
+                result, _progress = self.execute(run, ["r", "q"])
+        self.assertFalse(result)
+        prompts = [call.args[0] for call in run._tui_cmd.call_args_list]
+        self.assertEqual(len(prompts), 2)
+        self.assertIn("jj squash", prompts[1])
+        self.assertIn("git commit --amend", prompts[1])
+        self.assertIn("jamais un commit de fixup", prompts[1])
+
+    def test_tests_rouges_reouverture_consigne_le_squash(self):
+        run = self.make_run()
+        run._run_tests = mock.Mock(return_value=(1, "échec de test"))
+        heads = ["aaa", "bbb", "bbb", "bbb"]
+        with mock.patch.object(orchestrator, "head_commit", side_effect=heads):
+            with mock.patch.object(orchestrator, "commit_count", return_value=1):
+                result, progress = self.execute(run, ["r", "q"])
+        self.assertFalse(result)
+        progress.mark.assert_not_called()
+        prompts = [call.args[0] for call in run._tui_cmd.call_args_list]
+        self.assertEqual(len(prompts), 2)
+        self.assertIn("échec de test", prompts[1])
+        self.assertIn("jj squash", prompts[1])
+        self.assertIn("git commit --amend", prompts[1])
+        self.assertIn("jamais un commit de fixup", prompts[1])
 
 
 if __name__ == "__main__":

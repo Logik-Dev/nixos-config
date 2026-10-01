@@ -23,10 +23,15 @@
       };
 
       # Sans garde de système : le harnais existe aussi sur x86_64-linux.
+      # git est requis par les tests de head_commit/commit_count (dépôt
+      # temporaire réel), absent du PATH de build sinon.
       checks.multi-agent-plan =
         pkgs.runCommand "multi-agent-plan-tests"
           {
-            nativeBuildInputs = [ pkgs.python3 ];
+            nativeBuildInputs = [
+              pkgs.python3
+              pkgs.git
+            ];
           }
           ''
             cp ${./orchestrator.py} orchestrator.py
