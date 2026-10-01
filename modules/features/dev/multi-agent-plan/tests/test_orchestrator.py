@@ -158,6 +158,10 @@ class ParseBlockTests(unittest.TestCase):
         text = f"<<<FINAL_PLAN>>>\n{body}\n<<<END_FINAL_PLAN>>>"
         self.assertEqual(parse_block(text, "<<<FINAL_PLAN>>>", "<<<END_FINAL_PLAN>>>"), body)
 
+    def test_bloc_plan_headless(self):
+        text = f"<<<PLAN>>>\n{CORPS_PLAN}\n<<<END_PLAN>>>"
+        self.assertEqual(parse_block(text, *orchestrator.SENTINELS["PLAN"]), CORPS_PLAN)
+
     def test_message_avec_taille_du_log(self):
         with tempfile.NamedTemporaryFile("w", suffix=".log") as handle:
             handle.write("x" * 1234)
@@ -190,6 +194,7 @@ class SentinelCompatTests(unittest.TestCase):
             orchestrator.SENTINELS,
             {
                 "BRIEF": ("<<<BRIEF>>>", "<<<END_BRIEF>>>"),
+                "PLAN": ("<<<PLAN>>>", "<<<END_PLAN>>>"),
                 "REVIEW": ("<<<REVIEW>>>", "<<<END_REVIEW>>>"),
                 "FINAL_PLAN": ("<<<FINAL_PLAN>>>", "<<<END_FINAL_PLAN>>>"),
             },
@@ -547,6 +552,155 @@ class PhaseSummaryTests(unittest.TestCase):
         summary = orchestrator.phase_summary({"plan-capture": {"duration_s": 29.2, "exit_code": 0}})
         self.assertEqual(summary["cost_usd"], 0.0)
         self.assertEqual(summary["total_tokens"], 0)
+
+
+class PlanWithArgsTests(unittest.TestCase):
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_defaut_opencode(self):
+        args = self.parse("--repo", "/tmp")
+        self.assertEqual(args.plan_with, "opencode")
+        self.assertIsNone(args.planner_prompt)
+
+    def test_choix_claude(self):
+        args = self.parse("--plan-with", "claude")
+        self.assertEqual(args.plan_with, "claude")
+
+    def test_choix_invalide(self):
+        with self.assertRaises(SystemExit):
+            self.parse("--plan-with", "gemini")
+
+
+class PromptPathTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+        for name in ("planner.opencode.md", "plan.claude.md"):
+            (self.dir / name).write_text("prompt de test", encoding="utf-8")
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.prompt_dir = self.dir
+        self.run.args = mock.Mock(
+            plan_prompt=None,
+            interactive_prompt=None,
+            planner_prompt=None,
+            capture_prompt=None,
+            review_claude_prompt=None,
+            review_opencode_prompt=None,
+            synth_prompt=None,
+            exec_prompt=None,
+        )
+
+    def custom_prompt(self, name):
+        path = self.dir / name
+        path.write_text("prompt surchargé", encoding="utf-8")
+        return path
+
+    def test_planner_opencode_par_defaut(self):
+        self.assertEqual(
+            self.run.prompt_path("planner", "opencode"),
+            self.dir / "planner.opencode.md",
+        )
+
+    def test_planner_prompt_surcharge(self):
+        custom = self.custom_prompt("custom-planner.md")
+        self.run.args.planner_prompt = str(custom)
+        self.assertEqual(self.run.prompt_path("planner", "opencode"), custom)
+
+    def test_plan_prompt_claude_toujours_honore(self):
+        custom = self.custom_prompt("custom-claude.md")
+        self.run.args.plan_prompt = str(custom)
+        self.assertEqual(self.run.prompt_path("plan", "claude"), custom)
+
+    def test_interactive_prompt_toujours_honore(self):
+        custom = self.custom_prompt("custom-interactif.md")
+        self.run.args.interactive_prompt = str(custom)
+        self.assertEqual(self.run.prompt_path("plan", "opencode"), custom)
+
+
+class PhasePlanTests(unittest.TestCase):
+    def make_run(self, **overrides):
+        run = orchestrator.Run.__new__(orchestrator.Run)
+        run.repo = Path("/repo")
+        run.run_dir = Path("/run")
+        run.task = "Ajouter une fonctionnalité"
+        values = {"plan_with": "opencode", "test_cmd": "nix flake check"}
+        values.update(overrides)
+        run.args = mock.Mock(**values)
+        run.vcs = mock.Mock(return_value="jj")
+        run.prompt = mock.Mock(
+            return_value="repo={{repo}} task={{task}} test={{test_cmd}} vcs={{vcs}}"
+        )
+        run.write_artifact = mock.Mock()
+        return run
+
+    def test_opencode_headless_par_defaut(self):
+        run = self.make_run()
+        run.call_opencode = mock.Mock(return_value=CORPS_PLAN)
+        run.call_claude = mock.Mock()
+
+        run.phase_plan()
+
+        run.call_claude.assert_not_called()
+        run.call_opencode.assert_called_once()
+        tag, prompt, block = run.call_opencode.call_args.args
+        self.assertEqual(tag, "plan")
+        self.assertEqual(block, "PLAN")
+        self.assertIn("task=Ajouter une fonctionnalité", prompt)
+        self.assertIn("test=nix flake check", prompt)
+        self.assertIn("vcs=jj", prompt)
+        run.prompt.assert_called_once_with("planner", "opencode")
+        run.write_artifact.assert_called_once_with("01-plan.md", CORPS_PLAN)
+
+    def test_claude_avec_effort_high(self):
+        run = self.make_run(plan_with="claude")
+        run.call_opencode = mock.Mock()
+        run.call_claude = mock.Mock(return_value=CORPS_PLAN)
+
+        run.phase_plan()
+
+        run.call_opencode.assert_not_called()
+        run.call_claude.assert_called_once()
+        tag, prompt = run.call_claude.call_args.args
+        self.assertEqual(tag, "plan")
+        self.assertEqual(run.call_claude.call_args.kwargs.get("effort"), "high")
+        self.assertIn("test=nix flake check", prompt)
+        self.assertIn("vcs=jj", prompt)
+        run.prompt.assert_called_once_with("plan", "claude")
+        run.write_artifact.assert_called_once_with("01-plan.md", CORPS_PLAN)
+
+
+class CallClaudeEffortTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.repo = Path("/repo")
+        self.run.run_dir = Path(tmp.name)
+        self.run.meta = {"phases": {}}
+        self.run.args = mock.Mock(
+            claude_bin="claude", claude_model="opus", timeout=5, verbose=False
+        )
+
+    def call(self, **kwargs):
+        payload = {"result": "contenu", "total_cost_usd": 0.0, "session_id": "s1"}
+        with mock.patch.object(
+            orchestrator, "run_streamed", return_value=(0, "{}")
+        ) as streamed:
+            with mock.patch.object(
+                orchestrator, "parse_claude_json", return_value=("contenu", payload)
+            ):
+                self.run.call_claude("plan", "prompt", **kwargs)
+        return streamed.call_args.args[0]
+
+    def test_effort_high_ajoute(self):
+        cmd = self.call(effort="high")
+        self.assertEqual(cmd[cmd.index("--effort") + 1], "high")
+
+    def test_sans_effort_par_defaut(self):
+        self.assertNotIn("--effort", self.call())
 
 
 if __name__ == "__main__":

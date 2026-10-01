@@ -2,10 +2,12 @@
 """multi-agent-plan — planification multi-agents et exécution supervisée.
 
 Pipeline :
-  1. Sans --task/--task-file : session interactive OpenCode pour préciser le
-     plan, capturée sans appel LLM depuis la base locale (messages assistant),
-     avec repli `opencode run --session <id>` sinon ; avec --task/--task-file :
-     Claude planifie en headless                       -> 00-brief.md, 01-plan.md
+  1. Plan :
+     - sans --task/--task-file : session interactive OpenCode pour préciser le
+       plan, capturée sans appel LLM depuis la base locale (messages assistant),
+       avec repli `opencode run --session <id>` sinon ;
+     - avec --task/--task-file : OpenCode planifie en headless (agent plan,
+       --plan-with claude pour Claude)                 -> 00-brief.md, 01-plan.md
   2. OpenCode et Claude relisent le plan en parallèle -> 02/03-review-*.md
   3. OpenCode fusionne le tout en plan atomique       -> 04-final-plan.md
   4. Exécution interactive, étape par étape, un commit
@@ -42,6 +44,7 @@ ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 END_MARKER = "<<<END>>>"
 SENTINELS = {
     "BRIEF": ("<<<BRIEF>>>", "<<<END_BRIEF>>>"),
+    "PLAN": ("<<<PLAN>>>", "<<<END_PLAN>>>"),
     "REVIEW": ("<<<REVIEW>>>", "<<<END_REVIEW>>>"),
     "FINAL_PLAN": ("<<<FINAL_PLAN>>>", "<<<END_FINAL_PLAN>>>"),
 }
@@ -546,6 +549,7 @@ class Run:
         explicit = {
             ("plan", "claude"): self.args.plan_prompt,
             ("plan", "opencode"): self.args.interactive_prompt,
+            ("planner", "opencode"): self.args.planner_prompt,
             ("capture", "opencode"): self.args.capture_prompt,
             ("review", "claude"): self.args.review_claude_prompt,
             ("review", "opencode"): self.args.review_opencode_prompt,
@@ -591,7 +595,7 @@ class Run:
         path = self.run_dir / "meta.json"
         path.write_text(json.dumps(self.meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    def call_claude(self, tag, prompt):
+    def call_claude(self, tag, prompt, effort=None):
         cmd = [
             self.args.claude_bin,
             "-p",
@@ -601,8 +605,10 @@ class Run:
             "plan",
             "--output-format",
             "json",
-            prompt,
         ]
+        if effort:
+            cmd += ["--effort", effort]
+        cmd.append(prompt)
         log_path = self.run_dir / "logs" / f"{tag}.log"
         started = time.time()
         returncode, output = run_streamed(
@@ -683,9 +689,28 @@ class Run:
         if not self.task:
             self.phase_plan_interactive()
             return
-        log("Phase 1/4 — Claude analyse le dépôt et rédige le plan")
-        prompt = render(self.prompt("plan", "claude"), task=self.task, repo=str(self.repo))
-        self.write_artifact("01-plan.md", self.call_claude("plan", prompt))
+        test_cmd = self.args.test_cmd or "aucune — l'agent exécutera les tests du projet"
+        if self.args.plan_with == "claude":
+            log("Phase 1/4 — Claude analyse le dépôt et rédige le plan")
+            prompt = render(
+                self.prompt("plan", "claude"),
+                task=self.task,
+                repo=str(self.repo),
+                test_cmd=test_cmd,
+                vcs=self.vcs(),
+            )
+            plan = self.call_claude("plan", prompt, effort="high")
+        else:
+            log("Phase 1/4 — OpenCode analyse le dépôt et rédige le plan (headless)")
+            prompt = render(
+                self.prompt("planner", "opencode"),
+                task=self.task,
+                repo=str(self.repo),
+                test_cmd=test_cmd,
+                vcs=self.vcs(),
+            )
+            plan = self.call_opencode("plan", prompt, "PLAN")
+        self.write_artifact("01-plan.md", plan)
 
     def capture_interactive_plan(self, since, capture_prompt):
         """Capture le plan de la session interactive, sans appel LLM si possible.
@@ -1009,10 +1034,18 @@ class Run:
         print(f"dry-run — prompts : {self.prompt_dir}")
         if "plan" in phases:
             if self.task:
-                print(
-                    f"  1. plan    : {args.claude_bin} -p --model {args.claude_model} "
-                    f"--permission-mode plan --output-format json <{self.prompt_path('plan', 'claude')}>"
-                )
+                if args.plan_with == "claude":
+                    print(
+                        f"  1. plan    : {args.claude_bin} -p --model {args.claude_model} "
+                        f"--permission-mode plan --effort high --output-format json "
+                        f"<{self.prompt_path('plan', 'claude')}>"
+                    )
+                else:
+                    print(
+                        f"  1. plan    : {args.opencode_bin} run --agent {args.plan_agent} "
+                        f"-m {args.opencode_model} "
+                        f"<{self.prompt_path('planner', 'opencode')}>"
+                    )
             else:
                 print(
                     f"  1. plan    : {args.opencode_bin} --agent {args.plan_agent} "
@@ -1057,7 +1090,8 @@ def parse_args(argv):
             "Planification multi-agents puis exécution OpenCode interactive, étape "
             "par étape, avec un commit atomique par étape. Sans --task/--task-file, "
             "la phase plan ouvre une session OpenCode interactive pour préciser le "
-            "plan, capturé ensuite en headless ; avec, Claude planifie en headless."
+            "plan, capturé ensuite sans appel LLM ; avec, OpenCode planifie en "
+            "headless (--plan-with claude pour Claude)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
@@ -1066,7 +1100,7 @@ def parse_args(argv):
             exemples :
               multi-agent-plan --repo ~/projet --test-cmd "nix flake check"       (plan interactif OpenCode)
               multi-agent-plan --repo ~/projet --task "Ajouter l'auth OAuth2" --test-cmd "nix flake check"
-              multi-agent-plan --repo ~/projet --task-file task.md --stop-after final
+              multi-agent-plan --repo ~/projet --task-file task.md --plan-with claude --stop-after final
               multi-agent-plan --repo ~/projet --from execute --out ~/projet/.agent-plans/20261001-120000
             codes de sortie : 0 succès, 1 exécution interrompue/skippée, 2 erreur de configuration,
             3 échec de phase headless
@@ -1116,10 +1150,23 @@ def parse_args(argv):
         "--prompt-dir",
         help="dossier des prompts (défaut : MULTI_AGENT_PLAN_PROMPTS ou prompts/ du paquet)",
     )
+    parser.add_argument(
+        "--plan-with",
+        choices=("opencode", "claude"),
+        default="opencode",
+        help=(
+            "moteur du plan headless avec --task/--task-file (défaut : opencode ; "
+            "claude avec --effort high)"
+        ),
+    )
     parser.add_argument("--plan-prompt", help="fichier de prompt pour la phase plan (Claude)")
     parser.add_argument(
         "--interactive-prompt",
         help="fichier de prompt de la session interactive de plan (OpenCode, sans --task)",
+    )
+    parser.add_argument(
+        "--planner-prompt",
+        help="fichier de prompt du plan OpenCode headless (avec --task/--task-file)",
     )
     parser.add_argument(
         "--capture-prompt",
