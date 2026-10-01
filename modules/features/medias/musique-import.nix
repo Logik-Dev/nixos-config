@@ -8,11 +8,13 @@ _: {
     }:
     let
       beet = import ./lib/_beet-classique.nix { inherit pkgs; };
+      vpnCfg = config.vpn.airvpn;
       slskdCfg = config.services.slskd;
       downloads = slskdCfg.settings.directories.downloads;
       incomplete = slskdCfg.settings.directories.incomplete;
       queue = "/mnt/storage/medias/downloads/musique-a-importer";
       sources = "/mnt/storage/medias/downloads/musique-sources";
+      torrentDir = "/mnt/storage/medias/downloads/classique";
       settle = "15";
       pushNtfy = import ../monitoring/lib/_ntfy.nix { inherit pkgs; };
 
@@ -43,11 +45,16 @@ _: {
 
       qbtHelpers = lib.optionalString hasMusiqueSecret ''
         qbt_login() {
-          # Secret systemd-like : QBT_USER / QBT_PASS.
-          set -a
-          # shellcheck source=/dev/null
-          . ${musiqueSecretPath}
-          set +a
+          # Secret systemd-like : QBT_USER / QBT_PASS. Déjà chargé par
+          # l'appelant quand il vient de $CREDENTIALS_DIRECTORY (seul chemin
+          # lisible par `musique-prepare`, dont le compte beets ne peut pas lire
+          # le secret agenix owner logikdev) ; sinon on source le secret.
+          if [ -z "''${QBT_USER:-}" ]; then
+            set -a
+            # shellcheck source=/dev/null
+            . ${musiqueSecretPath}
+            set +a
+          fi
           # qBittorrent 5.x répond 204 sans corps (l'ancien « Ok. » a disparu) :
           # on valide sur le code HTTP, pas sur le corps.
           code=$(curl -sS -c "$qbtJar" -o /dev/null -w '%{http_code}' \
@@ -163,6 +170,132 @@ _: {
           fi
         done
       '';
+
+      # Passe slskd : SEULS des fichiers récents comptent (un reste abandonné ne
+      # fige pas la passe). Un transfert en cours ne reporte QUE cette passe —
+      # la passe torrents ci-dessous est indépendante (B3).
+      slskdPass = lib.optionalString slskdCfg.enable ''
+        do_slskd=1
+        if [ -n "$(find ${incomplete} -type f -newermt "-${settle} minutes" -print -quit)" ]; then
+          echo "slskd télécharge encore, passe slskd reportée"; do_slskd=0
+        fi
+
+        if [ "$do_slskd" -eq 1 ]; then
+          for entry in ${downloads}/*/; do
+            [ -d "$entry" ] || continue
+            name="$(basename "$entry")"
+            case "$name" in musique-a-importer|musique-sources) continue ;; esac
+
+            if ( set -e
+              album="$entry"
+              # slskd peut nicher (pseudo/album) : descendre tant qu'il n'y a pas d'audio direct
+              # et un seul sous-dossier.
+              while [ -z "$(audio_max1 "$album")" ] && [ "$(find "$album" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]; do
+                album="$(find "$album" -mindepth 1 -maxdepth 1 -type d)"
+              done
+              name="$(basename "$album")"
+              a="$(audio "$album")"; c="$(cues "$album")"
+              [ "$a" -gt 0 ] || { echo "ignoré (aucun audio) : $name"; exit 3; }
+
+              tmp="${queue}/.tmp-$name"; rm -rf "$tmp"; mkdir -p "$tmp"
+              if [ "$c" -gt 0 ] && [ "$a" -le "$c" ]; then
+                # image+.cue : unflac par .cue, sous-dossier dérivé du NOM DU FICHIER .cue
+                # (`.Input.Title` est le titre d'album, identique d'un disque à l'autre).
+                for cue in "$album"/*.cue; do
+                  if [ "$c" -gt 1 ]; then out="$tmp/$(basename "$cue" .cue)"; mkdir -p "$out"; else out="$tmp"; fi
+                  unflac -q -o "$out" -n "$tpl" "$cue"
+                done
+                dest="${sources}/$name"; [ -e "$dest" ] && dest="$dest-$(date +%s)"
+                mv -T "$album" "$dest"          # filet, purgé à 14 j par tmpfiles
+              else
+                # déjà découpé (plate, ou coffret multi-disque en sous-dossiers) : on déplace.
+                find "$album" -mindepth 1 -maxdepth 1 -exec mv -t "$tmp" -- {} +
+                rmdir "$album"
+              fi
+              dest="${queue}/$name"; [ -e "$dest" ] && dest="$dest-$(date +%s)"
+              mv -T "$tmp" "$dest"
+              rmdir -p --ignore-fail-on-non-empty "$(dirname "$album")" 2>/dev/null || true
+            ); then
+              prepared=$((prepared + 1))
+            else
+              st=$?
+              [ "$st" -eq 3 ] && continue
+              echo "échec préparation : $name"; failed=$((failed + 1)); rm -rf "${queue}/.tmp-$name"
+            fi
+          done
+        fi
+      '';
+
+      # Passe torrents classique, pilotée par l'API qBittorrent : la complétion
+      # est `amount_left == 0` + `completion_on` (settle), jamais `.!qB` ni le
+      # mtime (I5). Copie (jamais `mv`) : le seed reste intact ; le marqueur vit
+      # dans /var/lib/musique/prepared, hors de l'arbre seedé et de
+      # musique-sources (I6), donc jamais purgé avec les sources.
+      # Test manuel (pas de framework dans le dépôt) : déposer des fixtures
+      # dans ${torrentDir} (plate, image+cue mono, CD1/CD2 + Scans,
+      # single-file, dossier déjà préparé, nom avec espaces ou cyrillique),
+      # puis `sudo systemctl start musique-prepare` et `musique liste`.
+      torrentsPass = lib.optionalString hasMusiqueSecret ''
+        torrentDir=${torrentDir}
+        qbtJar=$(mktemp)
+        trap 'rm -f "$qbtJar"' EXIT
+        # Le compte beets ne peut pas lire le secret agenix (owner logikdev
+        # 0400) : systemd (root) le dépose dans $CREDENTIALS_DIRECTORY.
+        # shellcheck source=/dev/null
+        . "$CREDENTIALS_DIRECTORY/musique.env"
+        if qbt_login; then
+          now=$(date +%s)
+          # Process substitution : un pipe perdrait prepared/failed dans un
+          # sous-shell.
+          while IFS=$'\t' read -r hash cpath; do
+            case "$cpath" in
+              "$torrentDir"/*) ;;
+              *) echo "torrent classique hors ${torrentDir}, ignoré : $cpath"; continue ;;
+            esac
+            if [ ! -d "$cpath" ]; then
+              # Fichier unique : jamais marqué, donc jamais purgé.
+              echo "torrent single-file, ignoré (jamais purgé) : $cpath"
+              continue
+            fi
+            mark="/var/lib/musique/prepared/$hash"
+            [ -e "$mark" ] && continue
+            name="$(basename "$cpath")"
+            if ( set -e
+              # Détection récursive (CD1/CD2) ; les cue des pochettes sont exclus.
+              mapfile -t cueList < <(find "$cpath" -maxdepth 2 -type f -iname '*.cue' \
+                -not -ipath '*/Scans/*' -not -ipath '*/Artwork/*' \
+                -not -ipath '*/Covers/*' -not -ipath '*/Booklet/*' | sort)
+              a="$(audio "$cpath")"; c=''${#cueList[@]}
+              tmp="${queue}/.tmp-$name"; rm -rf "$tmp"; mkdir -p "$tmp"
+              if [ "$c" -gt 0 ] && [ "$a" -le "$c" ]; then
+                # image+.cue : unflac par .cue, sous-dossier dérivé du NOM DU
+                # FICHIER .cue (P27) — `.Input.Title` est identique d'un disque
+                # à l'autre.
+                for cue in "''${cueList[@]}"; do
+                  if [ "$c" -gt 1 ]; then out="$tmp/$(basename "$cue" .cue)"; mkdir -p "$out"; else out="$tmp"; fi
+                  unflac -q -o "$out" -n "$tpl" "$cue"
+                done
+              else
+                # Déjà découpé : copie intégrale, jamais `mv`.
+                cp -a "$cpath"/. "$tmp"/
+              fi
+              dest="${queue}/$name"; [ -e "$dest" ] && dest="$dest-$(date +%s)"
+              mv -T "$tmp" "$dest"
+              mkdir -p /var/lib/musique/prepared
+              touch "$mark"
+            ); then
+              prepared=$((prepared + 1))
+            else
+              echo "échec préparation torrent : $name"; failed=$((failed + 1)); rm -rf "${queue}/.tmp-$name"
+            fi
+          done < <(qbt_get "torrents/info?category=classique" | jq -r --argjson now "$now" --argjson settle ${settle} '
+              .[] | select(.amount_left == 0 and .completion_on > 0 and ($now - .completion_on) >= ($settle * 60))
+              | [.hash, .content_path] | @tsv')
+        else
+          echo "échec de connexion qBittorrent, passe torrents reportée" >&2
+          failed=$((failed + 1))
+        fi
+      '';
     in
     {
       options.musique.autoImport = lib.mkOption {
@@ -170,7 +303,10 @@ _: {
         default = false; # activer après mesure du taux de match (cf. §2.3 du plan)
       };
 
-      config = lib.mkIf slskdCfg.enable {
+      # Gate : le VPN, pas slskd (I9). La passe torrents classique et
+      # `musique-import` existent sans slskd ; seul le parcours slskd reste
+      # conditionné à `slskdCfg.enable` (cf. `slskdPass`).
+      config = lib.mkIf vpnCfg.enable {
         # `musique-import` tourne sous le compte SSH logikdev : seul lui doit
         # pouvoir lire le secret (QBT_USER/QBT_PASS).
         age.secrets."musique.env" = lib.mkIf (builtins.pathExists musiqueSecretFile) {
@@ -191,11 +327,11 @@ _: {
           "d ${sources} 2775 logikdev media 14d -"
           # Cible de la catégorie qBittorrent `classique` : AutoTMM est off,
           # c'est le savepath posé par `musique add` qui décide (P24).
-          "d /mnt/storage/medias/downloads/classique 2775 logikdev media - -"
+          "d ${torrentDir} 2775 logikdev media - -"
         ];
 
         systemd.services.musique-prepare = {
-          description = "Découpe et met en file les téléchargements slskd terminés";
+          description = "Découpe et met en file les téléchargements terminés (slskd, torrents classique)";
           unitConfig.RequiresMountsFor = [
             "/mnt/storage"
             "/mnt/ultra"
@@ -205,8 +341,10 @@ _: {
           path = with pkgs; [
             bash
             coreutils
+            curl
             findutils
             gnugrep
+            jq
             unflac
             util-linux
           ];
@@ -226,14 +364,21 @@ _: {
             ProtectHome = true;
             PrivateTmp = true;
             # ProtectSystem=strict rend tout RO : réouvrir les seuls dossiers
-            # écrits (StateDirectory ajoute /var/lib/musique).
+            # écrits (StateDirectory ajoute /var/lib/musique). `downloads` n'est
+            # touché que par la passe slskd (mv vers musique-sources) ; la passe
+            # torrents ne fait que lire l'arbre seedé (copie, jamais mv).
             ReadWritePaths = [
-              downloads
               queue
               sources
               beet.stateDir
               "/var/log/beets-classique"
-            ];
+            ]
+            ++ lib.optionals slskdCfg.enable [ downloads ];
+          }
+          // lib.optionalAttrs hasMusiqueSecret {
+            # Le compte beets ne peut pas lire le secret (owner logikdev 0400) :
+            # systemd (root) le lit et l'expose à $CREDENTIALS_DIRECTORY.
+            LoadCredential = "musique.env:${musiqueSecretPath}";
           };
           script = ''
             # Fonctions héritées par les sous-shells.
@@ -241,55 +386,13 @@ _: {
             audio_max1() { find "$1" -maxdepth 1 -type f \( -iname '*.flac' -o -iname '*.ape' -o -iname '*.wv' \) -print -quit; }
             cues() { find "$1" -maxdepth 1 -type f -iname '*.cue' | wc -l; }
             tpl='{{printf .Input.TrackNumberFmt .Track.Number}} - {{.Track.Title | Elem}}'
-
-            # Gate slskd : SEULS des fichiers récents comptent (un reste abandonné ne fige pas la passe).
-            if [ -n "$(find ${incomplete} -type f -newermt "-${settle} minutes" -print -quit)" ]; then
-              echo "slskd télécharge encore, passe reportée"; exit 0
-            fi
+            ${qbtHelpers}
 
             prepared=0; failed=0
-            for entry in ${downloads}/*/; do
-              [ -d "$entry" ] || continue
-              name="$(basename "$entry")"
-              case "$name" in musique-a-importer|musique-sources) continue ;; esac
 
-              if ( set -e
-                album="$entry"
-                # slskd peut nicher (pseudo/album) : descendre tant qu'il n'y a pas d'audio direct
-                # et un seul sous-dossier.
-                while [ -z "$(audio_max1 "$album")" ] && [ "$(find "$album" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]; do
-                  album="$(find "$album" -mindepth 1 -maxdepth 1 -type d)"
-                done
-                name="$(basename "$album")"
-                a="$(audio "$album")"; c="$(cues "$album")"
-                [ "$a" -gt 0 ] || { echo "ignoré (aucun audio) : $name"; exit 3; }
+            ${slskdPass}
 
-                tmp="${queue}/.tmp-$name"; rm -rf "$tmp"; mkdir -p "$tmp"
-                if [ "$c" -gt 0 ] && [ "$a" -le "$c" ]; then
-                  # image+.cue : unflac par .cue, sous-dossier dérivé du NOM DU FICHIER .cue
-                  # (`.Input.Title` est le titre d'album, identique d'un disque à l'autre).
-                  for cue in "$album"/*.cue; do
-                    if [ "$c" -gt 1 ]; then out="$tmp/$(basename "$cue" .cue)"; mkdir -p "$out"; else out="$tmp"; fi
-                    unflac -q -o "$out" -n "$tpl" "$cue"
-                  done
-                  dest="${sources}/$name"; [ -e "$dest" ] && dest="$dest-$(date +%s)"
-                  mv -T "$album" "$dest"          # filet, purgé à 14 j par tmpfiles
-                else
-                  # déjà découpé (plate, ou coffret multi-disque en sous-dossiers) : on déplace.
-                  find "$album" -mindepth 1 -maxdepth 1 -exec mv -t "$tmp" -- {} +
-                  rmdir "$album"
-                fi
-                dest="${queue}/$name"; [ -e "$dest" ] && dest="$dest-$(date +%s)"
-                mv -T "$tmp" "$dest"
-                rmdir -p --ignore-fail-on-non-empty "$(dirname "$album")" 2>/dev/null || true
-              ); then
-                prepared=$((prepared + 1))
-              else
-                st=$?
-                [ "$st" -eq 3 ] && continue
-                echo "échec préparation : $name"; failed=$((failed + 1)); rm -rf "${queue}/.tmp-$name"
-              fi
-            done
+            ${torrentsPass}
 
             ${autoImportScript}
 
@@ -304,7 +407,7 @@ _: {
               source ${pushNtfy}
               export NTFY_CLICK="https://navidrome.hyper.logikdev.fr"
               prio=default; [ "$failed" -gt 0 ] && prio=high
-              printf '%s' "$prepared préparé(s), $count en attente, $failed échec(s) — lancer « musique »." \
+              printf '%s' "$prepared préparé(s) (slskd+torrents), $count en attente, $failed échec(s) — lancer « musique »." \
                 | push_ntfy musique "🎼 Musique classique" musical_note "$prio" || true
             fi
             exit 0
