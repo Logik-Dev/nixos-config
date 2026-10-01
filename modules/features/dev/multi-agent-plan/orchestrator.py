@@ -785,6 +785,8 @@ class Run:
         log("Phase 2/4 — relectures parallèles (OpenCode + Claude)")
         plan = self.read_artifact("01-plan.md")
         task = self.effective_task()
+        test_cmd = self.args.test_cmd or "aucune — l'agent exécutera les tests du projet"
+        vcs = self.vcs()
 
         def review_opencode():
             prompt = render(
@@ -792,6 +794,8 @@ class Run:
                 repo=str(self.repo),
                 task=task,
                 plan=plan,
+                test_cmd=test_cmd,
+                vcs=vcs,
             )
             return self.call_opencode("review-opencode", prompt, "REVIEW")
 
@@ -801,6 +805,8 @@ class Run:
                 repo=str(self.repo),
                 task=task,
                 plan=plan,
+                test_cmd=test_cmd,
+                vcs=vcs,
             )
             return self.call_claude("review-claude", prompt)
 
