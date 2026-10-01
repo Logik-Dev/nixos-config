@@ -411,6 +411,8 @@ _: {
                   ${ntfy} access everyone service-failure write-only
                   # Restore-drill heartbeat/results (formatted, success + failure).
                   ${ntfy} access everyone backup-verify write-only
+                  # Music library notifications (beets imports, etc.).
+                  ${ntfy} access everyone musique write-only
 
                   # Read-only account for the phone (password from agenix).
                   # add is a no-op if the user exists; change-pass keeps the
