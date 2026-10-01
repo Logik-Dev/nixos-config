@@ -20,6 +20,18 @@ _: {
               "/mnt/medias1/medias"
               "/mnt/medias2/medias"
             ];
+            # qBittorrent saves the `classique` category to
+            # /mnt/storage/medias/downloads/classique (mergerfs pool), i.e.
+            # `downloads/classique` in each branch dataDir, album dirs at depth 3
+            # — within maxDataDepth, so cross-seed would scan it. Excluded: an
+            # injected cross-seed (symlinks under /mnt/mediasN/cross-seed-links)
+            # would point at the very files the classique reaper deletes,
+            # leaving that second seed with missing files. The reaper's symlink
+            # guard is the other half of the protection. Top-level key, absent
+            # from settingsFile, so it survives the secret merge. Unprefixed
+            # entry: cross-seed v6 routes it to its legacy blocklist, which
+            # matches the substring against the searchee's parent path.
+            blockList = [ "downloads/classique" ];
             linkDirs = [
               "/mnt/medias1/cross-seed-links"
               "/mnt/medias2/cross-seed-links"
