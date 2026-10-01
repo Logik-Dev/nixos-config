@@ -47,9 +47,18 @@ _: {
         "lidarr-metadata-switch"
       ];
 
-      # Lidarr n'expose pas metadataSource dans son UI — c'est un réglage en
-      # base (IConfigService), pas dans config.xml, donc aucun override
-      # d'environnement n'existe. La bascule est de l'état impératif.
+      # Lidarr n'expose ni metadataSource ni writeAudioTags dans config.xml —
+      # ce sont des réglages en base (IConfigService), donc aucun override
+      # d'environnement n'existe. Les deux sont de l'état impératif, et c'est
+      # le même appel API qui les porte.
+      #
+      # `writeAudioTags = allFiles` (« All files; initial import only ») +
+      # `embedCoverArt` : sans ça, les fichiers importés gardent les tags du
+      # torrent (ALBUMARTIST absent ou fautif → Navidrome éclate un album par
+      # artiste de piste) et n'ont aucune pochette embarquée (Navidrome ne
+      # télécharge jamais d'image). Corollaire assumé : l'écriture des tags se
+      # fait sur le fichier hardlinké, donc le hash du torrent correspondant
+      # devient invalide (Lidarr #1016) — voir P32.
       #
       # Le service ne fait AUCUNE attente : il tente une fois, échoue vite si
       # Lidarr (Type=simple : actif avant que l'API écoute) ou le provider ne
@@ -57,7 +66,7 @@ _: {
       # service actif après succès, ce qui désarme le timer : la bascule
       # idempotente ne se rejoue plus (hors reboot).
       systemd.services.lidarr-metadata-switch = {
-        description = "Point Lidarr at the self-hosted metadata provider";
+        description = "Pin Lidarr metadata source, tag writing and cover embedding";
         after = [
           "lidarr.service"
           "podman-lidarr-metadata.service"
@@ -76,6 +85,7 @@ _: {
         script = ''
           cfg=/mnt/ultra/lidarr/config.xml
           api="http://127.0.0.1:8686/api/v1/config/metadataprovider"
+          tags="allFiles"
 
           test -f "$cfg" || { echo "config.xml pas encore écrit par Lidarr"; exit 1; }
 
@@ -85,27 +95,38 @@ _: {
           current=$(curl -fsS --max-time 10 -H "X-Api-Key: $key" "$api") \
             || { echo "API Lidarr injoignable"; exit 1; }
 
-          current_source=$(printf '%s' "$current" | jq -r '.metadataSource // ""')
-          if [ "$current_source" = "${target}" ]; then
-            echo "metadataSource déjà positionné sur ${target}"
+          cur_source=$(printf '%s' "$current" | jq -r '.metadataSource // ""')
+          cur_tags=$(printf '%s' "$current" | jq -r '.writeAudioTags // ""')
+          cur_embed=$(printf '%s' "$current" | jq -r '.embedCoverArt // false')
+
+          if [ "$cur_source" = "${target}" ] && [ "$cur_tags" = "$tags" ] && [ "$cur_embed" = "true" ]; then
+            echo "config metadata déjà conforme (source, writeAudioTags, embedCoverArt)"
             exit 0
           fi
 
-          # Ne bascule que si le provider répond : sinon on laisserait Lidarr
-          # sur un metadataSource injoignable si le conteneur est en échec.
-          curl -fsS --max-time 5 "http://127.0.0.1:${toString port}/healthz" >/dev/null \
-            || { echo "metadata-provider pas prêt (healthz KO)"; exit 1; }
+          # Ne bascule la source que si le provider répond : sinon on laisserait
+          # Lidarr sur un metadataSource injoignable si le conteneur est en échec.
+          # Les autres réglages n'en dépendent pas.
+          if [ "$cur_source" != "${target}" ]; then
+            curl -fsS --max-time 5 "http://127.0.0.1:${toString port}/healthz" >/dev/null \
+              || { echo "metadata-provider pas prêt (healthz KO)"; exit 1; }
+          fi
 
-          updated=$(printf '%s' "$current" | jq --arg src "${target}" '.metadataSource = $src')
+          updated=$(printf '%s' "$current" | jq --arg src "${target}" --arg tags "$tags" \
+            '.metadataSource = $src | .writeAudioTags = $tags | .embedCoverArt = true')
           curl -fsS --max-time 30 -X PUT -H "X-Api-Key: $key" -H "Content-Type: application/json" \
             -d "$updated" "$api" >/dev/null || { echo "PUT refusé par Lidarr"; exit 1; }
 
-          verify=$(curl -fsS --max-time 10 -H "X-Api-Key: $key" "$api" | jq -r '.metadataSource // ""')
-          [ "$verify" = "${target}" ] || {
-            echo "la bascule n'a pas pris (metadataSource=$verify)"
+          verify=$(curl -fsS --max-time 10 -H "X-Api-Key: $key" "$api")
+          v_source=$(printf '%s' "$verify" | jq -r '.metadataSource // ""')
+          v_tags=$(printf '%s' "$verify" | jq -r '.writeAudioTags // ""')
+          v_embed=$(printf '%s' "$verify" | jq -r '.embedCoverArt // false')
+          if [ "$v_source" = "${target}" ] && [ "$v_tags" = "$tags" ] && [ "$v_embed" = "true" ]; then
+            echo "Lidarr : source=${target}, writeAudioTags=$tags, embedCoverArt=true"
+          else
+            echo "la config n'a pas pris (source=$v_source tags=$v_tags embed=$v_embed)"
             exit 1
-          }
-          echo "Lidarr pointe sur ${target}"
+          fi
         '';
       };
 
