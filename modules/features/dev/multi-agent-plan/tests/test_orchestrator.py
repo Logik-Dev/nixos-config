@@ -5,10 +5,12 @@ ou via le check Nix `multi-agent-plan`.
 """
 
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -187,6 +189,144 @@ class SentinelCompatTests(unittest.TestCase):
                 "FINAL_PLAN": ("<<<FINAL_PLAN>>>", "<<<END_FINAL_PLAN>>>"),
             },
         )
+
+
+def make_session_db(path, rows=()):
+    connection = sqlite3.connect(path)
+    connection.execute(
+        "CREATE TABLE session ("
+        "id TEXT PRIMARY KEY,"
+        "directory TEXT NOT NULL,"
+        "time_created INTEGER NOT NULL,"
+        "cost REAL DEFAULT 0 NOT NULL,"
+        "tokens_input INTEGER DEFAULT 0 NOT NULL,"
+        "tokens_output INTEGER DEFAULT 0 NOT NULL,"
+        "tokens_reasoning INTEGER DEFAULT 0 NOT NULL,"
+        "tokens_cache_read INTEGER DEFAULT 0 NOT NULL,"
+        "tokens_cache_write INTEGER DEFAULT 0 NOT NULL)"
+    )
+    connection.executemany(
+        "INSERT INTO session (id, directory, time_created, cost, tokens_input,"
+        " tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    connection.commit()
+    connection.close()
+
+
+class SessionMetricsTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.db = Path(tmp.name) / "opencode.db"
+
+    def fixture(self, rows=()):
+        make_session_db(self.db, rows)
+        return str(self.db)
+
+    def test_lit_cout_et_tokens(self):
+        path = self.fixture([("ses_1", "/repo", 1000, 0.25, 10, 20, 5, 30, 40)])
+        self.assertEqual(
+            orchestrator.session_metrics(path, "ses_1"),
+            {
+                "cost_usd": 0.25,
+                "tokens": {
+                    "input": 10,
+                    "output": 20,
+                    "reasoning": 5,
+                    "cache_read": 30,
+                    "cache_write": 40,
+                },
+            },
+        )
+
+    def test_session_inconnue(self):
+        path = self.fixture()
+        self.assertIsNone(orchestrator.session_metrics(path, "ses_absente"))
+
+    def test_base_absente_ne_leve_pas(self):
+        self.assertIsNone(orchestrator.session_metrics(str(self.db), "ses_1"))
+
+    def test_schema_mouvant_ne_leve_pas(self):
+        sqlite3.connect(self.db).close()
+        self.assertIsNone(orchestrator.session_metrics(str(self.db), "ses_1"))
+
+    def test_newest_session_filtre_repertoire_et_date(self):
+        path = self.fixture(
+            [
+                ("ses_ancienne", "/repo", 1000, 0, 0, 0, 0, 0, 0),
+                ("ses_autre", "/autre", 9000, 0, 0, 0, 0, 0, 0),
+                ("ses_recente", "/repo", 3000, 0, 0, 0, 0, 0, 0),
+                ("ses_derniere", "/repo", 8000, 0, 0, 0, 0, 0, 0),
+            ]
+        )
+        with mock.patch.object(orchestrator, "db_path", return_value=path):
+            self.assertEqual(orchestrator.newest_session("/repo", 2.0), "ses_derniere")
+
+    def test_newest_session_aucune_correspondance(self):
+        path = self.fixture([("ses_ancienne", "/repo", 1000, 0, 0, 0, 0, 0, 0)])
+        with mock.patch.object(orchestrator, "db_path", return_value=path):
+            self.assertIsNone(orchestrator.newest_session("/repo", 2.0))
+
+
+class UsageTokensTests(unittest.TestCase):
+    def test_normalise_l_usage_claude(self):
+        tokens = orchestrator.usage_tokens(
+            {
+                "input_tokens": 12,
+                "output_tokens": 34,
+                "cache_read_input_tokens": 56,
+                "cache_creation_input_tokens": 78,
+            }
+        )
+        self.assertEqual(
+            tokens,
+            {"input": 12, "output": 34, "reasoning": 0, "cache_read": 56, "cache_write": 78},
+        )
+
+    def test_usage_absent_ou_non_dict(self):
+        self.assertIsNone(orchestrator.usage_tokens(None))
+        self.assertIsNone(orchestrator.usage_tokens([1, 2]))
+
+
+class PhaseSummaryTests(unittest.TestCase):
+    def test_agrege_durees_tokens_et_cout(self):
+        summary = orchestrator.phase_summary(
+            {
+                "plan": {
+                    "duration_s": 10.0,
+                    "cost_usd": 0.5,
+                    "tokens": {
+                        "input": 1,
+                        "output": 2,
+                        "reasoning": 0,
+                        "cache_read": 3,
+                        "cache_write": 0,
+                    },
+                },
+                "review": {
+                    "duration_s": 5.5,
+                    "cost_usd": 0.25,
+                    "tokens": {
+                        "input": 10,
+                        "output": 20,
+                        "reasoning": 0,
+                        "cache_read": 30,
+                        "cache_write": 0,
+                    },
+                },
+            }
+        )
+        self.assertEqual(summary["duration_s"], 15.5)
+        self.assertEqual(summary["cost_usd"], 0.75)
+        self.assertEqual(summary["tokens"]["cache_read"], 33)
+        self.assertEqual(summary["total_tokens"], 66)
+
+    def test_phase_sans_mesure(self):
+        summary = orchestrator.phase_summary({"plan-capture": {"duration_s": 29.2, "exit_code": 0}})
+        self.assertEqual(summary["cost_usd"], 0.0)
+        self.assertEqual(summary["total_tokens"], 0)
 
 
 if __name__ == "__main__":

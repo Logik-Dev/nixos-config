@@ -26,6 +26,7 @@ import re
 import shlex
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import textwrap
@@ -48,6 +49,7 @@ MIN_BLOCK_CHARS = 40
 STEP_RE = re.compile(r"^##\s+Step\s+(\d+)\s*[—–:-]\s*(.+?)\s*$", re.MULTILINE)
 COMMIT_RE = re.compile(r"^\*\*Commit\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
 TEST_TAIL = 30
+TOKEN_KEYS = ("input", "output", "reasoning", "cache_read", "cache_write")
 
 
 class Failure(Exception):
@@ -233,6 +235,145 @@ def show_commit(repo, commit):
     subprocess.run(["git", "-C", str(repo), "show", "--stat", "--oneline", "--no-renames", commit])
 
 
+def empty_tokens():
+    return {key: 0 for key in TOKEN_KEYS}
+
+
+def int_or_zero(value):
+    return int(value) if isinstance(value, (int, float)) else 0
+
+
+def usage_tokens(usage):
+    """Normalise l'objet `usage` de Claude en tokens comparables à OpenCode."""
+    if not isinstance(usage, dict):
+        return None
+    return {
+        "input": int_or_zero(usage.get("input_tokens")),
+        "output": int_or_zero(usage.get("output_tokens")),
+        "reasoning": int_or_zero(usage.get("reasoning_tokens")),
+        "cache_read": int_or_zero(usage.get("cache_read_input_tokens")),
+        "cache_write": int_or_zero(usage.get("cache_creation_input_tokens")),
+    }
+
+
+def token_total(tokens):
+    if not isinstance(tokens, dict):
+        return 0
+    return sum(
+        value
+        for key, value in tokens.items()
+        if key in TOKEN_KEYS and isinstance(value, (int, float))
+    )
+
+
+def phase_summary(phases):
+    """Résumé agrégé (durées, tokens, coût, total) des phases mesurées."""
+    duration = 0.0
+    cost = 0.0
+    tokens = empty_tokens()
+    for phase in phases.values():
+        duration += phase.get("duration_s") or 0
+        cost += phase.get("cost_usd") or 0
+        phase_tokens = phase.get("tokens") or {}
+        for key in TOKEN_KEYS:
+            value = phase_tokens.get(key)
+            if isinstance(value, (int, float)):
+                tokens[key] += value
+    return {
+        "duration_s": round(duration, 1),
+        "cost_usd": round(cost, 6),
+        "tokens": tokens,
+        "total_tokens": sum(tokens.values()),
+    }
+
+
+def db_path(opencode_bin="opencode"):
+    """Chemin de la base OpenCode (`opencode db path`), ou None."""
+    try:
+        proc = subprocess.run(
+            [opencode_bin, "db", "path"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+def session_metrics(db_path, session_id):
+    """Coût et tokens d'une session OpenCode, ou None — jamais Failure.
+
+    Lecture seule (`file:<path>?mode=ro`) : schéma mouvant, WAL exigeant une
+    récupération ou connexion ro refusée ne sont que des avertissements, la
+    mesure ne doit jamais faire échouer une phase.
+    """
+    if not db_path:
+        log("attention : base opencode introuvable — métriques de session indisponibles")
+        return None
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5)
+    except sqlite3.Error as exc:
+        log(f"attention : base opencode illisible ({exc}) — métriques indisponibles")
+        return None
+    try:
+        row = connection.execute(
+            "SELECT cost, tokens_input, tokens_output, tokens_reasoning,"
+            " tokens_cache_read, tokens_cache_write FROM session WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+    except sqlite3.Error as exc:
+        log(f"attention : schéma opencode inattendu ({exc}) — métriques indisponibles")
+        return None
+    finally:
+        connection.close()
+    if row is None:
+        log(f"attention : session opencode {session_id} introuvable — métriques indisponibles")
+        return None
+    cost, input_tokens, output_tokens, reasoning, cache_read, cache_write = row
+    return {
+        "cost_usd": cost if isinstance(cost, (int, float)) else 0.0,
+        "tokens": {
+            "input": int_or_zero(input_tokens),
+            "output": int_or_zero(output_tokens),
+            "reasoning": int_or_zero(reasoning),
+            "cache_read": int_or_zero(cache_read),
+            "cache_write": int_or_zero(cache_write),
+        },
+    }
+
+
+def newest_session(repo, since, opencode_bin="opencode"):
+    """Id de la session OpenCode du dépôt créée après `since` (epoch secondes).
+
+    `session` porte `directory`, `time_created` (ms) et les métriques : un seul
+    SELECT suffit, sans `opencode session list` ni SQL à placeholders.
+    """
+    path = db_path(opencode_bin)
+    if not path:
+        log("attention : base opencode introuvable (opencode db path) — session non résolue")
+        return None
+    try:
+        connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5)
+        try:
+            row = connection.execute(
+                "SELECT id FROM session WHERE directory = ? AND time_created >= ?"
+                " ORDER BY time_created DESC LIMIT 1",
+                (str(repo), int(since * 1000)),
+            ).fetchone()
+        finally:
+            connection.close()
+    except sqlite3.Error as exc:
+        log(f"attention : base opencode illisible ({exc}) — session non résolue")
+        return None
+    if row is None:
+        log(f"attention : aucune session opencode pour {repo} depuis {since:.0f} — session non résolue")
+        return None
+    return row[0]
+
+
 def append_journal(path, line):
     with path.open("a", encoding="utf-8") as handle:
         handle.write(line)
@@ -405,6 +546,7 @@ class Run:
         self.meta["finished"] = stamp()
         self.meta["run_dir"] = str(self.run_dir)
         self.meta["vcs"] = self.vcs()
+        self.meta["summary"] = phase_summary(self.meta["phases"])
         path = self.run_dir / "meta.json"
         path.write_text(json.dumps(self.meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -432,14 +574,20 @@ class Run:
         if payload.get("is_error"):
             raise Failure(f"{tag}: claude a signalé une erreur — voir {log_path}")
         cost = payload.get("total_cost_usd")
+        usage = payload.get("usage")
+        tokens = usage_tokens(usage)
         self.meta["phases"][tag] = {
             "duration_s": duration,
             "exit_code": returncode,
             "session_id": payload.get("session_id"),
             "cost_usd": cost,
             "num_turns": payload.get("num_turns"),
+            "usage": usage,
+            "tokens": tokens,
         }
         suffix = f" ({cost:.4f} $)" if isinstance(cost, (int, float)) else ""
+        if tokens:
+            suffix += f" ({token_total(tokens)} tokens)"
         log(f"{tag}: terminé en {duration}s{suffix}")
         return text
 
@@ -468,8 +616,20 @@ class Run:
         duration = round(time.time() - started, 1)
         if returncode != 0:
             raise Failure(f"{tag}: opencode a échoué (code {returncode}) — voir {log_path}")
-        self.meta["phases"][tag] = {"duration_s": duration, "exit_code": returncode}
-        log(f"{tag}: terminé en {duration}s")
+        entry = {"duration_s": duration, "exit_code": returncode}
+        session_id = newest_session(self.repo, started, self.args.opencode_bin)
+        if session_id:
+            metrics = session_metrics(db_path(self.args.opencode_bin), session_id)
+            if metrics:
+                entry.update(metrics)
+                entry["session_id"] = session_id
+        self.meta["phases"][tag] = entry
+        suffix = ""
+        if entry.get("cost_usd") is not None:
+            suffix += f" ({entry['cost_usd']:.4f} $)"
+        if entry.get("tokens"):
+            suffix += f" ({token_total(entry['tokens'])} tokens)"
+        log(f"{tag}: terminé en {duration}s{suffix}")
         return ANSI_RE.sub("", output)
 
     def call_opencode(self, tag, prompt, block, continue_session=False):
