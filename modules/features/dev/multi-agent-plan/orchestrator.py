@@ -72,6 +72,29 @@ TOKEN_KEYS = ("input", "output", "reasoning", "cache_read", "cache_write")
 MAX_CAPTURE_PARTS = 20
 CAPTURE_MARKERS = (SENTINELS["BRIEF"][0], SENTINELS["FINAL_PLAN"][0])
 AGENT_LINE_RE = re.compile(r"^(\S+) \((?:primary|subagent|all)\)\s*$", re.MULTILINE)
+CONTEXT_PACK_MAX_BYTES = 32768
+CONTEXT_PACK_INVENTORY_BYTES = 8192
+CONTEXT_PACK_FILE_BYTES = 6144
+CONTEXT_PACK_DISABLED = (
+    "Exploration libre : pack de contexte désactivé (--no-context-pack) — "
+    "explore le dépôt en lecture seule selon la méthode ci-dessus."
+)
+CONTEXT_PACK_UNAVAILABLE = (
+    "Exploration libre : pack de contexte indisponible (dépôt non suivi par git) — "
+    "explore le dépôt en lecture seule selon la méthode ci-dessus."
+)
+LANGUAGE_BY_SUFFIX = {
+    ".py": "python",
+    ".nix": "nix",
+    ".md": "markdown",
+    ".sh": "bash",
+    ".json": "json",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+    ".toml": "toml",
+    ".ini": "ini",
+    ".txt": "text",
+}
 
 
 class Failure(Exception):
@@ -401,6 +424,132 @@ def agent_names(opencode_bin="opencode"):
     return names or None
 
 
+def git_files(repo):
+    """Fichiers suivis par git — [(chemin, taille)], triés par chemin.
+
+    Une seule commande (`git ls-files -z --format=%(path) %(objectsize)`), sans
+    LLM. Dépôt absent, non suivi ou binaire illisible : liste vide, jamais
+    Failure — le pack est une optimisation de coût, pas un prérequis de phase.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo), "ls-files", "-z", "--format=%(path) %(objectsize)"],
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return []
+    if proc.returncode != 0:
+        return []
+    entries = []
+    for record in proc.stdout.split("\0"):
+        if not record:
+            continue
+        path, _, size = record.rpartition(" ")
+        if not path:
+            continue
+        try:
+            entries.append((path, int(size)))
+        except ValueError:
+            continue
+    return sorted(entries)
+
+
+def plan_file_paths(plan, tracked):
+    """Chemins suivis cités dans les champs **Files** du plan, triés sans doublon.
+
+    Les plans citent tantôt le chemin complet, tantôt un chemin relatif
+    (`orchestrator.py`) : un suffixe `/<chemin>` unique suffit à résoudre. Les
+    mentions non résolues (fichiers nouveaux, prose, annotations) sont ignorées ;
+    le tri rend le pack reproductible.
+    """
+    known = set(tracked)
+    resolved = set()
+    for value in FILES_RE.findall(plan or ""):
+        for token in re.split(r"[,\s]+", value):
+            candidate = token.strip().strip("`").strip()
+            if not candidate:
+                continue
+            if candidate in known:
+                resolved.add(candidate)
+                continue
+            matches = [path for path in known if path.endswith("/" + candidate)]
+            if len(matches) == 1:
+                resolved.add(matches[0])
+    return sorted(resolved)
+
+
+def read_extract(repo, path, limit=CONTEXT_PACK_FILE_BYTES):
+    """Extrait texte borné d'un fichier suivi — None si binaire ou illisible."""
+    try:
+        raw = (repo / path).read_bytes()
+    except OSError:
+        return None
+    if b"\0" in raw:
+        return None
+    if len(raw) > limit:
+        text = raw[:limit].decode("utf-8", errors="ignore").rstrip()
+        return f"{text}\n… (extrait tronqué)"
+    return raw.decode("utf-8", errors="replace")
+
+
+def extract_block(path, extract):
+    language = LANGUAGE_BY_SUFFIX.get(Path(path).suffix.lower(), "")
+    return f"### `{path}`\n\n```{language}\n{extract.rstrip()}\n```\n"
+
+
+def inventory_lines(entries, limit=CONTEXT_PACK_INVENTORY_BYTES):
+    """Liste Markdown bornée `- chemin — taille o`, avec compte des omis."""
+    lines = []
+    used = 0
+    for path, size in entries:
+        line = f"- `{path}` — {size} o\n"
+        if used + len(line.encode("utf-8")) > limit:
+            break
+        lines.append(line)
+        used += len(line.encode("utf-8"))
+    omitted = len(entries) - len(lines)
+    if omitted:
+        lines.append(f"- … {omitted} fichier(s) non listé(s) (plafond inventaire)\n")
+    return "".join(lines)
+
+
+def clip_bytes(text, limit):
+    """Tronque un texte à `limit` octets UTF-8 sans couper un caractère."""
+    raw = text.encode("utf-8")
+    if len(raw) <= limit:
+        return text
+    return raw[:limit].decode("utf-8", errors="ignore")
+
+
+def build_context_pack(repo, plan=None, max_bytes=CONTEXT_PACK_MAX_BYTES):
+    """Pack de contexte déterministe, construit sans LLM.
+
+    Inventaire `git ls-files` + tailles, puis — si un plan est fourni — extraits
+    bornés des fichiers cités dans ses champs **Files**. Trié par chemin et
+    plafonné en octets : à dépôt et plan identiques, pack identique. Chaîne
+    vide si le dépôt n'est pas suivi par git (l'appelant replie alors sur une
+    consigne d'exploration libre).
+    """
+    entries = git_files(repo)
+    if not entries:
+        return ""
+    tracked = [path for path, _ in entries]
+    sections = [f"# Context pack — {len(entries)} fichier(s) suivi(s) par git\n"]
+    sections.append(inventory_lines(entries))
+    if plan:
+        blocks = [
+            extract_block(path, extract)
+            for path in plan_file_paths(plan, tracked)
+            if (extract := read_extract(repo, path)) is not None
+        ]
+        if blocks:
+            sections.append(f"## Extraits des fichiers cités par le plan ({len(blocks)})\n")
+            sections.extend(blocks)
+    pack = "\n".join(section.rstrip() for section in sections).rstrip() + "\n"
+    return clip_bytes(pack, max_bytes)
+
+
 def session_metrics(db_path, session_id):
     """Coût et tokens d'une session OpenCode, ou None — jamais Failure.
 
@@ -701,6 +850,18 @@ class Run:
                 return text
         return "(tâche précisée en session interactive — cf. 01-plan.md)"
 
+    def context_pack(self, plan=None):
+        """Pack de contexte des prompts Claude, ou une consigne d'exploration libre.
+
+        Jamais Failure : désactivé (`--no-context-pack`) ou sans git, le prompt
+        reçoit une phrase explicite à la place du pack. `plan` fournit les
+        chemins `**Files**` dont les extraits sont joints ; None (phase plan
+        Claude, sans plan) ne joint que l'inventaire git.
+        """
+        if not self.args.context_pack:
+            return CONTEXT_PACK_DISABLED
+        return build_context_pack(self.repo, plan) or CONTEXT_PACK_UNAVAILABLE
+
     def save_meta(self):
         if self.args.dry_run:
             return
@@ -859,6 +1020,7 @@ class Run:
                 repo=str(self.repo),
                 test_cmd=test_cmd,
                 vcs=self.vcs(),
+                context_pack=self.context_pack(),
             )
             plan = self.call_claude("plan", prompt, effort="high")
         else:
@@ -969,6 +1131,7 @@ class Run:
                 plan=plan,
                 test_cmd=test_cmd,
                 vcs=vcs,
+                context_pack=self.context_pack(plan),
             )
             text = self.call_claude(
                 "review-claude",
@@ -1432,6 +1595,17 @@ def parse_args(argv):
         help=(
             "outils Claude autorisés (--tools), non passé par défaut ; allowlist "
             "minimale conseillée en review : Read,Grep,Glob"
+        ),
+    )
+    parser.add_argument(
+        "--context-pack",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "injecter dans les prompts Claude un pack de contexte déterministe "
+            "(inventaire git + extraits des fichiers cités par le plan), pour "
+            "borner leurs tours (défaut : activé — cf. protocole de mesure dans "
+            "docs/multi-agent-plan.md) ; --no-context-pack rend l'exploration libre"
         ),
     )
     parser.add_argument("--opencode-bin", default="opencode")

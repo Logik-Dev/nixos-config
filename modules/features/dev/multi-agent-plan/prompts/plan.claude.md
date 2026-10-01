@@ -7,6 +7,10 @@ Contexte :
 - Commande de test : {{test_cmd}}
 - VCS : {{vcs}} — messages de commit en Conventional Commits.
 
+Pack de contexte (inventaire git borné, sans LLM ; complète avec Read/Grep si
+nécessaire, en lecture seule) :
+{{context_pack}}
+
 Méthode :
 - Explore le dépôt en lecture seule : structure, conventions (CLAUDE.md / AGENTS.md), tests, outillage.
 - Repère les fichiers concernés et les contraintes existantes.

@@ -69,3 +69,25 @@ Lectures :
   plan OpenCode par défaut), avant l'effort de review Claude (étape 10).
 - Reviews parallèles (185 s ≈ phase 2), synthèse 89 s.
 - Run sain : 2 étapes atomiques détectées, aucun échec de phase.
+
+## Context pack déterministe
+
+L'orchestrateur construit, pour les prompts **Claude** uniquement, un pack de
+contexte **sans LLM** :
+
+- inventaire `git ls-files -z --format=%(path) %(objectsize)` (chemins + tailles),
+  trié par chemin, plafonné à 8 Ko ;
+- extraits Markdown des fichiers cités dans les champs `**Files**` du plan
+  (résolus par chemin exact ou suffixe unique, annotations ignorées), triés,
+  6 Ko par fichier, 32 Ko au total.
+
+Le tout est reproductible : à dépôt et plan identiques, pack identique (aucun
+appel LLM, aucune horloge, aucune variable d'environnement). Sans git, la
+chaîne est vide et le prompt reçoit une consigne d'exploration libre.
+
+**Défaut : activé.** Le protocole de mesure ci-dessus tranche : sur la baseline
+0.2.0, Claude représente **99,2 % du coût** (3,4260 $ / 3,4530 $) et le plan
+seul **78,2 % du total** — le poste dominant est l'exploration du modèle
+payant, qu'un pack borné réduit. OpenCode, à 0,8 % du coût, garde
+l'exploration libre : le pack ne lui est jamais injecté. `--no-context-pack`
+désactive l'injection (les prompts Claude retombent sur l'exploration libre).

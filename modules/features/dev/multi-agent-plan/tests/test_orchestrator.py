@@ -479,6 +479,164 @@ class GitCommitTests(unittest.TestCase):
         self.assertEqual(orchestrator.commit_count(self.repo, "inconnu", "HEAD"), 1)
 
 
+class ContextPackGitTests(unittest.TestCase):
+    """git_files/build_context_pack sur un dépôt git temporaire réel."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.repo = Path(tmp.name)
+        self.git("init")
+
+    def git(self, *args):
+        env = {
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_AUTHOR_NAME": "Tests",
+            "GIT_AUTHOR_EMAIL": "tests@example.invalid",
+            "GIT_COMMITTER_NAME": "Tests",
+            "GIT_COMMITTER_EMAIL": "tests@example.invalid",
+        }
+        proc = subprocess.run(
+            ["git", "-C", str(self.repo), *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        return proc.stdout
+
+    def write(self, rel, text):
+        path = self.repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        self.git("add", rel)
+
+    def test_git_files_trie_avec_tailles(self):
+        self.write("b.txt", "bbbbb")
+        self.write("a/c.txt", "ccc")
+        self.assertEqual(
+            orchestrator.git_files(self.repo),
+            [("a/c.txt", 3), ("b.txt", 5)],
+        )
+
+    def test_git_files_hors_depot_vide(self):
+        with tempfile.TemporaryDirectory() as other:
+            self.assertEqual(orchestrator.git_files(other), [])
+
+    def test_pack_inventaire_et_extraits_tries(self):
+        self.write("b.txt", "contenu b\n")
+        self.write("a/orchestrator.py", "print('pack')\n")
+        plan = "## Step 1 — Un\n**Files**: `orchestrator.py`\nCorps.\n"
+        pack = orchestrator.build_context_pack(self.repo, plan)
+        self.assertIn("`a/orchestrator.py`", pack)
+        self.assertIn("print('pack')", pack)
+        self.assertIn("`b.txt`", pack)
+        self.assertLess(pack.index("a/orchestrator.py"), pack.index("b.txt"))
+        self.assertEqual(pack, orchestrator.build_context_pack(self.repo, plan))
+
+    def test_pack_sans_plan_inventaire_seul(self):
+        self.write("a.py", "x = 1\n")
+        pack = orchestrator.build_context_pack(self.repo)
+        self.assertNotIn("Extraits", pack)
+        self.assertIn("`a.py`", pack)
+
+    def test_pack_plafonne_en_octets(self):
+        self.write("gros.txt", "x" * 5000)
+        plan = "## Step 1 — Un\n**Files**: `gros.txt`\nCorps.\n"
+        pack = orchestrator.build_context_pack(self.repo, plan, max_bytes=512)
+        self.assertLessEqual(len(pack.encode("utf-8")), 512)
+        self.assertIn("gros.txt", pack)
+
+    def test_pack_binaire_sans_extrait(self):
+        self.write("bin.dat", "\0binaire")
+        plan = "**Files**: `bin.dat`\n"
+        pack = orchestrator.build_context_pack(self.repo, plan)
+        self.assertIn("`bin.dat`", pack)
+        self.assertNotIn("### `bin.dat`", pack)
+
+    def test_pack_hors_depot_vide(self):
+        with tempfile.TemporaryDirectory() as other:
+            self.assertEqual(orchestrator.build_context_pack(other), "")
+
+
+class PlanFilePathsTests(unittest.TestCase):
+    TRACKED = [
+        "docs/multi-agent-plan.md",
+        "modules/features/dev/multi-agent-plan/orchestrator.py",
+        "modules/features/dev/multi-agent-plan/prompts/review.claude.md",
+        "modules/features/dev/multi-agent-plan/tests/test_orchestrator.py",
+    ]
+
+    def test_resout_exact_et_suffixe_unique(self):
+        plan = (
+            "## Step 11 — Context pack\n"
+            "**Files**: `orchestrator.py`, `prompts/review.claude.md` (Claude uniquement), "
+            "`docs/multi-agent-plan.md`, `tests/test_orchestrator.py` (nouveau)\n"
+            "**Tests**: `nix flake check`\n"
+        )
+        self.assertEqual(
+            orchestrator.plan_file_paths(plan, self.TRACKED),
+            [
+                "docs/multi-agent-plan.md",
+                "modules/features/dev/multi-agent-plan/orchestrator.py",
+                "modules/features/dev/multi-agent-plan/prompts/review.claude.md",
+                "modules/features/dev/multi-agent-plan/tests/test_orchestrator.py",
+            ],
+        )
+
+    def test_suffixe_ambigu_ignore(self):
+        tracked = ["a/__init__.py", "b/__init__.py"]
+        self.assertEqual(
+            orchestrator.plan_file_paths("**Files**: `__init__.py`\n", tracked), []
+        )
+
+    def test_doublons_et_annotations_ignores(self):
+        plan = "**Files**: `x.py`, `x.py` (nouveau), `absent.py`\n"
+        self.assertEqual(orchestrator.plan_file_paths(plan, ["x.py"]), ["x.py"])
+
+    def test_sans_plan(self):
+        self.assertEqual(orchestrator.plan_file_paths("", ["x.py"]), [])
+        self.assertEqual(orchestrator.plan_file_paths(None, ["x.py"]), [])
+
+
+class RunContextPackTests(unittest.TestCase):
+    def setUp(self):
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.repo = Path("/repo")
+        self.run.args = mock.Mock(context_pack=True)
+
+    def test_pack_fourni(self):
+        with mock.patch.object(
+            orchestrator, "build_context_pack", return_value="PACK"
+        ) as builder:
+            self.assertEqual(self.run.context_pack("plan"), "PACK")
+        builder.assert_called_once_with(self.run.repo, "plan")
+
+    def test_desactive_sans_appel_git(self):
+        self.run.args.context_pack = False
+        with mock.patch.object(orchestrator, "build_context_pack") as builder:
+            self.assertEqual(self.run.context_pack(), orchestrator.CONTEXT_PACK_DISABLED)
+        builder.assert_not_called()
+
+    def test_indisponible_consigne_libre(self):
+        with mock.patch.object(orchestrator, "build_context_pack", return_value=""):
+            self.assertEqual(self.run.context_pack(), orchestrator.CONTEXT_PACK_UNAVAILABLE)
+
+
+class ContextPackArgsTests(unittest.TestCase):
+    def parse(self, *argv):
+        with mock.patch("sys.stderr"):
+            return orchestrator.parse_args(list(argv))
+
+    def test_actif_par_defaut(self):
+        self.assertTrue(self.parse("--repo", "/tmp").context_pack)
+
+    def test_desactivable(self):
+        self.assertFalse(self.parse("--repo", "/tmp", "--no-context-pack").context_pack)
+
+
 def make_session_db(path, rows=(), messages=(), parts=()):
     connection = sqlite3.connect(path)
     connection.execute(
@@ -954,7 +1112,8 @@ class PhasePlanTests(unittest.TestCase):
         run.args = mock.Mock(**values)
         run.vcs = mock.Mock(return_value="jj")
         run.prompt = mock.Mock(
-            return_value="repo={{repo}} task={{task}} test={{test_cmd}} vcs={{vcs}}"
+            return_value="repo={{repo}} task={{task}} test={{test_cmd}} vcs={{vcs}} "
+            "context={{context_pack}}"
         )
         run.write_artifact = mock.Mock()
         return run
@@ -1003,6 +1162,28 @@ class PhasePlanTests(unittest.TestCase):
 
         self.assertEqual(run.call_claude.call_args.kwargs.get("effort"), "high")
         self.assertNotIn("tolerate_partial", run.call_claude.call_args.kwargs)
+
+    def test_plan_claude_injecte_le_pack_inventaire(self):
+        run = self.make_run(plan_with="claude")
+        run.args.context_pack = True
+        run.call_opencode = mock.Mock()
+        run.call_claude = mock.Mock(return_value=CORPS_PLAN)
+        with mock.patch.object(
+            orchestrator, "build_context_pack", return_value="PACK"
+        ) as builder:
+            run.phase_plan()
+        builder.assert_called_once_with(run.repo, None)
+        self.assertIn("context=PACK", run.call_claude.call_args.args[1])
+
+    def test_plan_sans_pack_consigne_libre(self):
+        run = self.make_run(plan_with="claude")
+        run.args.context_pack = False
+        run.call_opencode = mock.Mock()
+        run.call_claude = mock.Mock(return_value=CORPS_PLAN)
+        with mock.patch.object(orchestrator, "build_context_pack") as builder:
+            run.phase_plan()
+        builder.assert_not_called()
+        self.assertIn("context=Exploration libre", run.call_claude.call_args.args[1])
 
 
 class CallClaudeEffortTests(unittest.TestCase):
@@ -1356,6 +1537,17 @@ class PhaseAgentTests(unittest.TestCase):
             call.args[0]: call.args[1] for call in run.write_artifact.call_args_list
         }
         self.assertNotIn("review tronquée", written["03-review-claude.md"])
+
+    def test_review_claude_recoit_le_pack_du_plan(self):
+        run = self.make_run()
+        run.args.context_pack = True
+        run.prompt = mock.Mock(return_value="review {{context_pack}}")
+        with mock.patch.object(
+            orchestrator, "build_context_pack", return_value="PACK"
+        ) as builder:
+            run.phase_reviews()
+        builder.assert_called_once_with(run.repo, CORPS_PLAN)
+        self.assertIn("review PACK", run.call_claude.call_args.args[1])
 
     def test_synth_utilise_l_agent_synth(self):
         run = self.make_run()
