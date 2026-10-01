@@ -3,8 +3,9 @@
 
 Pipeline :
   1. Sans --task/--task-file : session interactive OpenCode pour préciser le
-     plan, capturée via une passe headless `opencode run --continue` ; avec
-     --task/--task-file : Claude planifie en headless  -> 00-brief.md, 01-plan.md
+     plan, capturée sans appel LLM depuis la base locale (messages assistant),
+     avec repli `opencode run --session <id>` sinon ; avec --task/--task-file :
+     Claude planifie en headless                       -> 00-brief.md, 01-plan.md
   2. OpenCode et Claude relisent le plan en parallèle -> 02/03-review-*.md
   3. OpenCode fusionne le tout en plan atomique       -> 04-final-plan.md
   4. Exécution interactive, étape par étape, un commit
@@ -50,6 +51,8 @@ STEP_RE = re.compile(r"^##\s+Step\s+(\d+)\s*[—–:-]\s*(.+?)\s*$", re.MULTILIN
 COMMIT_RE = re.compile(r"^\*\*Commit\*\*\s*:\s*(.+?)\s*$", re.MULTILINE)
 TEST_TAIL = 30
 TOKEN_KEYS = ("input", "output", "reasoning", "cache_read", "cache_write")
+MAX_CAPTURE_PARTS = 20
+CAPTURE_MARKERS = (SENTINELS["BRIEF"][0], SENTINELS["FINAL_PLAN"][0])
 
 
 class Failure(Exception):
@@ -374,6 +377,44 @@ def newest_session(repo, since, opencode_bin="opencode"):
     return row[0]
 
 
+def session_plan_text(database, session_id, limit=MAX_CAPTURE_PARTS):
+    """Texte assistant le plus récent portant brief et plan final, ou None.
+
+    Le dernier message de la session n'est pas forcément le plan (remerciement,
+    question, appel d'outil, compaction) : on parcourt les textes assistant du
+    plus récent au plus ancien, bornés, et on retient le premier qui contient
+    les deux sentinelles. Lecture seule ; tout incident rend None, jamais
+    Failure — le repli headless décide ensuite.
+    """
+    if not database or not session_id:
+        return None
+    try:
+        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=5)
+    except sqlite3.Error as exc:
+        log(f"attention : base opencode illisible ({exc}) — capture locale impossible")
+        return None
+    try:
+        rows = connection.execute(
+            "SELECT json_extract(p.data, '$.text') FROM part AS p"
+            " JOIN message AS m ON m.id = p.message_id"
+            " WHERE p.session_id = ?"
+            " AND json_extract(m.data, '$.role') = 'assistant'"
+            " AND json_extract(p.data, '$.type') = 'text'"
+            " ORDER BY m.time_created DESC, p.time_created DESC"
+            " LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+    except sqlite3.Error as exc:
+        log(f"attention : schéma opencode inattendu ({exc}) — capture locale impossible")
+        return None
+    finally:
+        connection.close()
+    for (text,) in rows:
+        if isinstance(text, str) and all(marker in text for marker in CAPTURE_MARKERS):
+            return text
+    return None
+
+
 def append_journal(path, line):
     with path.open("a", encoding="utf-8") as handle:
         handle.write(line)
@@ -591,15 +632,15 @@ class Run:
         log(f"{tag}: terminé en {duration}s{suffix}")
         return text
 
-    def run_opencode(self, tag, prompt, continue_session=False):
+    def run_opencode(self, tag, prompt, session=None):
         # --auto : en headless, une permission "ask" (dont external_directory)
         # est auto-rejetée sans TTY, ce qui fait échouer l'exploration du dépôt.
         # L'agent plan est en lecture seule (edit/write absents), le risque est
         # donc limité à la lecture ; l'exécution interactive, elle, garde les
         # permissions "ask" pour l'utilisateur.
         cmd = [self.args.opencode_bin, "run"]
-        if continue_session:
-            cmd.append("--continue")
+        if session:
+            cmd += ["--session", session]
         cmd += [
             "--agent",
             self.args.plan_agent,
@@ -617,7 +658,7 @@ class Run:
         if returncode != 0:
             raise Failure(f"{tag}: opencode a échoué (code {returncode}) — voir {log_path}")
         entry = {"duration_s": duration, "exit_code": returncode}
-        session_id = newest_session(self.repo, started, self.args.opencode_bin)
+        session_id = session or newest_session(self.repo, started, self.args.opencode_bin)
         if session_id:
             metrics = session_metrics(db_path(self.args.opencode_bin), session_id)
             if metrics:
@@ -632,8 +673,8 @@ class Run:
         log(f"{tag}: terminé en {duration}s{suffix}")
         return ANSI_RE.sub("", output)
 
-    def call_opencode(self, tag, prompt, block, continue_session=False):
-        clean = self.run_opencode(tag, prompt, continue_session)
+    def call_opencode(self, tag, prompt, block):
+        clean = self.run_opencode(tag, prompt)
         opener, closer = SENTINELS[block]
         log_path = self.run_dir / "logs" / f"{tag}.log"
         return parse_block(clean, opener, closer, log_path=log_path)
@@ -646,6 +687,39 @@ class Run:
         prompt = render(self.prompt("plan", "claude"), task=self.task, repo=str(self.repo))
         self.write_artifact("01-plan.md", self.call_claude("plan", prompt))
 
+    def capture_interactive_plan(self, since, capture_prompt):
+        """Capture le plan de la session interactive, sans appel LLM si possible.
+
+        La base locale (`session_plan_text`) est lue en premier ; le repli
+        `opencode run --session <id>` ne tourne que si aucun texte balisé n'y
+        est trouvé. Retourne (plan, brief) ou (None, None).
+        """
+        session_id = newest_session(self.repo, since, self.args.opencode_bin)
+        text = None
+        if session_id:
+            text = session_plan_text(db_path(self.args.opencode_bin), session_id)
+        if text is None:
+            if not session_id:
+                log("attention : session interactive non résolue — capture locale impossible")
+                return None, None
+            log("aucun texte balisé dans la session — repli sur une capture headless")
+            try:
+                text = self.run_opencode("plan-capture", capture_prompt, session=session_id)
+            except Failure as exc:
+                log(f"capture inexploitable : {exc}")
+                return None, None
+        log_path = self.run_dir / "logs" / "plan-capture.log"
+        try:
+            plan = parse_block(text, *SENTINELS["FINAL_PLAN"], log_path=log_path)
+        except Failure as exc:
+            log(f"capture inexploitable : {exc}")
+            return None, None
+        try:
+            brief = parse_block(text, *SENTINELS["BRIEF"], log_path=log_path)
+        except Failure:
+            brief = None
+        return plan, brief
+
     def phase_plan_interactive(self):
         if not sys.stdin.isatty():
             raise Failure(
@@ -656,6 +730,7 @@ class Run:
         seed = render(self.prompt("plan", "opencode"), repo=str(self.repo))
         capture_prompt = render(self.prompt("capture", "opencode"), repo=str(self.repo))
         first = True
+        started = time.time()
         while True:
             log(f"ouverture de la TUI opencode (agent {self.args.plan_agent})")
             returncode = subprocess.call(
@@ -665,19 +740,9 @@ class Run:
             if returncode not in (0, 130):
                 log(f"TUI terminée avec le code {returncode}")
             first = False
-            log("capture headless du plan (opencode run --continue)")
-            clean = self.run_opencode("plan-capture", capture_prompt, continue_session=True)
-            log_path = self.run_dir / "logs" / "plan-capture.log"
-            try:
-                plan = parse_block(clean, *SENTINELS["FINAL_PLAN"], log_path=log_path)
-            except Failure as exc:
-                log(f"capture inexploitable : {exc}")
-                plan = None
+            log("capture du plan depuis la session interactive (lecture locale)")
+            plan, brief = self.capture_interactive_plan(started, capture_prompt)
             if plan:
-                try:
-                    brief = parse_block(clean, *SENTINELS["BRIEF"], log_path=log_path)
-                except Failure:
-                    brief = None
                 if brief:
                     self.task = brief
                     self.meta["task"] = brief[:4000]
@@ -954,7 +1019,8 @@ class Run:
                     f"-m {args.opencode_model} --prompt <{self.prompt_path('plan', 'opencode')}> (TUI interactif)"
                 )
                 print(
-                    f"     capture : {args.opencode_bin} run --continue --agent {args.plan_agent} "
+                    f"     capture : base opencode (part/message assistant) ; repli "
+                    f"{args.opencode_bin} run --session <id> --agent {args.plan_agent} "
                     f"-m {args.opencode_model} <{self.prompt_path('capture', 'opencode')}>"
                 )
         if "reviews" in phases:

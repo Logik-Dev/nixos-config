@@ -26,6 +26,11 @@ from orchestrator import (
 
 CORPS_REVIEW = "Review détaillée du plan, assez longue pour franchir le seuil minimal."
 CORPS_PLAN = "Plan détaillé, assez long lui aussi pour franchir le seuil minimal imposé."
+CORPS_BRIEF = "Brief concis mais suffisamment long pour dépasser le seuil minimal imposé."
+PLAN_TEXTE = (
+    f"<<<BRIEF>>>\n{CORPS_BRIEF}\n<<<END_BRIEF>>>\n\n"
+    f"<<<FINAL_PLAN>>>\n{CORPS_PLAN}\n<<<END_FINAL_PLAN>>>"
+)
 
 
 class RenderTests(unittest.TestCase):
@@ -191,7 +196,7 @@ class SentinelCompatTests(unittest.TestCase):
         )
 
 
-def make_session_db(path, rows=()):
+def make_session_db(path, rows=(), messages=(), parts=()):
     connection = sqlite3.connect(path)
     connection.execute(
         "CREATE TABLE session ("
@@ -205,14 +210,51 @@ def make_session_db(path, rows=()):
         "tokens_cache_read INTEGER DEFAULT 0 NOT NULL,"
         "tokens_cache_write INTEGER DEFAULT 0 NOT NULL)"
     )
+    connection.execute(
+        "CREATE TABLE message ("
+        "id TEXT PRIMARY KEY,"
+        "session_id TEXT NOT NULL,"
+        "time_created INTEGER NOT NULL,"
+        "time_updated INTEGER NOT NULL,"
+        "data TEXT NOT NULL)"
+    )
+    connection.execute(
+        "CREATE TABLE part ("
+        "id TEXT PRIMARY KEY,"
+        "message_id TEXT NOT NULL,"
+        "session_id TEXT NOT NULL,"
+        "time_created INTEGER NOT NULL,"
+        "time_updated INTEGER NOT NULL,"
+        "data TEXT NOT NULL)"
+    )
     connection.executemany(
         "INSERT INTO session (id, directory, time_created, cost, tokens_input,"
         " tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows,
     )
+    connection.executemany(
+        "INSERT INTO message (id, session_id, time_created, time_updated, data)"
+        " VALUES (?, ?, ?, ?, ?)",
+        messages,
+    )
+    connection.executemany(
+        "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        parts,
+    )
     connection.commit()
     connection.close()
+
+
+def message_row(identifier, session_id, time_created, role):
+    data = json.dumps({"role": role})
+    return (identifier, session_id, time_created, time_created, data)
+
+
+def part_row(identifier, message_id, session_id, time_created, part_type, text):
+    data = json.dumps({"type": part_type, "text": text})
+    return (identifier, message_id, session_id, time_created, time_created, data)
 
 
 class SessionMetricsTests(unittest.TestCase):
@@ -268,6 +310,184 @@ class SessionMetricsTests(unittest.TestCase):
         path = self.fixture([("ses_ancienne", "/repo", 1000, 0, 0, 0, 0, 0, 0)])
         with mock.patch.object(orchestrator, "db_path", return_value=path):
             self.assertIsNone(orchestrator.newest_session("/repo", 2.0))
+
+
+class SessionPlanTextTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.db = Path(tmp.name) / "opencode.db"
+
+    def fixture(self, messages=(), parts=()):
+        make_session_db(
+            self.db,
+            rows=[("ses_1", "/repo", 1000, 0, 0, 0, 0, 0, 0)],
+            messages=messages,
+            parts=parts,
+        )
+        return str(self.db)
+
+    def test_retient_le_dernier_texte_balise(self):
+        path = self.fixture(
+            messages=[
+                message_row("msg_1", "ses_1", 1000, "assistant"),
+                message_row("msg_2", "ses_1", 2000, "assistant"),
+                message_row("msg_3", "ses_1", 3000, "assistant"),
+            ],
+            parts=[
+                part_row("prt_1", "msg_1", "ses_1", 1000, "text", PLAN_TEXTE),
+                part_row("prt_2", "msg_2", "ses_1", 2000, "text", PLAN_TEXTE),
+                part_row("prt_3", "msg_3", "ses_1", 3000, "text", "Merci, à bientôt !"),
+            ],
+        )
+        self.assertEqual(orchestrator.session_plan_text(path, "ses_1"), PLAN_TEXTE)
+
+    def test_ignore_user_et_parts_non_textuelles(self):
+        path = self.fixture(
+            messages=[
+                message_row("msg_user", "ses_1", 3000, "user"),
+                message_row("msg_tool", "ses_1", 2000, "assistant"),
+                message_row("msg_plan", "ses_1", 1000, "assistant"),
+            ],
+            parts=[
+                part_row("prt_user", "msg_user", "ses_1", 3000, "text", PLAN_TEXTE),
+                part_row("prt_tool", "msg_tool", "ses_1", 2000, "tool", PLAN_TEXTE),
+                part_row("prt_plan", "msg_plan", "ses_1", 1000, "text", PLAN_TEXTE),
+            ],
+        )
+        self.assertEqual(orchestrator.session_plan_text(path, "ses_1"), PLAN_TEXTE)
+
+    def test_exige_les_deux_sentinelles(self):
+        partiel = f"<<<FINAL_PLAN>>>\n{CORPS_PLAN}\n<<<END_FINAL_PLAN>>>"
+        path = self.fixture(
+            messages=[
+                message_row("msg_partiel", "ses_1", 2000, "assistant"),
+                message_row("msg_plan", "ses_1", 1000, "assistant"),
+            ],
+            parts=[
+                part_row("prt_partiel", "msg_partiel", "ses_1", 2000, "text", partiel),
+                part_row("prt_plan", "msg_plan", "ses_1", 1000, "text", PLAN_TEXTE),
+            ],
+        )
+        self.assertEqual(orchestrator.session_plan_text(path, "ses_1"), PLAN_TEXTE)
+
+    def test_borne_les_parts_parcourues(self):
+        messages = [
+            message_row(f"msg_{index}", "ses_1", 2000 + index, "assistant")
+            for index in range(orchestrator.MAX_CAPTURE_PARTS)
+        ]
+        parts = [
+            part_row(f"prt_{index}", f"msg_{index}", "ses_1", 2000 + index, "text", "Merci !")
+            for index in range(orchestrator.MAX_CAPTURE_PARTS)
+        ]
+        messages.append(message_row("msg_vieux", "ses_1", 1000, "assistant"))
+        parts.append(part_row("prt_vieux", "msg_vieux", "ses_1", 1000, "text", PLAN_TEXTE))
+        path = self.fixture(messages=messages, parts=parts)
+        self.assertIsNone(orchestrator.session_plan_text(path, "ses_1"))
+        self.assertEqual(
+            orchestrator.session_plan_text(
+                path, "ses_1", limit=orchestrator.MAX_CAPTURE_PARTS + 1
+            ),
+            PLAN_TEXTE,
+        )
+
+    def test_sans_plan_ou_base_absente_sans_erreur(self):
+        path = self.fixture(
+            messages=[message_row("msg_1", "ses_1", 1000, "assistant")],
+            parts=[part_row("prt_1", "msg_1", "ses_1", 1000, "text", "Merci !")],
+        )
+        self.assertIsNone(orchestrator.session_plan_text(path, "ses_1"))
+        self.assertIsNone(orchestrator.session_plan_text(path, "ses_absente"))
+        self.assertIsNone(orchestrator.session_plan_text(None, "ses_1"))
+        self.assertIsNone(orchestrator.session_plan_text(path, None))
+        self.assertIsNone(orchestrator.session_plan_text(path + ".absente", "ses_1"))
+
+    def test_schema_inattendu_sans_erreur(self):
+        sqlite3.connect(self.db).close()
+        self.assertIsNone(orchestrator.session_plan_text(str(self.db), "ses_1"))
+
+
+class InteractiveCaptureTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.run = orchestrator.Run.__new__(orchestrator.Run)
+        self.run.repo = Path("/repo")
+        self.run.args = mock.Mock(opencode_bin="opencode")
+        self.run.run_dir = Path(tmp.name)
+
+    def test_plan_lu_dans_la_base_sans_repli(self):
+        with mock.patch.multiple(
+            orchestrator,
+            newest_session=mock.DEFAULT,
+            db_path=mock.DEFAULT,
+            session_plan_text=mock.DEFAULT,
+        ) as mocks:
+            mocks["newest_session"].return_value = "ses_1"
+            mocks["db_path"].return_value = "/db"
+            mocks["session_plan_text"].return_value = PLAN_TEXTE
+            with mock.patch.object(self.run, "run_opencode") as fallback:
+                self.assertEqual(
+                    self.run.capture_interactive_plan(100.0, "capture"),
+                    (CORPS_PLAN, CORPS_BRIEF),
+                )
+        fallback.assert_not_called()
+        mocks["session_plan_text"].assert_called_once_with("/db", "ses_1")
+
+    def test_repli_headless_cible_la_session(self):
+        with mock.patch.multiple(
+            orchestrator,
+            newest_session=mock.DEFAULT,
+            db_path=mock.DEFAULT,
+            session_plan_text=mock.DEFAULT,
+        ) as mocks:
+            mocks["newest_session"].return_value = "ses_1"
+            mocks["db_path"].return_value = "/db"
+            mocks["session_plan_text"].return_value = None
+            with mock.patch.object(self.run, "run_opencode", return_value=PLAN_TEXTE) as fallback:
+                self.assertEqual(
+                    self.run.capture_interactive_plan(100.0, "prompt capture"),
+                    (CORPS_PLAN, CORPS_BRIEF),
+                )
+        fallback.assert_called_once_with("plan-capture", "prompt capture", session="ses_1")
+
+    def test_session_non_resolue_sans_repli(self):
+        with mock.patch.object(orchestrator, "newest_session", return_value=None):
+            with mock.patch.object(self.run, "run_opencode") as fallback:
+                self.assertEqual(
+                    self.run.capture_interactive_plan(100.0, "capture"), (None, None)
+                )
+        fallback.assert_not_called()
+
+    def test_texte_incomplet_rend_none(self):
+        avec_repli = mock.patch.multiple(
+            orchestrator,
+            newest_session=mock.DEFAULT,
+            db_path=mock.DEFAULT,
+            session_plan_text=mock.DEFAULT,
+        )
+        with avec_repli as mocks:
+            mocks["newest_session"].return_value = "ses_1"
+            mocks["db_path"].return_value = "/db"
+            mocks["session_plan_text"].return_value = f"<<<FINAL_PLAN>>>\n{CORPS_PLAN}\n"
+            self.assertEqual(
+                self.run.capture_interactive_plan(100.0, "capture"), (None, None)
+            )
+
+    def test_repli_en_echec_rend_none(self):
+        with mock.patch.multiple(
+            orchestrator,
+            newest_session=mock.DEFAULT,
+            db_path=mock.DEFAULT,
+            session_plan_text=mock.DEFAULT,
+        ) as mocks:
+            mocks["newest_session"].return_value = "ses_1"
+            mocks["db_path"].return_value = "/db"
+            mocks["session_plan_text"].return_value = None
+            with mock.patch.object(self.run, "run_opencode", side_effect=Failure("boom")):
+                self.assertEqual(
+                    self.run.capture_interactive_plan(100.0, "capture"), (None, None)
+                )
 
 
 class UsageTokensTests(unittest.TestCase):

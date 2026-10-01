@@ -1,7 +1,7 @@
-La session interactive de planification vient de se terminer pour le dépôt : {{repo}}
+Capture de secours de la session interactive de planification pour le dépôt : {{repo}}
 
-À partir de l'historique de cette session, restitue le résultat validé, sans rien
-modifier et sans relancer de discussion.
+Le plan validé est déjà présent dans l'historique de cette session : restitue-le
+fidèlement, sans rien modifier et sans relancer de discussion.
 
 Format imposé, exactement dans cet ordre :
 <<<BRIEF>>>
