@@ -730,7 +730,14 @@ def parse_args(argv):
     parser.add_argument("--opencode-model", default="opencode-go/deepseek-v4.1-flash")
     parser.add_argument("--plan-agent", default="plan", help="agent opencode des phases d'analyse")
     parser.add_argument("--build-agent", default="build", help="agent opencode de la TUI d'exécution")
-    parser.add_argument("--test-cmd", help="commande de test vérifiée avant chaque commit d'étape")
+    parser.add_argument(
+        "--test-cmd",
+        default="nix flake check",
+        help=(
+            "commande de test vérifiée avant chaque commit d'étape "
+            '(défaut : "nix flake check" ; chaîne vide pour désactiver)'
+        ),
+    )
     parser.add_argument(
         "--vcs",
         choices=("auto", "git", "jj", "none"),
