@@ -301,6 +301,165 @@ _: {
           failed=$((failed + 1))
         fi
       '';
+
+      # Reaper « seed puis suppression » : pour chaque torrent classique
+      # complété, supprime le seed (`torrents/delete` `deleteFiles=true`) quand
+      # le ratio ou l'âge de seed est atteint. Trois gardes avant toute
+      # suppression : marqueur de préparation, préfixe de `content_path`, et
+      # aucun symlink cross-seed ne résout dedans (B1 ; l'exclusion
+      # `blockList` côté cross-seed est la première moitié de la protection).
+      # Tourne sur l'hôte et joint qBittorrent par la veth, comme `add`. Le
+      # marqueur dit « préparé », pas « importé » : la copie dans la file est
+      # la garantie de non-perte (review #5 / Claude I6).
+      reaperScript = ''
+        # `set +e` en tête : NixOS préfixe `script` d'un `set -e`, et un
+        # incident sur un torrent ne doit pas court-circuiter le jugement des
+        # suivants (leçon « collecteur », cf. AGENTS.md).
+        set +e
+
+        torrentDir=/mnt/storage/medias/downloads/classique
+        ratioMax="''${CLASSIQUE_SEED_RATIO:-2.0}"
+        maxDays="''${CLASSIQUE_SEED_DAYS:-30}"
+        dryRun="''${CLASSIQUE_DRY_RUN:-0}"
+        maxDel="''${CLASSIQUE_MAX_DELETIONS:-5}"
+
+        # Un plafond non numérique ne doit pas désarmer la borne : repli.
+        num() { case "$1" in "" | *[!0-9]*) echo "$2" ;; *) echo "$1" ;; esac; }
+        maxDays=$(num "$maxDays" 30)
+        maxDel=$(num "$maxDel" 5)
+
+        qbtJar=$(mktemp)
+        crossTargets=$(mktemp)
+        trap 'rm -f "$qbtJar" "$crossTargets"' EXIT
+        # systemd lit le secret owner logikdev 0400 et le dépose dans
+        # $CREDENTIALS_DIRECTORY : QBT_USER/QBT_PASS bruts.
+        # shellcheck source=/dev/null
+        . "$CREDENTIALS_DIRECTORY/musique.env"
+        ${qbtHelpers}
+        source ${pushNtfy}
+        export NTFY_CLICK="https://navidrome.hyper.logikdev.fr"
+
+        # Cibles canoniques des liens cross-seed, calculées une seule fois. Un
+        # lien pointe un fichier de BRANCHE (/mnt/mediasN/medias), pas le pool
+        # mergerfs : cross_seed_hit projette content_path dans les deux.
+        for dir in /mnt/medias1/cross-seed-links /mnt/medias2/cross-seed-links; do
+          [ -d "$dir" ] || continue
+          ${pkgs.findutils}/bin/find "$dir" -type l -exec readlink -f -- {} + 2>/dev/null
+        done > "$crossTargets"
+
+        cross_seed_hit() {
+          local cpath target p
+          # readlink -f des deux côtés : si un composant de chemin est un
+          # symlink, la comparaison littérale mentirait.
+          cpath=$(readlink -f -- "$1" 2>/dev/null) || cpath="$1"
+          local rel="''${cpath#/mnt/storage/medias/}"
+          local -a prefixes=("$cpath")
+          case "$cpath" in
+            /mnt/storage/medias/*)
+              prefixes+=("/mnt/medias1/medias/$rel" "/mnt/medias2/medias/$rel")
+              ;;
+          esac
+          while IFS= read -r target; do
+            for p in "''${prefixes[@]}"; do
+              case "$target" in
+                "$p" | "$p"/*) return 0 ;;
+              esac
+            done
+          done < "$crossTargets"
+          return 1
+        }
+
+        if ! qbt_login; then
+          echo "échec de connexion qBittorrent, reaper reporté" >&2
+          exit 1
+        fi
+
+        now=$(date +%s)
+        deleted=0
+        blocked=0
+        failed=0
+        blockedMsg=""
+
+        info=$(qbt_get "torrents/info?category=classique") || info=""
+        # Seuils en jq (comparaison flottante) : ratio atteint OU âge de seed
+        # >= N j ; `completion_on` (item 10), jamais `added_on`. Un torrent
+        # complété sans `completion_on` utile (0) n'est pas datable : il reste
+        # hors délai et n'est éligible que par le ratio.
+        candidates=$(printf '%s' "$info" | jq -r \
+          --argjson now "$now" --argjson ratio "$ratioMax" --argjson days "$maxDays" '
+            .[] | select(.amount_left == 0 and .completion_on > 0)
+            | select((.ratio // 0) >= $ratio
+                or ($now - .completion_on) >= ($days * 86400))
+            | [.hash, .name, .content_path,
+               (((.ratio // 0) * 100 | floor) / 100), .completion_on] | @tsv') \
+          || { echo "réponse qBittorrent illisible, reaper reporté" >&2; exit 1; }
+
+        while IFS=$'\t' read -r hash name cpath ratio completion; do
+          [ -n "$hash" ] || continue
+          # Fichier unique : jamais préparé (donc jamais marqué), et deleteFiles
+          # emporterait la copie de bibliothèque hardlinkée : on laisse.
+          [ -d "$cpath" ] || { echo "single-file, ignoré (jamais purgé) : $name"; continue; }
+
+          reason=""
+          case "$cpath" in
+            "$torrentDir"/*) ;;
+            *) reason="hors $torrentDir" ;;
+          esac
+          if [ -z "$reason" ] && [ ! -e "/var/lib/musique/prepared/$hash" ]; then
+            reason="sans marqueur"
+          fi
+          if [ -z "$reason" ] && cross_seed_hit "$cpath"; then
+            reason="cross-seed détecté"
+          fi
+          if [ -n "$reason" ]; then
+            echo "seuil atteint, conservé ($reason) : $name"
+            blockedMsg="''${blockedMsg}''${name} — $reason"$'\n'
+            blocked=$((blocked + 1))
+            continue
+          fi
+
+          if [ "$deleted" -ge "$maxDel" ]; then
+            echo "plafond CLASSIQUE_MAX_DELETIONS=$maxDel atteint, le reste attend la prochaine passe"
+            break
+          fi
+
+          age=$(( (now - completion) / 86400 ))
+          if [ "$dryRun" = "1" ]; then
+            echo "dry-run : supprimerait (ratio $ratio, ''${age} j) : $name"
+            deleted=$((deleted + 1))
+            printf 'DRY-RUN — suppression du seed classique (ratio %s, %s j) : %s' \
+              "$ratio" "$age" "$name" \
+              | push_ntfy musique "🎼 Musique classique" musical_note low || true
+            continue
+          fi
+
+          code=$(curl -sS -b "$qbtJar" -o /dev/null -w '%{http_code}' \
+            --data-urlencode "hashes=$hash" \
+            --data-urlencode "deleteFiles=true" \
+            "${qbtBase}/api/v2/torrents/delete") || true
+          case "$code" in
+            2??)
+              deleted=$((deleted + 1))
+              echo "supprimé (ratio $ratio, ''${age} j) : $name"
+              printf 'Seed purgé (ratio %s, %s j) : %s' "$ratio" "$age" "$name" \
+                | push_ntfy musique "🎼 Musique classique" wastebasket low || true
+              ;;
+            *)
+              echo "échec suppression (HTTP $code) : $name" >&2
+              failed=$((failed + 1))
+              ;;
+          esac
+        done <<< "$candidates"
+
+        if [ "$blocked" -gt 0 ]; then
+          printf 'Seuils atteints sans marqueur / cross-seed détecté :\n%s' "$blockedMsg" \
+            | push_ntfy musique "🎼 Musique classique" warning default || true
+        fi
+
+        echo "reaper : $deleted purgé(s), $blocked conservé(s), $failed échec(s)"
+        [ "$failed" -eq 0 ] || exit 1
+        exit 0
+      '';
     in
     {
       options.musique.autoImport = lib.mkOption {
@@ -426,6 +585,54 @@ _: {
           };
         };
 
+        # Reaper : host-side, jamais dans le netns. `path` volontairement
+        # minimal (`[ curl jq coreutils ]`) ; findutils n'est appelé que par son
+        # chemin store pour lister les liens cross-seed.
+        systemd.services.classique-reaper = lib.mkIf (vpnCfg.enable && hasMusiqueSecret) {
+          description = "Purger les seeds classique préparés (ratio ou délai atteint)";
+          unitConfig.RequiresMountsFor = [ "/mnt/storage" ];
+          after = [
+            "qbittorrent.service"
+            "wireguard-wg0.service"
+          ];
+          wants = [ "qbittorrent.service" ];
+          path = with pkgs; [
+            curl
+            jq
+            coreutils
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            # Comme musique-prepare : pas de root. Le secret arrive par
+            # LoadCredential (systemd le lit en root) et le marqueur est
+            # lisible par beets (groupe media).
+            User = "beets";
+            TimeoutStartSec = "5min";
+            NoNewPrivileges = true;
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateTmp = true;
+            LoadCredential = "musique.env:${musiqueSecretPath}";
+            # Défauts visibles (`systemctl show`) et surchargeables par
+            # drop-in ; le script garde les mêmes replis pour un test direct.
+            Environment = [
+              "CLASSIQUE_SEED_RATIO=2.0"
+              "CLASSIQUE_SEED_DAYS=30"
+              "CLASSIQUE_DRY_RUN=0"
+              "CLASSIQUE_MAX_DELETIONS=5"
+            ];
+          };
+          script = reaperScript;
+        };
+
+        systemd.timers.classique-reaper = lib.mkIf (vpnCfg.enable && hasMusiqueSecret) {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnBootSec = "10min";
+            OnUnitInactiveSec = "10min";
+          };
+        };
+
         environment.systemPackages = [
           (pkgs.writeShellApplication {
             name = "musique-import";
@@ -493,7 +700,13 @@ _: {
           })
         ];
 
-        notify.services = [ "musique-prepare" ];
+        # `classique-reaper` n'existe que si le VPN et le secret sont là : son
+        # entrée notify doit porter exactement la même condition que l'unité
+        # (FAC-5, review #4), sinon le nom référence une unité fantôme.
+        notify.services = [
+          "musique-prepare"
+        ]
+        ++ lib.optionals (vpnCfg.enable && hasMusiqueSecret) [ "classique-reaper" ];
       };
     };
 
