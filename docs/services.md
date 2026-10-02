@@ -18,7 +18,7 @@ par défaut). URL = `https://<nom>.hyper.logikdev.fr`.
 | `navidrome` | 4533 | Médias | **non** (clients Subsonic + Music Assistant) | `/var/lib/navidrome` (SQLite), bibliothèque `/mnt/storage/medias/musique` montée en lecture seule dans son sandbox |
 | `prowlarr` | 9696 | Médias | oui | Postgres (socket Unix), **network namespace `vpn`** (joint sur `10.200.0.2:9696`) ; dataDir défaut `/var/lib/private/prowlarr` (DynamicUser) |
 | `sabnzbd` | 8088 | Médias | oui | `/mnt/storage/medias` |
-| `qbittorrent` | 8090 | Médias | oui | AirVPN, **network namespace `vpn`** (joint sur `10.200.0.2:8090`), `/mnt/storage/medias` |
+| `qbittorrent` | 8090 | Médias | oui | AirVPN, **network namespace `vpn`** (joint sur `10.200.0.2:8090`), `/mnt/storage/medias` ; catégorie `classique` (RuTracker) purgée par `classique-reaper` |
 | `audiobookshelf` | 13378 | Médias | **non** (apps natives) | `/var/lib/audiobookshelf` (DB/meta), bibliothèques `/mnt/storage/medias/{books,audiobooks}` |
 | `bindery` | 8787 | Médias | oui | **containeur podman** (`--network=host`, UID 1000:991) ; Prowlarr/qBittorrent/SABnzbd ; config `/mnt/ultra/bindery`, **mount unique** `/mnt/storage/medias` (hardlinks downloads→bibliothèques, chemins identiques à l'hôte → pas de remap) |
 | `rankoder` | 8765 | Médias | oui | MQTT, GPU, `/mnt/storage/medias/rankoder` |
@@ -52,21 +52,27 @@ rafraîchi toutes les 72 h). La bascule de `metadataSource` est de l'état
 impératif : unité `lidarr-metadata-switch` (timer, idempotente, surveillée par
 notify). Le **classique ne passe pas par Lidarr** — `beet-classique` (beets +
 `parentwork`, état `/mnt/ultra/beets-classique`) et `unflac` pour les
-`image+.cue` alimentent `musique/classique`. Le pipeline est **semi-automatique** :
-`musique-prepare.service` (oneshot, timer 5 min, utilisateur système `beets`)
-découpe les `image+.cue` de slskd, met chaque album prêt dans
-`/mnt/storage/medias/downloads/musique-a-importer/` et déplace les originaux
-dans `musique-sources/` (purgés à 14 j) ; notification ntfy topic `musique`
-**sur changement** seulement. Une branche d'import **automatique** existe mais
-est **opt-in** (`musique.autoImport = true`, désactivée par défaut) : elle
-importe en place (`beet import -i -q`) les albums préparés, à activer après
-mesure du taux de match. L'import nominal (autotag MusicBrainz + `parentwork`)
-reste **interactif depuis m4** : commande `musique`
-(`liste|prepare|journal|brut`, sélection fzf, verrou partagé avec `beet edit`) ;
-`brut` (`--noautotag`) exige `EDITOR` dans la session (sinon beets ouvre vi).
-**slskd** (Soulseek) est la source principale du classique. Les deux racines sont servies par
-**Navidrome**, lui-même destiné à alimenter Music Assistant (provider Subsonic
-en loopback) une fois MA redéployé en natif. Plan et pièges :
+`image+.cue` alimentent `musique/classique`. Deux sources : **slskd** (Soulseek,
+netns VPN) et **RuTracker** — recherche au navigateur sur m4, puis `musique add`
+(magnet du presse-papiers ou `.torrent`, **stdin**) qui dépose le torrent dans
+qBittorrent, catégorie `classique` (savepath
+`/mnt/storage/medias/downloads/classique`, AutoTMM désactivé). Le pipeline est
+**automatique** : `musique-prepare.service` (oneshot, timer 5 min, utilisateur
+système `beets`) découpe les `image+.cue` et **copie** les albums torrents
+(seed intact, marqueur `/var/lib/musique/prepared/<hash>`), met chaque album
+prêt dans `/mnt/storage/medias/downloads/musique-a-importer/` et déplace les
+originaux slskd dans `musique-sources/` (purgés à 14 j) ; notification ntfy
+topic `musique` **sur changement** seulement. L'import est **full auto** sur
+hyper (`musique.autoImport = true`) : match fort → bibliothèque, match faible →
+reste en file + « à corriger ». L'import nominal (autotag MusicBrainz +
+`parentwork`) reste **interactif depuis m4** : commande `musique`
+(`liste|prepare|journal|brut|add`, sélection fzf, verrou partagé avec
+`beet edit`) ; `brut` (`--noautotag`) exige `EDITOR` dans la session (sinon
+beets ouvre vi). `classique-reaper.service` (timer 10 min, hôte) purge les
+seeds classique (`deleteFiles=true`) à ratio ≥ 2.0 ou 30 j, uniquement si
+l'album a été préparé (marqueur) et hors cross-seed. Les deux racines sont
+servies par **Navidrome**, lui-même destiné à alimenter Music Assistant
+(provider Subsonic en loopback) une fois MA redéployé en natif. Plan et pièges :
 [music-library-plan.md](music-library-plan.md).
 
 ## Exceptions Authelia

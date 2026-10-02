@@ -1,10 +1,11 @@
 # Plan — bibliothèque musicale locale (Lidarr, Soulseek, beets, Navidrome)
 
-> Statut : **WP0 → WP5 déployés** (journal §10). Reste : réglages UI (compte
+> Statut : **WP0 → WP7 déployés** (journal §10). Reste : réglages UI (compte
 > Navidrome, `Folder: lidarr` côté SAB), import interactif du premier album
-> préparé (`musique`, depuis m4), mesure du taux de match puis activation de
-> `musique.autoImport`, et Music Assistant en natif (lot C du dossier HA).
-> Date : 2026-10-01 · **révision 4** (revue de l'implémentation : §0.3).
+> préparé (`musique`, depuis m4), mesure du taux de match de l'auto-import
+> (actif sur hyper depuis WP7), et Music Assistant en natif (lot C du dossier
+> HA).
+> Date : 2026-10-02 · **révision 5** (RuTracker première classe : §0.4).
 > Portée : `hyper` (greffe sur les stacks médias et torrent existantes).
 > **Décision cadre : le classique ne passe pas par Lidarr.** Deux pipelines
 > d'acquisition/import distincts (mainstream automatisé, classique curaté par
@@ -97,7 +98,7 @@ D'où la décision cadre.
 | Métadonnées Lidarr | **Provider auto-hébergé** dès le départ | Le serveur cloud casse régulièrement l'ajout d'artistes |
 | Source principale classique | **Soulseek (slskd)** | Coffrets complets FLAC+cue+log+scans, recherche par nom de fichier = recherche « œuvre + interprète » |
 | Source secondaire | Usenet (existant) + achats (Presto, eClassical, Qobuz, labels) | En classique on achète *un* enregistrement précis, pas du volume |
-| RuTracker | **Optionnel, manuel, en dernier** | Cloudflare + captcha + FlareSolverr inopérant au login (§6) |
+| RuTracker | **Source de première classe** (WP7) : recherche navigateur sur m4, grab `musique add` (magnet/`.torrent`) → catégorie qBittorrent `classique` | Cloudflare/captcha passent en navigateur ; aucun indexeur Prowlarr ni proxy (§6) |
 | Tagging classique | **beets** + plugin `parentwork` | Stock, headless, scriptable ; Picard est une GUI (§7) |
 | Serveur d'écoute | **Navidrome** à côté de Jellyfin | Rôles multi-valués (compositeur/chef/interprète) depuis 0.55 ; provider Subsonic pour Music Assistant |
 | Authelia sur Navidrome | **Non** | Clients natifs + provider MA : même raison que Jellyfin |
@@ -469,7 +470,7 @@ atteint Lidarr en loopback et slskd à `namespaceAddress:5030` par la veth —
 comme Traefik. À n'ajouter qu'après M3 validé manuellement, et **uniquement
 pour le mainstream** (l'automatisation n'a pas de sens sur le classique, §2.3).
 
-### M7 — RuTracker (optionnel, manuel)
+### M7 — RuTracker, source de première classe (WP7)
 
 Le meilleur tracker public en classique (section par compositeur/période,
 beaucoup de lossless, pressages épuisés, scans des livrets), mais :
@@ -484,8 +485,54 @@ beaucoup de lossless, pressages épuisés, scans des livrets), mais :
 - Titres hétérogènes (`Compositeur - Œuvre (Interprètes) - Année, FLAC
   (image+.cue)`) : inexploitables par un parser *arr, à traiter en M4.
 
-Donc : recherche manuelle, grab dans la catégorie qBittorrent `classique`, puis
-M4. Pas d'automatisation.
+**Décision WP7** : le navigateur (m4) reste le seul point d'entrée — **aucun
+indexeur Prowlarr, aucun proxy anti-Cloudflare**. Le grab et tout le reste sont
+automatisés :
+
+1. `musique add` (m4 → `musique-import add` sur hyper) — entrée **toujours par
+   stdin** (magnet du presse-papiers via `pbpaste`, `.torrent` local, ou
+   argument) : un magnet passé en argv à travers `ssh` serait re-parsé et coupé
+   sur `&`, et un `.torrent` perdrait ses NUL dans une variable. Côté hyper,
+   création idempotente de la catégorie `classique` puis `torrents/add` avec
+   `savepath`, `category` et `tags`. AutoTMM étant désactivé, c'est ce savepath
+   qui décide (P24) : `/mnt/storage/medias/downloads/classique`. Un lien
+   `viewtopic.php?t=` est refusé avec un message explicite.
+2. `musique-prepare` (5 min) — la passe torrents est pilotée par l'**API
+   qBittorrent** (`amount_left == 0` + `completion_on` ≥ settle 15 min), pas par
+   `.!qB`/mtime ; elle **copie** (`cp -a`) l'album en file, ou le découpe par
+   `unflac` si un `.cue` est présent (détection **récursive** profondeur 2,
+   `Scans|Artwork|Covers|Booklet` exclus, pour les coffrets `CD1/CD2` — B2).
+   L'original reste **intact** pour le seed (jamais de hardlink : mergerfs,
+   P8/P32).
+3. Le marqueur d'état est **hors payload** :
+   `/var/lib/musique/prepared/<hash>`. Il signifie « préparé », pas
+   « importé » — la garantie de non-perte est la copie en file ; un single-file
+   n'est jamais marqué donc jamais purgé.
+4. `musique.autoImport = true` sur hyper : match fort → copie bibliothèque,
+   match faible → reste en file + notification « à corriger » (M8).
+5. `classique-reaper` (10 min) purge le seed (`torrents/delete
+   deleteFiles=true`) à **ratio ≥ 2.0 ou 30 j de seed** (base `completion_on`),
+   seulement si le marqueur existe, que `content_path` est bien sous
+   `downloads/classique` et qu'aucun symlink cross-seed ne résout dedans.
+   Garde-fous : `CLASSIQUE_MAX_DELETIONS=5` par passe, ntfy à chaque
+   suppression, `CLASSIQUE_DRY_RUN=1` pour la mise en route. Les share limits
+   natifs de qBittorrent (`setShareLimits`) couvriraient les seuils mais
+   **pas** la précondition « préparé » ni la traçabilité en Nix → un seul
+   mécanisme, le reaper (désaccord résolu).
+
+**Coût disque** (M14) : jusqu'à **trois copies transitoires** du même album —
+l'original seedé, la copie en file (`cp -a`/split), puis la copie bibliothèque
+écrite par `beet import` — et non deux. Pour un coffret d'opéra FLAC 24/96 ce
+n'est pas anecdotique : dimensionner `musique-a-importer/` en conséquence (elle
+se vide quand `beet import -m` déplace les fichiers, puis le reaper purge le
+seed).
+
+**Faux positif d'auto-import** (M16) : un match « fort » erroné écrit les tags
+et déplace la file dans la bibliothèque. Correction :
+`beet-classique remove -a -d 'album:<nom>'` (`-d` efface aussi les fichiers de
+la bibliothèque) puis re-préparer depuis le seed si nécessaire
+(`sudo rm /var/lib/musique/prepared/<hash>` pour que `musique-prepare` le
+recopie) — tant que le reaper ne l'a pas purgé.
 
 ### M8 — Automatisation du pipeline (WP5)
 
@@ -522,8 +569,9 @@ utilisateur système `beets:media`, UMask 0002) :
   suivante). `-i`
   (incrémental) mémorise les dossiers déjà vus/sautés : pas de requêtes
   MusicBrainz ni de réimport à chaque passe ; la notification reste sur
-  transition. À n'activer qu'après mesure du taux de match sur ~10 albums
-  réels ; l'import nominal reste `musique`.
+  transition. L'option reste `false` par défaut dans le module, mais hyper
+  l'active depuis WP7 : la mesure du taux de match se lit désormais dans les
+  notifications (« M à corriger ») ; l'import nominal reste `musique`.
 
 **`musique` (m4) → `musique-import` (hyper)** — le nom d'album n'est jamais
 passé en argument : il est choisi dans **fzf**, donc pas de quoting à travers
@@ -606,7 +654,8 @@ achats de téléchargements (Presto, eClassical, Qobuz, labels).
    dossier HA (`services.music-assistant` natif, pas encore déclaré) : Navidrome
    est utilisable sans, via les clients Subsonic, mais l'écoute Sonos attend ce
    lot.
-5. **M6 / M7** — seulement si l'usage le demande.
+5. **M6 / M7** — M6 (Soularr) seulement si l'usage le demande ; **M7 est
+   réalisé** (WP7 : RuTracker par le navigateur + `musique add`, sans Prowlarr).
 
 `nix flake check` avant chaque commit ; déploiement `nh os switch` vers hyper.
 
@@ -623,6 +672,7 @@ achats de téléchargements (Presto, eClassical, Qobuz, labels).
 | 2026-10-01 | Revue r4 | **Revue de l'implémentation** (§0.3) : six écarts corrigés, dont un qui comptait — `services.slskd.enable` n'était pas gardé par `vpn.airvpn.enable` (VPN éteint = Soulseek hors tunnel, P25). Plus : sonde slskd ancrée, `notify` sur `lidarr-metadata-switch` (+ `OnBootSec=5min`), `RequiresMountsFor` sur lidarr, commentaire/P21 replaygain rectifiés, `services.md` + `AGENTS.md` mis à jour. `nix flake check --all-systems --no-build` OK. |
 | 2026-10-01 | WP5 | **Pipeline classique automatisé** (`modules/features/medias/musique-import.nix`). Côté hyper : `musique-prepare` (oneshot + timer 5 min, `beets:media`) découpe les `image+.cue` slskd (`unflac -n`), met l'album prêt dans `musique-a-importer/`, déplace l'original dans `musique-sources/` (purgé 14 j), et notifie ntfy topic `musique` **sur transition** (état `/var/lib/musique/pending`) ; côté m4 : commande `musique` → `ssh -t hyper -- musique-import` (`liste\|prepare\|journal\|brut`, sélection fzf, verrou `flock` partagé avec `edit`). **Tests runtime** (déployé sur hyper) : (1) album réel Lohengrin (50 pistes) présent dans `downloads/slskd` → préparé au premier tick dans `musique-a-importer/1964 - Lohengrin` (dossier `beets:media` 2775, FLAC 664) ; (2) `image.flac` + `album.cue` synthétique → `01 - A.flac` / `02 - B.flac` en file, original déplacé dans `musique-sources/img` ; (3) `beet-classique import -qA -m` d'un album synthétique → `classique/WP5 Test Artist/WP5 Test Album (0000)/`, `beets:media 664`, puis nettoyé (DB `remove -a -d`, disque et file) ; (4) quatre notifications lues sur le topic (`curl -u reader`), priorités `default` ; (5) `musique liste`/`journal` depuis m4 OK, `musique` sans sélection sort 0 (pas de blocage). **Divergences du squelette de plan** : (a) `if ! (…); then st=$?` ne peut pas fonctionner (`!` met `$?` à 0) → `if (…)` + `else st=$?`, l'`exit 3` « aucun audio » est enfin honoré ; (b) `bash` ajouté à `path` (le `-exec sh -c` du calcul de file) ; (c) `ReadWritePaths` complété par `queue` et `sources`, que `ProtectSystem=strict` rendait sinon RO. L'album réel reste **en file** (50 pistes) : l'import autotag interactif depuis le Mac est la suite. |
 | 2026-10-01 | WP6 | **Pochettes + doublon Orelsan corrigés** (`38yxf3mw…`, generation 536). Constat (DB Navidrome + tags) : 3 albums sans aucune image (0 fichier image dans la bibliothèque, pas d'embarqué) ; *La fuite en avant* éclatée en **6 fiches** par absence d'`ALBUMARTIST` (tags torrent en minuscules) + *La fête est finie* créditée d'un artiste distinct. **Durable** : `lidarr-metadata-switch` pinne aussi `writeAudioTags=allFiles` + `embedCoverArt=true` (même état IConfigService que `metadataSource`, P12/P32) ; `navidrome.nix` : `Scanner.PurgeMissing=full` + `Tags.Artists.Split=[", "]` (P33-P35). **One-shot** : 31 hardlinks cassés (`cp -p` + `mv` en `lidarr`, seed qBittorrent intact — nlink=1 des deux côtés, inodes distincts), `RetagFiles` ids 17–47 (50 s, `completed/successful`), `cover.jpg` (Civilisation + La fête depuis `downloads/incomplete/`, La fuite depuis `MediaCover/Albums/5/cover`), scan complet CLI (`imageCount=1` sur les 3 dossiers, 2 fichiers fantômes WP5 purgés). **Vérifs finales** : 112 pistes / 5 albums / 27 artistes (plus qu'un « Orelsan », plus de « OrelSan0 » ni d'« Orelsan, X » ; features = FIFTY FIFTY, Lilas, SDM, Yamê, Thomas Bangalter), 0 fichier manquant, 0 unité en échec, `navidrome.hyper.logikdev.fr` = 302, pistes de seed inchangées (mtime 30/09). |
+| 2026-10-02 | WP7 | **RuTracker, source de première classe** (chaîne `94f03ed…f5c9bcc`). `cross-seed.nix` : `blockList = [ "downloads/classique" ]` (clé top-level, survit à la fusion du secret) — sans quoi un cross-seed injecté pointerait sur les fichiers que le reaper supprime (B1). Secret `musique.env` (auto-découvert + rekeyé) : `QBT_USER`/`QBT_PASS` **brut**, owner `logikdev 0400` ; `musique add` et le reaper n'existent que s'il est là, et systemd le lit pour `beets` via `LoadCredential`. `musique add` : entrée **toujours par stdin** (pbpaste, `.torrent` local, ou argument), `viewtopic.php?t=` refusé, `createCategory` idempotent puis `torrents/add` avec `savepath`/`category=classique`/`tags=classique` (AutoTMM off, P24) ; section torrents de `liste` (état/ratio) ; tmpfiles `downloads/classique 2775`. `musique-prepare` : gate slskd transformé en variable (B3 — un reste slskd ne bloque plus la passe torrents), passe torrents pilotée par l'API (`amount_left == 0` + settle 15 min sur `completion_on`, `.!qB`/mtime abandonnés), détection `.cue` récursive profondeur 2 (`Scans\|Artwork\|Covers\|Booklet` exclus, B2), `cp -a` (seed intact) ou `unflac`, marqueur hors payload `/var/lib/musique/prepared/<hash>` (I6 ; single-file jamais marqué donc jamais purgé), idempotent. `musique.autoImport = true` sur hyper : la notif de transition porte « M à corriger » (compteur `skipped`, M13). `classique-reaper` (oneshot + timer 10 min, hôte, joint qBittorrent par la veth) : seuils ratio ≥ 2.0 / 30 j (`completion_on`), `torrents/delete` `deleteFiles=true` **seulement** si marqueur + préfixe `content_path` + aucun symlink cross-seed ; plafond 5 par passe, ntfy à chaque suppression, `DRY_RUN` ; `notify` porte la même condition que l'unité (FAC-5). **Tests** : `nix flake check` vert aux six commits (dont l'éval sans secret) ; harnais shell synthétiques — boucle autoImport (import/skip/résidus) et reaper sur **qBittorrent simulé** (9 fixtures : ratio, délai, sans marqueur, cross-seed, single-file, hors `torrentDir`, sous seuils, `completion_on=0`, plafond) ; dry-run puis réel avec plafond 2 → 2 suppressions, 3 refus, 0 échec. **Reste** : déployer sur hyper et valider la porte de sortie réelle — magnet RuTracker depuis m4 (`musique add`, `musique liste`), préparation d'un torrent (seed intact + marqueur), purge à ratio. |
 
 ### 0.3 Corrections apportées en r4 (revue de l'implémentation)
 
@@ -637,6 +687,25 @@ OK). L'implémentation est conforme ; six écarts corrigés :
 | R15 | `lidarr-metadata-switch` sans surveillance | Une bascule en échec durable laissait Lidarr sur le provider **cloud**, en silence — l'inverse du but du module. Unité ajoutée à `notify.services`, `OnBootSec` porté à 5 min pour éviter la notification de démarrage |
 | R16 | `lidarr` sans `RequiresMountsFor` | `/mnt/ultra` est monté `nofail` : ajouté sur l'unité. radarr/sonarr/jellyfin ne l'ont toujours pas — à généraliser dans `lib/_media-service.nix`, hors périmètre de ce plan |
 | R17 | Docs | `docs/services.md` ignorait les quatre services (table + paragraphe « Stack musique » + exception Authelia Navidrome + Postgres) ; `AGENTS.md` annonçait encore la stack musique « hors dépôt » et l'add-on HAOS ; indentation de liste dans `torrent-vpn.md` |
+
+### 0.4 Décisions actées en r5 (RuTracker première classe, 2026-10-02)
+
+Chantier WP7 : faire de RuTracker une source de première classe du classique,
+**sans Prowlarr** (Cloudflare/captcha) et sans proxy anti-Cloudflare. Deux
+revues croisées puis fusion ; décisions structurantes :
+
+| # | Sujet | Décision |
+|---|---|---|
+| r5.1 | Recherche | Navigateur sur m4 uniquement ; le grab part de là. |
+| r5.2 | Grab | `musique add` : entrée **toujours par stdin** (un magnet en argv serait re-parsé par `ssh` et coupé sur `&`), magnet ou `.torrent`, catégorie `classique` avec `savepath` posé à l'ajout (AutoTMM off, P24). |
+| r5.3 | Complétion | Vérité = API qBittorrent (`amount_left == 0` + `completion_on`, settle 15 min), pas `.!qB`/mtime ; `cp -a`/`unflac` vers la file, **jamais** `mv` (seed intact). |
+| r5.4 | Marqueur | État **hors payload** : `/var/lib/musique/prepared/<hash>` = « préparé », pas « importé ». La copie en file garantit la non-perte ; le reaper ne supprime que l'original seedé, et jamais un single-file. |
+| r5.5 | Secret | `musique.env` dédié conservé (périmètre demandé) : `QBT_PASS` **brut** + `--data-urlencode`, owner `logikdev 0400`, lu par systemd (`LoadCredential`). `qbittorrent-monitor` reste sur `cross-seed-secrets.json` (URL-encodé) → **mettre à jour les deux à chaque rotation**. |
+| r5.6 | Reaper | Conservé comme **mécanisme unique** : `setShareLimits` natif couvrirait les seuils mais pas la précondition « préparé » ni la traçabilité en Nix. |
+| r5.7 | Cross-seed | `blockList = [ "downloads/classique" ]` **et** garde symlink dans le reaper (`/mnt/medias{1,2}/cross-seed-links`) — ceinture et bretelles. |
+| r5.8 | Détection cue | Récursive profondeur 2 (`Scans\|Artwork\|Covers\|Booklet` exclus) pour couvrir `CD1/CD2` (B2). |
+| r5.9 | Gate | Découplé de slskd (I9) : `vpn.airvpn.enable` ; la passe slskd garde son propre `optionalString`. |
+| r5.10 | autoImport | Global conservé (slskd **et** torrents, demande explicite) ; hyper l'active et le runbook documente mesure/undo (M16). |
 
 ## 11. Sources
 

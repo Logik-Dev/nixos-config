@@ -45,6 +45,7 @@ Le reste de l'hôte (Traefik, Tailscale, AdGuard, *arr, SSH) est intouché.
 | `modules/features/downloads/vpn.nix` | `flake.modules.nixos.vpn-torrent` : namespace `vpn`, veth, wg0, resolv.conf d'amorçage, drop-in partagé des services |
 | `modules/features/downloads/qbittorrent.nix` | `flake.modules.nixos.qbittorrent` : service, Traefik/Authelia, permissions, backup, notify |
 | `modules/features/downloads/slskd.nix` | `flake.modules.nixos.slskd` : slskd (Soulseek) dans le netns, WebUI Traefik, partage `musique/` en lecture seule |
+| `modules/features/medias/musique-import.nix` | `musique add` / `musique-prepare` / `classique-reaper` : seed classique (RuTracker, catégorie `classique`) — hôte, joint qBittorrent par la veth |
 | `modules/hosts/hyper/configuration.nix` | imports + valeurs AirVPN (`vpn.airvpn`) + chemins des secrets |
 | `secrets/hosts/hyper/airvpn-private.key.age` | clé privée WireGuard (agenix) |
 | `secrets/hosts/hyper/airvpn-psk.key.age` | preshared key WireGuard (agenix) |
@@ -137,6 +138,7 @@ diagnostiquer un vrai problème au moment de sa mise en place (voir Pièges).
 | Sens | Chemin |
 |---|---|
 | Traefik → qBittorrent / Prowlarr | `10.200.0.2:8090` / `:9696` (`traefik.services.<n>.host`) |
+| `musique add` / `musique-prepare` / `classique-reaper` → qBittorrent | `10.200.0.2:8090` (hôte → veth ; le seed classique vit hors du netns) |
 | Prowlarr → Sonarr / Radarr (synchro d'apps) | `10.200.0.1:8989` / `:7878` |
 | Sonarr / Radarr → qBittorrent | `10.200.0.2:8090` (runtime, UI) |
 | Bindery → qBittorrent / Prowlarr | `10.200.0.2:8090` / `:9696` (runtime, UI) |
@@ -152,6 +154,10 @@ diagnostiquer un vrai problème au moment de sa mise en place (voir Pièges).
   catégorie Glance « Médias », icône `di:qbittorrent`).
 - `torrentingPort = 47594` (dérivé de `vpn.airvpn.forwardedPort`, doit
   correspondre au **port public** du forward AirVPN).
+- Catégorie `classique` (RuTracker, WP7) : ajoutée par `musique add` avec
+  `savepath=/mnt/storage/medias/downloads/classique` (AutoTMM désactivé, P24),
+  exclue du cross-seeding (`blockList`) et purgée par `classique-reaper`
+  (cf. « Catégorie `classique` »).
 - `serverConfig = {}` volontairement : le `qBittorrent.conf` reste inscriptible
   par l'UI (sinon tmpfiles le remplace par un symlink en lecture seule à chaque
   activation et les réglages UI sont perdus).
@@ -205,6 +211,27 @@ garde le `qBittorrent.conf` inscriptible (cf. plus haut). Valeurs en place :
 >
 > `alt_up_limit` est désormais à 3 MB/s : un clic involontaire sur la tortue coûte
 > un facteur 4, plus un facteur 1900.
+
+### Catégorie `classique` (RuTracker) et reaper
+
+RuTracker n'a **pas d'indexeur Prowlarr** (Cloudflare/captcha) : la recherche se
+fait au navigateur sur m4, puis `musique add` (magnet du presse-papiers ou
+`.torrent`) l'envoie à qBittorrent par l'API — en **stdin**, jamais en argv à
+travers `ssh`. L'ajout porte `category=classique`, `tags=classique` et
+`savepath=/mnt/storage/medias/downloads/classique` : **AutoTMM est désactivé**,
+c'est ce savepath qui compte (P24). La catégorie est exclue du cross-seeding
+(`blockList`).
+
+`musique-prepare` (timer 5 min, hôte) copie l'album terminé (API :
+`amount_left == 0` + settle 15 min) dans `musique-a-importer/` — découpage
+`unflac` si `.cue` — **sans toucher au seed**, puis pose le marqueur
+`/var/lib/musique/prepared/<hash>`. `classique-reaper` (timer 10 min, hôte)
+supprime ensuite le torrent et ses fichiers (`torrents/delete`,
+`deleteFiles=true`) à **ratio ≥ 2.0 ou 30 j de seed**, uniquement si le marqueur
+existe, que `content_path` est sous `downloads/classique` et qu'aucun symlink de
+`/mnt/medias{1,2}/cross-seed-links` ne résout dedans. Les single-file ne sont
+jamais marqués, donc jamais purgés. Env surchargeables : `CLASSIQUE_SEED_RATIO`,
+`CLASSIQUE_SEED_DAYS`, `CLASSIQUE_MAX_DELETIONS` (5), `CLASSIQUE_DRY_RUN` (0).
 
 ## cross-seed (ratio automatique)
 
